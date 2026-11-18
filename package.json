@@ -1,0 +1,33 @@
+{
+  "name": "ostrvo-trgovaca",
+  "version": "1.0.0",
+  "description": "Online igra trgovanja i gradnje na heksagonalnom ostrvu",
+  "main": "server.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/sim.js 100"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cedaje/katan-igra.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Cedaje/katan-igra/issues"
+  },
+  "homepage": "https://github.com/Cedaje/katan-igra#readme",
+  "dependencies": {
+    "express": "^4.22.3",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

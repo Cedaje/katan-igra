@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="sr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ostrvo Trgovaca</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Pocetni ekran -->
+  <section id="home" class="screen">
+    <div class="home-card">
+      <h1>⛵ Ostrvo Trgovaca</h1>
+      <p class="tag">Gradi sela, trguj sirovinama i prvi stigni do 10 poena.</p>
+      <label>Tvoje ime
+        <input id="nameInput" maxlength="16" placeholder="npr. Marko">
+      </label>
+      <div id="joinInvite" class="hidden">
+        <p>Pozvan si u sobu <b id="inviteCode"></b></p>
+        <button id="joinInviteBtn" class="primary big">Uđi u sobu</button>
+      </div>
+      <div id="homeButtons">
+        <button id="createBtn" class="primary big">Napravi novu sobu</button>
+        <div class="or">ili uđi sa kodom</div>
+        <div class="row">
+          <input id="codeInput" maxlength="4" placeholder="KOD" style="text-transform:uppercase">
+          <button id="joinBtn">Uđi</button>
+        </div>
+      </div>
+      <p id="homeError" class="error"></p>
+    </div>
+  </section>
+
+  <!-- Cekaonica -->
+  <section id="lobby" class="screen hidden">
+    <div class="home-card">
+      <h2>Soba <span id="lobbyCode"></span></h2>
+      <p>Pošalji ovaj link prijateljima:</p>
+      <div class="row">
+        <input id="inviteLink" readonly>
+        <button id="copyBtn">Kopiraj</button>
+      </div>
+      <h3>Igrači (2 do 4)</h3>
+      <ul id="lobbyPlayers"></ul>
+      <button id="startBtn" class="primary big">Pokreni igru</button>
+      <p id="lobbyWait" class="muted">Čeka se da osnivač sobe pokrene igru…</p>
+    </div>
+  </section>
+
+  <!-- Igra -->
+  <section id="game" class="screen hidden">
+    <div class="main">
+      <div class="topbar">
+        <div id="status"></div>
+        <div id="dice"></div>
+      </div>
+      <div class="board-wrap"><svg id="board"></svg></div>
+      <div class="bottombar">
+        <div id="hand"></div>
+        <div id="devHand"></div>
+        <div id="actions"></div>
+      </div>
+    </div>
+    <aside class="side">
+      <div id="players"></div>
+      <div id="tradeBox" class="panel"></div>
+      <div class="panel grow">
+        <div class="tabs"><button data-tab="log" class="active">Dešavanja</button><button data-tab="chat">Ćaskanje <span id="chatBadge"></span></button></div>
+        <div id="log" class="scroll"></div>
+        <div id="chatWrap" class="hidden">
+          <div id="chat" class="scroll"></div>
+          <form id="chatForm" class="row"><input id="chatInput" maxlength="300" placeholder="Napiši poruku…" autocomplete="off"><button>Pošalji</button></form>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
