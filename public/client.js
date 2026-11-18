@@ -81,6 +81,7 @@ const avatarOf = (p) => AVATARS[(p.avatar ?? Math.max(0, COLOR_ORDER.indexOf(p.c
 document.addEventListener('click', (e) => {
   const n = e.target.closest('[data-nav]'); if (!n) return;
   if (n.dataset.nav === 'rules') showRules();
+  if (n.dataset.nav === 'home') { if (S && S.phase === 'lobby') doLeave(); else showPage('rooms'); }
   if (n.dataset.nav === 'rooms' && S && S.phase === 'lobby') toast('Prvo izađi iz sobe (✕ gore desno).');
 });
 
@@ -519,6 +520,7 @@ $('board').addEventListener('click', (ev) => {
 // Precice na tastaturi
 const KEYS = { e: 'end', t: 'trade', p: 'road', s: 'settlement', g: 'city', k: 'dev' };
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modalExtra) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); return; }
   if (e.target.matches('input, textarea, select') || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { mode = null; tradeOpen = false; if (S) render(); return; }
   if (!S || (S.phase !== 'play' && S.phase !== 'setup')) return;
@@ -893,7 +895,7 @@ let modalExtra = null;
 function openPicker(title, count, cb) { picker = { title, count, cb, sel: [] }; renderModal(); }
 let discardSel = {};
 function showRules() {
-  modalExtra = () => `<div class="rules"><h3>📖 Kako se igra</h3>
+  modalExtra = () => `<div class="rules"><button class="modal-x" data-close title="Zatvori pravila (Esc)">✕</button><h3>📖 Kako se igra</h3>
     <p>Cilj: prvi skupi dovoljno poena (obično 10).</p>
     <h4>Poeni</h4><ul><li>Selo 1 poen, grad 2 poena</li><li>Najduži put (bar 5 puteva) +2</li><li>Najveća vojska (bar 3 viteza) +2</li><li>Karta „Poen“ +1</li></ul>
     <h4>Tok poteza</h4><ul><li>Baci kockice: svako polje sa tim brojem daje sirovine selima (1) i gradovima (2) oko njega.</li><li>Trguj sa igračima ili bankom (4:1, a sa lukom 3:1 ili 2:1).</li><li>Gradi i završi potez.</li></ul>
@@ -966,6 +968,7 @@ function renderModal() {
   modal.classList.toggle('hidden', !h);
   if (h && card.innerHTML !== h && !(modalExtra && card.querySelector('#codeInput'))) card.innerHTML = h;
 }
+$('modal').addEventListener('click', (ev) => { if (ev.target.id === 'modal' && modalExtra) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); } });
 $('modalCard').addEventListener('click', (ev) => {
   const pk = ev.target.closest('[data-pick]');
   if (pk) { if (picker.sel.length < picker.count) picker.sel.push(pk.dataset.pick); else picker.sel = [pk.dataset.pick]; return renderModal(); }
