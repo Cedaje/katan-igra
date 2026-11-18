@@ -308,3 +308,9 @@ body.skin-podvodni #game { background: radial-gradient(ellipse at 40% 20%, #1249
 .skin-podvodni .step button, .skin-podvodni .av { background: #1b4669; color: var(--ink); }
 .skin-podvodni .tbig:not(:disabled):hover { background: #145e66; }
 .skin-podvodni .die { background: #eefbff; box-shadow: 0 4px 0 #6fa9c4, 0 6px 14px rgba(0,0,0,.5); }
+.zoom-ctl { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; flex-direction: column; gap: 6px; }
+.zoom-ctl button { width: 46px; height: 40px; border: 0; border-radius: 10px; background: rgba(255,255,255,.9); font-size: 20px; font-weight: 800; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.zoom-ctl #zoomReset { font-size: 12px; }
+.skin-podvodni .zoom-ctl button { background: rgba(16,48,77,.92); color: #e2f5ff; }
+#board { cursor: grab; touch-action: none; }
+#board.dragging { cursor: grabbing; }

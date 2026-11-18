@@ -366,7 +366,8 @@ function renderBoard() {
   const xs = [...V.map((v) => v.x), ...B.ports.map((p) => p.x)], ys = [...V.map((v) => v.y), ...B.ports.map((p) => p.y)];
   const pad = 0.55;
   const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad, minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
-  svg.setAttribute('viewBox', `${minX * SC} ${minY * SC} ${(maxX - minX) * SC} ${(maxY - minY) * SC}`);
+  boardVB = [minX * SC, minY * SC, (maxX - minX) * SC, (maxY - minY) * SC];
+  applyView();
   const L = (myTurn() && S.legal) || {};
   let h = '<defs>';
   for (const [k, t] of Object.entries(TERRAIN)) h += `<radialGradient id="g-${k}" cx="50%" cy="40%" r="65%"><stop offset="0" stop-color="${t.a}"/><stop offset="1" stop-color="${t.b}"/></radialGradient>`;
@@ -468,6 +469,46 @@ function renderBoard() {
 
   svg.innerHTML = h;
 }
+// ---------- zumiranje i pomeranje mape ----------
+let boardVB = null;
+const view = { z: 1, x: 0, y: 0 };
+function applyView() {
+  if (!boardVB) return;
+  const [bx, by, bw, bh] = boardVB;
+  view.z = Math.min(3.5, Math.max(1, view.z));
+  const w = bw / view.z, h = bh / view.z;
+  const mx = (bw - w) / 2 + bw * 0.15, my = (bh - h) / 2 + bh * 0.15; // koliko sme da se pomeri
+  view.x = Math.max(-mx, Math.min(mx, view.x)); view.y = Math.max(-my, Math.min(my, view.y));
+  $('board').setAttribute('viewBox', `${bx + (bw - w) / 2 + view.x} ${by + (bh - h) / 2 + view.y} ${w} ${h}`);
+  const zr = $('zoomReset'); if (zr) zr.textContent = Math.round(view.z * 100) + '%';
+}
+function svgPoint(cx, cy) { // tacka ekrana -> koordinate table
+  const p = $('board').createSVGPoint(); p.x = cx; p.y = cy;
+  return p.matrixTransform($('board').getScreenCTM().inverse());
+}
+function zoomAt(f, cx, cy) {
+  const before = cx != null ? svgPoint(cx, cy) : null;
+  view.z *= f; applyView();
+  if (before) { const after = svgPoint(cx, cy); view.x += before.x - after.x; view.y += before.y - after.y; applyView(); }
+}
+$('board').addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX, e.clientY); }, { passive: false });
+let drag = null, dragged = false;
+$('board').addEventListener('pointerdown', (e) => { if (e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; dragged = false; });
+window.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!dragged && Math.hypot(dx, dy) < 6) return;
+  dragged = true; $('board').classList.add('dragging');
+  const ctm = $('board').getScreenCTM();
+  view.x = drag.vx - dx / ctm.a; view.y = drag.vy - dy / ctm.d; applyView();
+});
+window.addEventListener('pointerup', () => { drag = null; $('board').classList.remove('dragging'); });
+// posle prevlacenja ne racuna se klik (da se slucajno ne sagradi nesto)
+$('board').addEventListener('click', (e) => { if (dragged) { e.stopImmediatePropagation(); dragged = false; } }, true);
+$('zoomIn').onclick = () => zoomAt(1.25);
+$('zoomOut').onclick = () => zoomAt(1 / 1.25);
+$('zoomReset').onclick = () => { view.z = 1; view.x = 0; view.y = 0; applyView(); };
+
 $('board').addEventListener('click', (ev) => {
   const t = ev.target;
   if (t.dataset.e !== undefined) { act('placeRoad', { e: t.dataset.e }); if (S.sub === 'main') mode = null; }
@@ -481,6 +522,9 @@ document.addEventListener('keydown', (e) => {
   if (e.target.matches('input, textarea, select') || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { mode = null; tradeOpen = false; if (S) render(); return; }
   if (!S || (S.phase !== 'play' && S.phase !== 'setup')) return;
+  if (e.key === '+' || e.key === '=') return zoomAt(1.25);
+  if (e.key === '-') return zoomAt(1 / 1.25);
+  if (e.key === '0') return $('zoomReset').click();
   if (e.code === 'Space') { e.preventDefault(); if (myTurn() && S.sub === 'roll') act('roll'); return; }
   const a = KEYS[e.key.toLowerCase()];
   if (a) { const b = document.querySelector(`#actions [data-a="${a}"]`); if (b && !b.disabled) b.click(); }
@@ -855,7 +899,7 @@ function showRules() {
     <h4>Tok poteza</h4><ul><li>Baci kockice: svako polje sa tim brojem daje sirovine selima (1) i gradovima (2) oko njega.</li><li>Trguj sa igračima ili bankom (4:1, a sa lukom 3:1 ili 2:1).</li><li>Gradi i završi potez.</li></ul>
     <h4>Cene</h4><ul><li>Put: 🌲🧱</li><li>Selo: 🌲🧱🐑🌾</li><li>Grad: 🌾🌾🪨🪨🪨</li><li>Razvojna karta: 🐑🌾🪨</li></ul>
     <h4>Sedmica</h4><p>Ko ima više karata od limita odbacuje polovinu. Igrač na potezu pomera razbojnika (to polje ne daje sirovine) i krade jednu kartu.</p>
-    <h4>Tasteri</h4><p><b>Space</b> baci kockice · <b>E</b> kraj poteza · <b>T</b> trgovina · <b>P</b> put · <b>S</b> selo · <b>G</b> grad · <b>K</b> razvojna karta · <b>Esc</b> otkaži</p>
+    <h4>Tasteri</h4><p><b>Space</b> baci kockice · <b>E</b> kraj poteza · <b>T</b> trgovina · <b>P</b> put · <b>S</b> selo · <b>G</b> grad · <b>K</b> razvojna karta · <b>Esc</b> otkaži · <b>+</b> / <b>−</b> zum mape · <b>0</b> cela mapa. Točkić miša zumira, a mapu pomeraš držanjem levog klika.</p>
     <h4>Izbacivanje</h4><p>Klikni 🥾 pored imena igrača da pokreneš glasanje. Ako se većina ostalih složi, igrač je izbačen.</p>
     <h4>Komande u ćaskanju</h4><p><b>/izlaz</b> napusti igru · <b>/kraj</b> osnivač prekida igru za sve</p>
     <h4>Postavljanje</h4><p>Svako postavlja selo i put, pa opet obrnutim redom. Drugo selo odmah daje sirovine.</p>
