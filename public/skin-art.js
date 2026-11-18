@@ -76,12 +76,13 @@ const ART = (() => {
     const at = (i, fn, s) => fn(cx + SPOTS[i][0] * Math.max(1, k * 0.95), cy + SPOTS[i][1], s);
     const pick = (fn, s, idx = [0, 1, 2, 3, 4, 5, 6]) => idx.map((i) => at(i, fn, s)).join('');
     switch (type) {
-      case 'suma': return pick(tree, 1.25, [0, 1, 2, 3, 4]) + at(5, tree, 1.05) + at(6, tree, 1.1);
-      case 'pasnjak': return at(0, bush, 1.4) + at(1, sheep, 1.25) + at(2, bush, 1.3) + at(3, sheep, 1.1) + at(4, bush, 1.4) + at(5, bush, 1.2) + at(6, sheep, 1.05);
-      case 'polje': return pick(wheat, 1.25);
-      case 'gliniste': return at(0, bricks, 1.25) + at(1, bricks, 1.1) + at(2, bricks, 1.25) + at(3, rock, 1) + at(4, bricks, 1.1) + at(5, rock, .9) + at(6, rock, 1);
-      case 'planina': return at(0, mountain, 1.35) + at(1, mountain, 1.5) + at(2, mountain, 1.3) + at(3, rock, 1.2) + at(4, mountain, 1.1) + at(5, rock, 1) + at(6, rock, 1.1);
-      case 'pustinja': return dune(cx - 24, cy + 30, 1.6) + dune(cx + 26, cy - 22, 1.4) + cactus(cx - 6, cy + 4, 2) + cactus(cx + 24, cy + 26, 1.2) + rock(cx - 26, cy - 14, 1) + dune(cx + 4, cy + 44, 1.1);
+      // manje ukrasa po polju, da tabla ne bude prenatrpana
+      case 'suma': return pick(tree, 1.1, [0, 2, 3, 4]);
+      case 'pasnjak': return at(0, sheep, 1.05) + at(2, bush, 1.2) + at(4, sheep, 0.95);
+      case 'polje': return pick(wheat, 1.05, [0, 2, 3, 4]);
+      case 'gliniste': return at(0, bricks, 1.05) + at(2, bricks, 1.05) + at(3, rock, .9) + at(4, bricks, .95);
+      case 'planina': return at(0, mountain, 1.15) + at(2, mountain, 1.1) + at(3, rock, 1) + at(4, mountain, 1);
+      case 'pustinja': return dune(cx - 24, cy + 30, 1.4) + cactus(cx - 4, cy + 4, 1.8) + dune(cx + 26, cy - 22, 1.2);
       default: return '';
     }
   }

@@ -288,3 +288,23 @@ input { font: inherit; }
 .rc .rc-svg { width: 100%; height: 100%; }
 .skin-kucice .rc { padding: 1px; }
 .hand > .rcard { flex: 0 1 58px; min-width: 44px; }
+/* izgled Podvodni svet: tamna morska paleta */
+body.skin-podvodni { --sea1: #0b2a4a; --sea2: #03101f; --rail: #041528; --panel: #10304d; --panel2: #163b5c; --card: #1b4669; --ink: #e2f5ff; --muted: #8fb6cc; --line: #2a5a7c; --green: #11a39a; --green-d: #0b8178; --orange: #e0607e; --orange-d: #b8445f; --blue-l: #1d6f9e; --hilite: #5ef2e0; }
+body.skin-podvodni #game { background: radial-gradient(ellipse at 40% 20%, #12497a 0%, #072340 55%, #020c18 100%); }
+.skin-podvodni .rcard:not(.dev) { background: #dff5fb !important; border: 2px solid #7cc6e0; flex-direction: column; justify-content: flex-start; padding: 3px; gap: 1px; }
+.skin-podvodni .rcard .art { flex: 1; width: 100%; border-radius: 5px; display: grid; place-items: center; background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--c) 40%, #bff3ff), color-mix(in srgb, var(--c) 70%, #062a4a)); overflow: hidden; }
+.skin-podvodni .rcard .art svg { width: 100%; height: 100%; }
+.skin-podvodni .rcard .lbl { font-size: 9px; font-weight: 800; color: #0f2b45; line-height: 1.1; }
+.skin-podvodni .rcard.dev { background: linear-gradient(160deg, #1aa6a0, #0b3f6b); border: 2px solid #7cc6e0; padding: 3px; justify-content: flex-start; }
+.skin-podvodni .rcard.dev .art { background: radial-gradient(circle at 50% 30%, #2b6f9e, #0a2a4a); }
+.skin-podvodni .rcard.small .lbl, .skin-podvodni .mini .rcard .lbl { display: none; }
+.skin-podvodni .mini .rcard { padding: 1px; }
+.skin-podvodni .rc { padding: 1px; }
+.skin-podvodni .g-tools button { background: rgba(16,48,77,.92); color: #e2f5ff; }
+.skin-podvodni .status.click, .skin-podvodni .act.on, .skin-podvodni .av.sel { color: #062a3a; }
+.skin-podvodni .pp.turn { background: #1b5577; }
+.skin-podvodni .rec-row.ok { background: #145e66; }
+.skin-podvodni .vote-bar { background: #10304d; }
+.skin-podvodni .step button, .skin-podvodni .av { background: #1b4669; color: var(--ink); }
+.skin-podvodni .tbig:not(:disabled):hover { background: #145e66; }
+.skin-podvodni .die { background: #eefbff; box-shadow: 0 4px 0 #6fa9c4, 0 6px 14px rgba(0,0,0,.5); }

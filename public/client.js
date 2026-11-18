@@ -289,12 +289,26 @@ function hexPoints(hx, V, scale = 1) {
 // ---------- skinovi (izgled figura), svaki igrac bira za sebe ----------
 const SKINS = {
   osnovni: { name: 'Osnovni', desc: 'Klasične figure, prvi izgled igre.' },
+  podvodni: { name: 'Podvodni svet', desc: 'Morsko dno: alge, korali, meduze, školjke i kristali umesto običnih sirovina. Sela su školjke, gradovi velike spiralne školjke, putevi nizovi bisera, a razbojnik je ajkula.' },
   kucice: { name: 'Kućice', desc: '3D izgled: polja sa drvećem, ovcama, žitom, ciglama i planinama, 3D putevi, razbojnik sa kapuljačom, ilustrovane karte i kućice u boji igrača.' },
 };
 let skin = 'osnovni';
 try { if (SKINS[localStorage.getItem('ot_skin')]) skin = localStorage.getItem('ot_skin'); } catch (_) { /* */ }
-function setSkin(k) { skin = k; try { localStorage.setItem('ot_skin', k); } catch (_) { /* */ } document.body.classList.toggle('skin-kucice', k === 'kucice'); }
-document.body.classList.toggle('skin-kucice', skin === 'kucice');
+const BASE_RES = JSON.parse(JSON.stringify(RES_INFO)), BASE_TERRAIN = JSON.parse(JSON.stringify(TERRAIN));
+const SKA = () => (skin === 'kucice' ? ART : skin === 'podvodni' ? SEA : null);
+function applySkin() {
+  for (const k of Object.keys(SKINS)) document.body.classList.toggle('skin-' + k, k === skin);
+  for (const r of RES) Object.assign(RES_INFO[r], BASE_RES[r], skin === 'podvodni' ? SEA.RES[r] : {});
+  for (const t of Object.keys(TERRAIN)) Object.assign(TERRAIN[t], BASE_TERRAIN[t], skin === 'podvodni' ? SEA.TERRAIN[t] : {});
+}
+function setSkin(k) { skin = k; try { localStorage.setItem('ot_skin', k); } catch (_) { /* */ } applySkin(); }
+applySkin();
+// u podvodnom svetu i dnevnik koristi nova imena sirovina
+function skinWords(text) {
+  if (skin !== 'podvodni') return text;
+  const map = { drvo: 'drvo', glina: 'glina', vuna: 'vuna', 'žito': 'zito', kamen: 'kamen' };
+  return text.replace(/(?<!\p{L})(drvo|glina|vuna|žito|kamen)(?!\p{L})/giu, (w) => SEA.RES[map[w.toLowerCase()]].name.toLowerCase());
+}
 
 function shade(hex, f) { // f<0 tamnije, f>0 svetlije
   const n = parseInt(hex.slice(1), 16);
@@ -330,6 +344,7 @@ function isoHouse(ox, oy, wl, wr, h, rh, col, o = {}) {
   return s;
 }
 function pieceSVG(type, x, y, col) {
+  if (skin === 'podvodni') return SEA.piece(type, x, y, col);
   if (skin === 'kucice') {
     if (type === 'settlement') return `<g class="piece" transform="translate(${x} ${y}) scale(1.45)">${isoHouse(-1, 14.5, 10, 12, 9, 9, col, { door: true })}</g>`;
     return `<g class="piece" transform="translate(${x} ${y}) scale(1.3)">${isoHouse(-4.5, 16, 11, 15, 17, 10, col, { floors: 2, chimney: true })}${isoHouse(7.5, 23, 7, 8, 7, 6, col, { door: true, roof: shade(col, -0.45) })}</g>`;
@@ -357,9 +372,10 @@ function renderBoard() {
   for (const [k, t] of Object.entries(TERRAIN)) h += `<radialGradient id="g-${k}" cx="50%" cy="40%" r="65%"><stop offset="0" stop-color="${t.a}"/><stop offset="1" stop-color="${t.b}"/></radialGradient>`;
   h += '</defs>';
 
+  const SK = SKA(), K3 = !!SK, BD = SK && SK.BOARD;
   // plicak i pesak oko ostrva
-  for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 1.32)}" fill="#3f9fb8" opacity=".55" stroke="#3f9fb8" stroke-width="10" stroke-linejoin="round"/>`;
-  for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 1.14)}" fill="#ecd9a2" stroke="#ecd9a2" stroke-width="6" stroke-linejoin="round"/>`;
+  for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 1.32)}" fill="${BD ? BD.ring1 : '#3f9fb8'}" opacity="${BD ? 0.9 : 0.55}" stroke="${BD ? BD.ring1 : '#3f9fb8'}" stroke-width="10" stroke-linejoin="round"/>`;
+  for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 1.14)}" fill="${BD ? BD.ring2 : '#ecd9a2'}" stroke="${BD ? BD.ring2 : '#ecd9a2'}" stroke-width="6" stroke-linejoin="round"/>`;
 
   // luke (molovi)
   for (const p of B.ports) {
@@ -371,20 +387,19 @@ function renderBoard() {
   }
 
   // polja
-  const K3 = skin === 'kucice';
-  if (K3) for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 0.97).split(' ').map((q) => { const [a, b] = q.split(','); return `${a},${+b + 8}`; }).join(' ')}" fill="${ART.shade(TERRAIN[hx.terrain].b, -0.4)}" stroke="#00000030" stroke-width="2" stroke-linejoin="round"/>`;
+  if (K3) for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 0.97).split(' ').map((q) => { const [a, b] = q.split(','); return `${a},${+b + 8}`; }).join(' ')}" fill="${shade(TERRAIN[hx.terrain].b, BD ? BD.side : -0.4)}" stroke="#00000030" stroke-width="2" stroke-linejoin="round"/>`;
   for (const hx of B.hexes) {
     const t = TERRAIN[hx.terrain];
-    h += `<polygon points="${hexPoints(hx, V, 0.96)}" fill="url(#g-${hx.terrain})" stroke="#fff6dc" stroke-width="${K3 ? 2 : 3}" stroke-linejoin="round"/>`;
-    if (K3) h += ART.terrain(hx.terrain, hx.x * SC, hx.y * SC, TOKEN_SCALE[B.layout] || 1);
+    h += `<polygon points="${hexPoints(hx, V, 0.96)}" fill="url(#g-${hx.terrain})" stroke="${BD ? BD.hexStroke : '#fff6dc'}" stroke-width="${K3 ? 2 : 3}" stroke-linejoin="round"/>`;
+    if (K3) h += SK.terrain(hx.terrain, hx.x * SC, hx.y * SC, TOKEN_SCALE[B.layout] || 1);
     else h += `<text x="${hx.x * SC}" y="${hx.y * SC - (hx.num ? 12 * (TOKEN_SCALE[B.layout] || 1) : -10)}" text-anchor="middle" font-size="${hx.num ? 26 : 34}">${t.ico}</text>`;
     if (hx.num) {
       const hot = hx.num === 6 || hx.num === 8;
       const pips = 6 - Math.abs(7 - hx.num);
-      const col = hot ? '#c0392b' : '#2a241c';
+      const col = hot ? (BD ? BD.hot : '#c0392b') : (BD ? BD.tokenInk : '#2a241c');
       const k = TOKEN_SCALE[B.layout] || 1; // na vecim mapama brojevi su veci
       const cx = hx.x * SC, top = hx.y * SC - 4 * k, w = 36 * k;
-      h += `<rect x="${cx - w / 2}" y="${top}" width="${w}" height="${w}" rx="${7 * k}" fill="#fffaf0" stroke="#0003" stroke-width="1.5"/>`;
+      h += `<rect x="${cx - w / 2}" y="${top}" width="${w}" height="${w}" rx="${7 * k}" fill="${BD ? BD.token : '#fffaf0'}" stroke="#0003" stroke-width="1.5"/>`;
       h += `<text x="${cx}" y="${top + 22 * k}" text-anchor="middle" font-size="${20 * k}" font-weight="900" fill="${col}">${hx.num}</text>`;
       const pr = 2.4 * k, gap = 6 * k;
       for (let i = 0; i < pips; i++) h += `<circle cx="${cx + (i - (pips - 1) / 2) * gap}" cy="${top + 29.5 * k}" r="${pr}" fill="${col}"/>`;
@@ -398,13 +413,13 @@ function renderBoard() {
     const bg = generic ? '#2f7fb5' : RES_INFO[p.type].color;
     h += `<g><rect x="${x - 20}" y="${y - 24}" width="40" height="46" rx="8" fill="#fffaf0" stroke="#7a5532" stroke-width="2"/>
       <rect x="${x - 17}" y="${y - 21}" width="34" height="24" rx="5" fill="${bg}"/>
-      ${!generic && skin === 'kucice' ? ART.cardSVG(p.type, `x="${x - 17}" y="${y - 21}" width="34" height="24"`) : `<text x="${x}" y="${y - 3}" text-anchor="middle" font-size="16" fill="#fff" font-weight="800">${generic ? '?' : RES_INFO[p.type].ico}</text>`}
+      ${!generic && SK ? SK.cardSVG(p.type, `x="${x - 17}" y="${y - 21}" width="34" height="24"`) : `<text x="${x}" y="${y - 3}" text-anchor="middle" font-size="16" fill="#fff" font-weight="800">${generic ? '?' : RES_INFO[p.type].ico}</text>`}
       <text x="${x}" y="${y + 17}" text-anchor="middle" font-size="12" font-weight="800" fill="#2a241c">${generic ? '3:1' : '2:1'}</text></g>`;
   }
 
   // razbojnik
   const rb = B.hexes[B.robber];
-  if (skin === 'kucice') h += ART.robber(rb.x * SC + 27, rb.y * SC - 4);
+  if (SK) h += SK.robber(rb.x * SC + 27, rb.y * SC - 4);
   else h += `<g transform="translate(${rb.x * SC + 26},${rb.y * SC + 4})"><ellipse cx="0" cy="18" rx="12" ry="4" fill="#0006"/>
     <path d="M-10 17 Q-12 -2 0 -5 Q12 -2 10 17 Z" fill="#3a3640" stroke="#111" stroke-width="1.5"/><circle cx="0" cy="-10" r="8" fill="#3a3640" stroke="#111" stroke-width="1.5"/></g>`;
 
@@ -413,8 +428,8 @@ function renderBoard() {
     const e = B.edges[eid]; const a = V[e.a], b = V[e.b];
     return { x1: a.x * SC, y1: a.y * SC, x2: b.x * SC, y2: b.y * SC, col: pById(pid).color };
   });
-  if (skin === 'kucice') {
-    const rr = roadLines.map(ART.road);
+  if (SK) {
+    const rr = roadLines.map(SK.road);
     for (const r of rr) h += r.under;
     for (const r of rr) h += r.top;
   } else {
@@ -507,14 +522,14 @@ $('dice').onclick = () => { if (myTurn() && S.sub === 'roll') act('roll'); };
 
 // ---------- ruka ----------
 const RES_TIP = { drvo: 'iz šume', glina: 'iz gliništa', vuna: 'sa pašnjaka', zito: 'sa polja', kamen: 'iz planine' };
-const rcard = (r, n, extra = '') => `<div class="rcard ${extra}" data-r="${r}" style="background-color:${RES_INFO[r].color};--c:${RES_INFO[r].color}" title="${RES_INFO[r].name} (${RES_TIP[r]})${extra.includes('click') ? ' – klikni za trgovinu' : ''}">${skin === 'kucice' ? `<i class="art">${ART.cardSVG(r)}</i><b class="lbl">${RES_INFO[r].name}</b>` : RES_INFO[r].ico}${n !== null ? `<span class="cnt">${n}</span>` : ''}</div>`;
+const rcard = (r, n, extra = '') => `<div class="rcard ${extra}" data-r="${r}" style="background-color:${RES_INFO[r].color};--c:${RES_INFO[r].color}" title="${RES_INFO[r].name} (${RES_TIP[r]})${extra.includes('click') ? ' – klikni za trgovinu' : ''}">${SKA() ? `<i class="art">${SKA().cardSVG(r)}</i><b class="lbl">${RES_INFO[r].name}</b>` : RES_INFO[r].ico}${n !== null ? `<span class="cnt">${n}</span>` : ''}</div>`;
 function renderHand() {
   let h = RES.filter((r) => S.hand[r] > 0).map((r) => rcard(r, S.hand[r] - (tradeOpen ? tradeGive[r] || 0 : 0), tradeOpen ? 'click' : '')).join('');
   if (!h) h = '<span style="color:var(--muted)">Nemaš karte sirovina.</span>';
   else if (myTurn() && S.sub === 'main') h = h.replace(/class="rcard /g, 'class="rcard click ');
   const groups = {};
   for (const d of S.dev) { groups[d.type] ??= { n: 0, ready: 0 }; groups[d.type].n++; if (!d.fresh) groups[d.type].ready++; }
-  const dev = Object.entries(groups).map(([type, g]) => `<div class="rcard dev ${g.ready ? '' : 'fresh'}" data-dev="${type}" title="${DEV_INFO[type].name}: ${DEV_INFO[type].desc}${g.ready ? '' : ' (kupljena u ovom potezu)'}">${skin === 'kucice' ? `<i class="art">${ART.cardSVG(type)}</i>` : DEV_INFO[type].ico}<small>${DEV_INFO[type].name}</small><span class="cnt">${g.n}</span></div>`).join('');
+  const dev = Object.entries(groups).map(([type, g]) => `<div class="rcard dev ${g.ready ? '' : 'fresh'}" data-dev="${type}" title="${DEV_INFO[type].name}: ${DEV_INFO[type].desc}${g.ready ? '' : ' (kupljena u ovom potezu)'}">${SKA() ? `<i class="art">${SKA().cardSVG(type)}</i>` : DEV_INFO[type].ico}<small>${DEV_INFO[type].name}</small><span class="cnt">${g.n}</span></div>`).join('');
   if (dev) h += '<span class="sep"></span>' + dev;
   $('hand').innerHTML = h;
 }
@@ -602,7 +617,7 @@ function renderRecipes() {
     ['🏰', 'Grad', COST.city, '2 poena'],
     ['🃏', 'Razvojna karta', COST.dev, '?'],
   ];
-  const cards = (c) => Object.entries(c).flatMap(([r, n]) => Array(n).fill(r)).map((r) => `<span class="rc" style="background:${RES_INFO[r].color}" title="${RES_INFO[r].name}">${skin === 'kucice' ? ART.cardSVG(r, 'class="rc-svg"') : RES_INFO[r].ico}</span>`).join('');
+  const cards = (c) => Object.entries(c).flatMap(([r, n]) => Array(n).fill(r)).map((r) => `<span class="rc" style="background:${RES_INFO[r].color}" title="${RES_INFO[r].name}">${SKA() ? SKA().cardSVG(r, 'class="rc-svg"') : RES_INFO[r].ico}</span>`).join('');
   $('recipes').innerHTML = `<button class="rec-head" data-rec>📜 Recepti <span>${recipesOpen ? '▾' : '▸'}</span></button>` + (recipesOpen ? rows.map(([ico, name, cost, vp]) =>
     `<div class="rec-row ${S.hand && canAfford(cost) ? 'ok' : ''}"><span class="rn">${ico} ${name}</span><span class="rcs">${cards(cost)}</span><span class="rvp">${vp}</span></div>`).join('') : '');
 }
@@ -776,7 +791,7 @@ function colorNames(text) {
 function renderLog() {
   const log = $('log');
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-  log.innerHTML = S.log.map((l) => `<div class="${l.text.startsWith('➡️') ? 'grp' : ''}">${colorNames(l.text)}</div>`).join('');
+  log.innerHTML = S.log.map((l) => `<div class="${l.text.startsWith('➡️') ? 'grp' : ''}">${colorNames(skinWords(l.text))}</div>`).join('');
   if (atBottom) log.scrollTop = log.scrollHeight;
   if (S.lastSteal && S.lastSteal.t > lastToastSteal) {
     lastToastSteal = S.lastSteal.t;
