@@ -51,6 +51,22 @@ function setup(settings = {}) {
   console.log('kontraponuda OK');
 }
 
+// predlog igracu na potezu bez njegove ponude (i pre bacanja kockica)
+{
+  const g = setup();
+  const cur = g.current(); const other = g.players.find((p) => p !== cur);
+  cur.hand = { drvo: 1, glina: 0, vuna: 0, zito: 0, kamen: 0 };
+  other.hand = { drvo: 0, glina: 0, vuna: 2, zito: 0, kamen: 0 };
+  g.sub = 'roll';
+  g.action(other.id, 'counterTrade', { give: { vuna: 2 }, get: { drvo: 1 } });
+  assert.ok(g.trade && g.trade.open);
+  assert.throws(() => g.action(cur.id, 'confirmTrade', { with: other.id, counter: true })); // prvo baci kockice
+  g.sub = 'main';
+  g.action(cur.id, 'confirmTrade', { with: other.id, counter: true });
+  assert.equal(cur.hand.vuna, 2); assert.equal(other.hand.drvo, 1);
+  console.log('predlog bez ponude OK');
+}
+
 // cuvanje: partija posle JSON-a radi isto
 {
   const g = setup();

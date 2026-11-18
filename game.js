@@ -522,7 +522,10 @@ class Game {
       bankTrade: () => this.bankTrade(pl, data.give, data.get),
       offerTrade: () => this.offerTrade(pl, data.give || {}, data.get || {}),
       confirmTrade: () => this.confirmTrade(pl, data.with, !!data.counter),
-      cancelTrade: () => { this.trade = null; },
+      cancelTrade: () => { // predlozi ostalih ostaju
+        const c = this.trade?.counters;
+        this.trade = c && Object.keys(c).length ? { id: ++this.tradeSeq, from: pl.id, give: {}, get: {}, accepted: [], declined: [], counters: c, open: true } : null;
+      },
       endTurn: () => this.endTurn(pl),
     }[type];
     if (!handler) fail('Nepoznata akcija.');
@@ -841,14 +844,14 @@ class Game {
     give = this.cleanOffer(give); get = this.cleanOffer(get);
     if (!Object.keys(give).length || !Object.keys(get).length) fail('Izaberi šta daješ i šta tražiš.');
     if (!this.canAfford(pl, give)) fail('Nemaš te karte.');
-    this.trade = { id: ++this.tradeSeq, from: pl.id, give, get, accepted: [], declined: [], counters: {} };
+    this.trade = { id: ++this.tradeSeq, from: pl.id, give, get, accepted: [], declined: [], counters: this.trade?.counters || {} };
     const fmt = (o) => Object.entries(o).map(([r, n]) => `${n} ${RES_NAMES[r]}`).join(', ');
     this.addLog(`🤝 ${pl.name} nudi ${fmt(give)} za ${fmt(get)}.`);
   }
 
   respondTrade(pl, accept) {
     const t = this.trade;
-    if (!t) fail('Nema aktivne ponude.');
+    if (!t || t.open) fail('Nema aktivne ponude.');
     if (t.from === pl.id) fail('Ne možeš da odgovoriš na svoju ponudu.');
     t.accepted = t.accepted.filter((x) => x !== pl.id);
     t.declined = t.declined.filter((x) => x !== pl.id);
@@ -859,9 +862,13 @@ class Game {
   }
 
   // Kontraponuda: igrac predlaze svoje uslove (give/get iz ugla onoga ko je ponudio)
+  // Ostali igraci mogu da predloze razmenu igracu na potezu bilo kad tokom njegovog poteza,
+  // i kad on nije nista ponudio (tada je trade.open = true, samo predlozi).
   counterTrade(pl, give, get) {
+    if (this.phase !== 'play') fail('Sada ne možeš da trguješ.');
+    if (this.current().id === pl.id) fail('Ti si na potezu: napravi svoju ponudu.');
+    if (!this.trade) this.trade = { id: ++this.tradeSeq, from: this.current().id, give: {}, get: {}, accepted: [], declined: [], counters: {}, open: true };
     const t = this.trade;
-    if (!t) fail('Nema aktivne ponude.');
     if (t.from === pl.id) fail('Ne možeš da odgovoriš na svoju ponudu.');
     give = this.cleanOffer(give); get = this.cleanOffer(get); // give = sta ti dajes, get = sta trazis
     if (!Object.keys(give).length || !Object.keys(get).length) fail('Izaberi šta daješ i šta tražiš.');
@@ -875,6 +882,7 @@ class Game {
   }
 
   confirmTrade(pl, withId, counter = false) {
+    this.requireMain();
     const t0 = this.trade;
     if (!t0 || t0.from !== pl.id) fail('Nema tvoje ponude.');
     let t = t0;

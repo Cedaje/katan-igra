@@ -198,7 +198,7 @@ socket.on('state', (state) => {
   playEventSounds(prev);
   clockOffset = S.now - Date.now();
   if (S.sub !== 'main' || S.turn !== S.me) { mode = null; }
-  if (!S.trade || S.trade.from === S.me) counterMode = false;
+  if (!canPropose()) counterMode = false;
   if (!(S.turn === S.me && S.sub === 'main') && !counterMode) tradeOpen = false;
   render();
 });
@@ -612,8 +612,9 @@ $('hand').addEventListener('click', (ev) => {
   }
   const r = ev.target.closest('[data-r]');
   if (!r) return;
-  if (!(myTurn() && S.sub === 'main')) return toast('Trgovati možeš kad si na potezu, posle bacanja kockica.');
+  if (!(myTurn() && S.sub === 'main') && !canPropose()) return toast('Trgovati možeš kad si na potezu, posle bacanja kockica.');
   tradeOpen = true; mode = null; tradeGive = {}; tradeGet = {};
+  counterMode = !myTurn();
   tradeGive[r.dataset.r] = 1;
   render();
 });
@@ -672,7 +673,7 @@ function renderActions() {
     end: 'Kraj poteza (E): predaj red sledećem igraču.',
   };
   $('actions').innerHTML =
-    b('trade', '🤝', 'Trgovina', main, undefined, '', D.trade) +
+    b('trade', '🤝', 'Trgovina', main || canPropose(), undefined, '', main || !canPropose() ? D.trade : 'Predloži razmenu igraču koji je na potezu. Može bilo kad tokom njegovog poteza.') +
     b('dev', '🃏', 'Karta', main && canAfford(COST.dev) && !S.devEmpty, S.devLeft ?? '?', '', D.dev + (main && S.devEmpty ? ' Nema više karata.' : main && !canAfford(COST.dev) ? ' Nemaš dovoljno sirovina.' : '')) +
     b('road', '🛤️', 'Put', main && canAfford(COST.road) && m.left.road > 0 && rs > 0, m.left.road, '', D.road + (why(COST.road, m.left.road, rs, 'put') ? ' ' + why(COST.road, m.left.road, rs, 'put') + '.' : '')) +
     b('settlement', '🏠', 'Selo', main && canAfford(COST.settlement) && m.left.settlement > 0 && ss > 0, m.left.settlement, '', D.settlement + (why(COST.settlement, m.left.settlement, ss, 'selo') ? ' ' + why(COST.settlement, m.left.settlement, ss, 'selo') + '.' : '')) +
@@ -722,7 +723,7 @@ $('actions').addEventListener('click', (ev) => {
   const a = b.dataset.a;
   if (a === 'end') act('endTurn');
   else if (a === 'dev') act('buyDev');
-  else if (a === 'trade') { tradeOpen = !tradeOpen; mode = null; tradeGive = {}; tradeGet = {}; render(); }
+  else if (a === 'trade') { tradeOpen = !tradeOpen; counterMode = tradeOpen && !myTurn(); mode = null; tradeGive = {}; tradeGet = {}; render(); }
   else { mode = mode === a ? null : a; tradeOpen = false; render(); }
 });
 
@@ -752,18 +753,27 @@ function renderBank() {
 
 // ---------- trgovina ----------
 const miniCards = (o) => `<span class="mini">${Object.entries(o).map(([r, n]) => rcard(r, n)).join('')}</span>`;
+// ostali igraci mogu da predloze razmenu igracu na potezu u bilo kom trenutku njegovog poteza
+function canPropose() { return !!S && S.phase === 'play' && S.turn !== S.me && !me()?.quit && !pById(S.turn)?.quit; }
 function renderOffers() {
   const t = S.trade;
   const box = $('offers');
   if (!t || S.phase !== 'play') { box.classList.add('hidden'); return; }
   const from = pById(t.from);
-  let h = `<div class="offer"><div class="offer-row"><b>${esc(from.name)}</b> daje ${miniCards(t.give)} za ${miniCards(t.get)}</div>`;
+  let h = t.open ? '<div class="offer"><div class="offer-row"><b>📨 Predlozi za razmenu</b></div>' : `<div class="offer"><div class="offer-row"><b>${esc(from.name)}</b> daje ${miniCards(t.give)} za ${miniCards(t.get)}</div>`;
+  if (t.open && t.from !== S.me) {
+    const c = t.counters?.[S.me];
+    if (!c) { box.classList.add('hidden'); return; }
+    h += `<div class="offer-row" style="margin-top:6px">Tvoj predlog za ${esc(from.name)}: daješ ${miniCards(c.get)} za ${miniCards(c.give)}</div><div class="offer-row" style="color:var(--muted)">Čeka se da ${esc(from.name)} odluči…</div></div>`;
+    box.innerHTML = h; box.classList.remove('big-offer'); box.classList.toggle('hidden', tradeOpen); return;
+  }
   if (t.from === S.me) {
     h += '<div class="offer-row" style="margin-top:8px">';
     h += t.accepted.map((id) => `<button class="ob" data-with="${id}" title="Završi razmenu sa ovim igračem">✔ ${esc(pById(id).name)}</button>`).join('');
-    if (!t.accepted.length && !Object.keys(t.counters || {}).length) h += '<span style="color:var(--muted)">Čeka se odgovor…</span>';
+    if (!t.open && !t.accepted.length && !Object.keys(t.counters || {}).length) h += '<span style="color:var(--muted)">Čeka se odgovor…</span>';
     if (t.declined.length) h += `<span style="color:var(--muted)">Odbili: ${t.declined.map((id) => esc(pById(id).name)).join(', ')}</span>`;
-    h += '<button class="ob gray" data-tr="cancel" style="margin-left:auto" title="Povuci svoju ponudu">Povuci</button></div>';
+    if (!t.open) h += '<button class="ob gray" data-tr="cancel" style="margin-left:auto" title="Povuci svoju ponudu">Povuci</button>';
+    h += '</div>';
     for (const [id, c] of Object.entries(t.counters || {})) {
       h += `<div class="offer-row counter"><b>${esc(pById(id).name)}</b> predlaže: ti daješ ${miniCards(c.give)} za ${miniCards(c.get)}
         <button class="ob" data-with="${id}" data-counter="1" title="Prihvati ovu kontraponudu i odmah razmeni">✔ Prihvati</button></div>`;
@@ -785,7 +795,7 @@ function renderOffers() {
   h += '</div>';
   box.innerHTML = h;
   box.classList.toggle('hidden', tradeOpen);
-  box.classList.toggle('big-offer', t.from !== S.me);
+  box.classList.toggle('big-offer', t.from !== S.me || !!t.open);
 }
 function bankTradeValid() {
   const give = Object.keys(tradeGive), get = Object.keys(tradeGet);
@@ -811,7 +821,7 @@ function renderTradePanel() {
     </div>
     <div class="tp-side">
       ${counterMode
-        ? `<button class="tbig" data-tr="sendcounter" ${canOffer ? '' : 'disabled'} title="Pošalji kontraponudu igraču na potezu">✎<small>Pošalji</small></button>`
+        ? `<button class="tbig" data-tr="sendcounter" ${canOffer ? '' : 'disabled'} title="Pošalji predlog igraču na potezu">✎<small>Predloži</small></button>`
         : `<button class="tbig" data-tr="bank" ${bankTradeValid() ? '' : 'disabled'} title="Trguj sa bankom: daješ broj karata koji piše na kartici gore (4:1, 3:1 ili 2:1) za 1 kartu">🏦<small>Banka</small></button>
       <button class="tbig" data-tr="offer" ${canOffer ? '' : 'disabled'} title="Pošalji ponudu svim igračima; ti biraš sa kim ćeš razmeniti">👥<small>Igračima</small></button>`}
       <button class="tbig close" data-tr="close" title="Zatvori trgovinu (Esc)">✕</button>
