@@ -286,6 +286,64 @@ const TOKEN_SCALE = { base: 1, ext6: 1.2, ext8: 1.3 };
 function hexPoints(hx, V, scale = 1) {
   return hx.corners.map((c) => `${(hx.x + (V[c].x - hx.x) * scale) * SC},${(hx.y + (V[c].y - hx.y) * scale) * SC}`).join(' ');
 }
+// ---------- skinovi (izgled figura), svaki igrac bira za sebe ----------
+const SKINS = {
+  osnovni: { name: 'Osnovni', desc: 'Klasične figure, prvi izgled igre.' },
+  kucice: { name: 'Kućice', desc: 'Šarene kućice u 3D stilu. Zidovi su u boji igrača: roza kuća je roza igrač, narandžasta narandžasti.' },
+};
+let skin = 'osnovni';
+try { if (SKINS[localStorage.getItem('ot_skin')]) skin = localStorage.getItem('ot_skin'); } catch (_) { /* */ }
+function setSkin(k) { skin = k; try { localStorage.setItem('ot_skin', k); } catch (_) { /* */ } }
+
+function shade(hex, f) { // f<0 tamnije, f>0 svetlije
+  const n = parseInt(hex.slice(1), 16);
+  const c = [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.round(f < 0 ? v * (1 + f) : v + (255 - v) * f));
+  return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+const pt = (p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`;
+const poly = (pts, fill, extra = '') => `<polygon points="${pts.map(pt).join(' ')}" fill="${fill}" ${extra}/>`;
+// izometrijska kuca: ugao napred dole je (ox, oy); wl/wr sirina leve/desne strane, h visina zida, rh visina krova
+function isoHouse(ox, oy, wl, wr, h, rh, col, o = {}) {
+  const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
+  const B = [ox, oy], L = [ox - wl, oy - wl / 2], R = [ox + wr, oy - wr / 2], K = [ox + wr - wl, oy - (wl + wr) / 2];
+  const up = (p, d = h) => [p[0], p[1] - d];
+  const mid = [(L[0] + B[0]) / 2, (L[1] + B[1]) / 2];
+  const A1 = up(mid, h + rh), A2 = add(A1, [wr, -wr / 2]);
+  const ol = 'stroke="#1b1712" stroke-width="1.1" stroke-linejoin="round"';
+  const roof = o.roof || '#3e4b5c';
+  const face = (P0, P1, u1, u2, v1, v2) => { const f = (u, v) => [P0[0] + (P1[0] - P0[0]) * u, P0[1] + (P1[1] - P0[1]) * u - v * h]; return [f(u1, v1), f(u2, v1), f(u2, v2), f(u1, v2)]; };
+  let s = poly([B, L, up(L), up(B)], shade(col, -0.22), ol) + poly([B, R, up(R), up(B)], col, ol);
+  s += poly([up(L), up(B), A1], shade(col, -0.22), ol); // zabat
+  // prozori i vrata
+  const win = '#e8f6ff', glass = '#7cc7ec';
+  const floors = o.floors || 1;
+  for (let f = 0; f < floors; f++) {
+    const v1 = 0.22 + f / floors * 0.9 * (floors > 1 ? 1 : 0), v2 = v1 + 0.5 / floors;
+    for (const [u1, u2] of o.door && f === 0 ? [[0.14, 0.38]] : [[0.14, 0.38], [0.6, 0.84]]) s += poly(face(B, R, u1, u2, v1, v2), win) + poly(face(B, R, u1 + 0.04, u2 - 0.04, v1 + 0.06, v2 - 0.06), glass);
+    if (o.door && f === 0) s += poly(face(B, R, 0.6, 0.8, 0, 0.62), '#6b3f22');
+    s += poly(face(B, L, 0.35, 0.65, v1, v2), win) + poly(face(B, L, 0.39, 0.61, v1 + 0.06, v2 - 0.06), glass);
+  }
+  s += poly([up(L), A1, A2, up(K)], shade(roof, 0.18), ol); // zadnja strana krova
+  s += poly([up(B, h - 0.5), up(R, h - 0.5), add(A2, [0, 0]), A1], roof, ol); // prednja strana krova
+  if (o.chimney) { const c = add(A2, [-wr * 0.35, wr * 0.35 / 2 + 1.5]); s += poly([c, add(c, [3, -1.5]), add(c, [3, -7.5]), add(c, [0, -6])], '#8a5a3c', ol); }
+  return s;
+}
+function pieceSVG(type, x, y, col) {
+  if (skin === 'kucice') {
+    if (type === 'settlement') return `<g class="piece" transform="translate(${x} ${y}) scale(1.45)">${isoHouse(-1, 14.5, 10, 12, 9, 9, col, { door: true })}</g>`;
+    return `<g class="piece" transform="translate(${x} ${y}) scale(1.3)">${isoHouse(-4.5, 16, 11, 15, 17, 10, col, { floors: 2, chimney: true })}${isoHouse(7.5, 23, 7, 8, 7, 6, col, { door: true, roof: shade(col, -0.45) })}</g>`;
+  }
+  if (type === 'settlement') return `<path d="M${x - 11} ${y + 10} V${y - 2} L${x} ${y - 13} L${x + 11} ${y - 2} V${y + 10} Z" fill="${col}" stroke="#1b1712" stroke-width="2.5" stroke-linejoin="round"/><path d="M${x - 11} ${y - 2} L${x} ${y - 13} L${x + 11} ${y - 2}" fill="none" stroke="#fff8" stroke-width="2"/>`;
+  return `<path d="M${x - 16} ${y + 12} V${y - 4} H${x - 4} V${y - 9} L${x + 5} ${y - 18} L${x + 14} ${y - 9} V${y + 12} Z" fill="${col}" stroke="#1b1712" stroke-width="2.5" stroke-linejoin="round"/><rect x="${x - 11}" y="${y + 1}" width="5" height="6" fill="#1b1712" opacity=".55"/><rect x="${x + 3}" y="${y - 4}" width="5" height="6" fill="#1b1712" opacity=".55"/>`;
+}
+function showSkinPicker() {
+  const demo = (k) => { const prev = skin; skin = k; const c = (S && pById(S.me)?.color) || '#e07ab8'; const out = `<svg viewBox="-36 -36 92 66" width="150" height="94">${pieceSVG('settlement', -12, 0, c)}${pieceSVG('city', 22, -2, c)}</svg>`; skin = prev; return out; };
+  modalExtra = () => `<h3>🎨 Izgled igre</h3><p class="muted">Menja se samo kod tebe, drugi igrači biraju svoj izgled.</p>
+    <div class="pick">${Object.entries(SKINS).map(([k, v]) => `<button class="skin-opt ${skin === k ? 'sel' : ''}" data-skin="${k}" title="${v.desc}">${demo(k)}<b>${v.name}</b></button>`).join('')}</div>
+    <button class="ob" data-close>Gotovo</button>`;
+  renderModal();
+}
+
 function renderBoard() {
   const svg = $('board');
   const B = S.board, V = B.vertices;
@@ -371,8 +429,7 @@ function renderBoard() {
   for (const [vid, b] of Object.entries(S.buildings)) {
     const v = V[vid]; const col = pById(b.pid).color;
     const x = v.x * SC, y = v.y * SC;
-    if (b.type === 'settlement') h += `<path d="M${x - 11} ${y + 10} V${y - 2} L${x} ${y - 13} L${x + 11} ${y - 2} V${y + 10} Z" fill="${col}" stroke="#1b1712" stroke-width="2.5" stroke-linejoin="round"/><path d="M${x - 11} ${y - 2} L${x} ${y - 13} L${x + 11} ${y - 2}" fill="none" stroke="#fff8" stroke-width="2"/>`;
-    else h += `<path d="M${x - 16} ${y + 12} V${y - 4} H${x - 4} V${y - 9} L${x + 5} ${y - 18} L${x + 14} ${y - 9} V${y + 12} Z" fill="${col}" stroke="#1b1712" stroke-width="2.5" stroke-linejoin="round"/><rect x="${x - 11}" y="${y + 1}" width="5" height="6" fill="#1b1712" opacity=".55"/><rect x="${x + 3}" y="${y - 4}" width="5" height="6" fill="#1b1712" opacity=".55"/>`;
+    h += pieceSVG(b.type, x, y, col);
     if (L.cities && (mode === 'city' || (!mode && !tradeOpen && can.city)) && L.cities.includes(Number(vid))) h += `<circle class="spot" data-v="${vid}" data-kind="city" cx="${x}" cy="${y}" r="17" fill-opacity=".35"/>`;
   }
   const showSett = L.settlements && (S.sub === 'settlement' || mode === 'settlement' || (!mode && !tradeOpen && can.settlement));
@@ -753,6 +810,8 @@ function showExitMenu() {
   renderModal();
 }
 $('exitBtn').onclick = showExitMenu;
+$('skinBtn').onclick = showSkinPicker;
+$('skinNav').onclick = showSkinPicker;
 const soundIcon = () => { $('soundBtn').textContent = SFX.muted ? '🔇' : '🔊'; $('soundBtn').title = SFX.muted ? 'Uključi zvuk' : 'Isključi zvuk'; };
 $('soundBtn').onclick = () => { SFX.toggle(); soundIcon(); };
 soundIcon();
@@ -848,6 +907,7 @@ $('modalCard').addEventListener('click', (ev) => {
   if (b.hasAttribute('data-pconfirm')) { const p = picker; picker = null; p.cb(p.sel); return renderModal(); }
   if (b.hasAttribute('data-pcancel')) { picker = null; return renderModal(); }
   if (b.dataset.startvote) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); return act('voteKick', { pid: b.dataset.startvote }); }
+  if (b.dataset.skin) { setSkin(b.dataset.skin); $('modalCard').innerHTML = ''; renderModal(); if (S && S.phase !== 'lobby') renderBoard(); return; }
   if (b.dataset.color) { act('look', { color: b.dataset.color }); return; }
   if (b.dataset.avatar) { act('look', { avatar: Number(b.dataset.avatar) }); return; }
   if (b.hasAttribute('data-backrooms')) { setSavedRoom(''); location.href = '/'; return; }
