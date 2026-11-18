@@ -494,8 +494,23 @@ function zoomAt(f, cx, cy) {
 }
 $('board').addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX, e.clientY); }, { passive: false });
 let drag = null, dragged = false;
-$('board').addEventListener('pointerdown', (e) => { if (e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; dragged = false; });
+const touches = new Map(); let pinch = null; // dva prsta na telefonu = zum
+$('board').addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'touch') {
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) }; drag = null; dragged = true; return; }
+  }
+  if (e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; dragged = false;
+});
 window.addEventListener('pointermove', (e) => {
+  if (touches.has(e.pointerId)) {
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && touches.size === 2) {
+      const [a, b] = [...touches.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch.d > 0) zoomAt(d / pinch.d, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      pinch.d = d; return;
+    }
+  }
   if (!drag) return;
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!dragged && Math.hypot(dx, dy) < 6) return;
@@ -503,7 +518,12 @@ window.addEventListener('pointermove', (e) => {
   const ctm = $('board').getScreenCTM();
   view.x = drag.vx - dx / ctm.a; view.y = drag.vy - dy / ctm.d; applyView();
 });
-window.addEventListener('pointerup', () => { drag = null; $('board').classList.remove('dragging'); });
+const endPointer = (e) => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; drag = null; $('board').classList.remove('dragging'); };
+window.addEventListener('pointerup', endPointer);
+window.addEventListener('pointercancel', endPointer);
+// telefon: dnevnik, caskanje i banka su u panelu koji se otvara dugmetom
+$('sideTab').onclick = () => $('game').classList.toggle('side-open');
+$('sideClose').onclick = () => $('game').classList.remove('side-open');
 // posle prevlacenja ne racuna se klik (da se slucajno ne sagradi nesto)
 $('board').addEventListener('click', (e) => { if (dragged) { e.stopImmediatePropagation(); dragged = false; } }, true);
 $('zoomIn').onclick = () => zoomAt(1.25);
@@ -655,7 +675,7 @@ function renderActions() {
 
 // ---------- recepti (cene gradnje) ----------
 let recipesOpen = true;
-try { recipesOpen = localStorage.getItem('ot_recipes') !== '0'; } catch (_) { /* */ }
+try { const v = localStorage.getItem('ot_recipes'); recipesOpen = v ? v !== '0' : !matchMedia('(max-width: 760px)').matches; } catch (_) { /* */ }
 function renderRecipes() {
   const rows = [
     ['🛤️', 'Put', COST.road, '0 poena'],
@@ -851,6 +871,7 @@ function renderChat() {
   if (chatOpen || S.phase === 'lobby') seenChat = S.chat.length;
   const unread = S.chat.length - seenChat;
   $('chatBadge').textContent = unread > 0 ? unread : '';
+  $('sideBadge').textContent = unread > 0 ? unread : '';
 }
 $('chatToggle').onclick = () => {
   chatOpen = !chatOpen;
@@ -1006,7 +1027,24 @@ render();
 (() => {
   const tip = $('tip');
   let cur = null;
+  // na telefonu: opis se vidi kad zadrzis prst na opciji
+  let touchAt = 0, hold = null;
+  document.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    touchAt = Date.now(); tip.classList.add('hidden'); cur = null; clearTimeout(hold);
+    const el = e.target.closest('[title], [data-tip]'); if (!el) return;
+    if (el.hasAttribute('title')) { el.dataset.tip = el.getAttribute('title'); el.removeAttribute('title'); }
+    hold = setTimeout(() => {
+      tip.textContent = el.dataset.tip; tip.classList.remove('hidden');
+      const w = tip.offsetWidth, h = tip.offsetHeight;
+      tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, e.clientX - w / 2)) + 'px';
+      tip.style.top = Math.max(8, e.clientY - h - 24) + 'px';
+      setTimeout(() => tip.classList.add('hidden'), 3500);
+    }, 450);
+  }, true);
+  for (const ev of ['pointerup', 'pointercancel', 'pointermove']) document.addEventListener(ev, (e) => { if (e.pointerType === 'touch' && (ev !== 'pointermove' || e.movementX || e.movementY)) clearTimeout(hold); }, true);
   document.addEventListener('mouseover', (e) => {
+    if (Date.now() - touchAt < 1500) return; // dodir nije prelazak misem
     const el = e.target.closest('[title], [data-tip]');
     if (!el) { tip.classList.add('hidden'); cur = null; return; }
     if (el.hasAttribute('title')) { el.dataset.tip = el.getAttribute('title'); el.removeAttribute('title'); }

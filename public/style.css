@@ -318,3 +318,136 @@ body.skin-podvodni #game { background: radial-gradient(ellipse at 40% 20%, #1249
 .rules { position: relative; }
 .modal-x { position: sticky; top: 0; float: right; margin: -6px -6px 0 0; width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--panel2); font-size: 18px; font-weight: 800; z-index: 1; }
 .modal-x:hover { background: var(--line); }
+
+/* ================= TELEFON (samo mali ekrani; PC ostaje isti) ================= */
+#sideTab, .side-close { display: none; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  body { overflow: auto; }
+  /* meni ide dole kao traka */
+  #shell { flex-direction: column-reverse; height: 100dvh; }
+  .rail { width: 100%; flex-direction: row; padding: 0 4px env(safe-area-inset-bottom); height: auto; align-items: center; }
+  .logo { flex-direction: row; gap: 4px; margin: 0 6px 0 4px; }
+  .logo span { font-size: 24px; } .logo b { font-size: 14px; } .logo small { display: none; }
+  .rail-btn { flex: 1; padding: 6px 2px; font-size: 12px; gap: 0; }
+  .rail-btn span { font-size: 22px; }
+  .rail-btn.active, .rail-btn:hover { box-shadow: inset 0 3px var(--hilite); }
+  .top { padding: 10px 12px; }
+  .name-pill { flex: 1; } .name-pill input { flex: 1; width: auto; min-width: 0; }
+  #rooms { flex-direction: column; padding: 0 12px 16px; gap: 14px; }
+  .rooms-table { min-height: 220px; }
+  .rt-head, .rt-row { grid-template-columns: 1fr 1.1fr .8fr 84px; padding: 0 10px; font-size: 13px; }
+  .seat { width: 9px; height: 13px; }
+  .rooms-buttons { gap: 10px; margin-top: 12px; }
+  .btn { padding: 12px 10px; font-size: 16px; }
+  .promo { width: auto; margin-top: 0; padding: 14px; align-self: stretch; }
+  .promo-art { display: none; }
+  /* lobi: jedna kolona, skrol */
+  #lobby { grid-template-columns: 1fr; padding: 0 10px 14px; gap: 12px; flex: none; }
+  .lob-col { padding: 12px; }
+  .lob-scroll { overflow: visible; }
+  .lob-chat { display: flex !important; height: 300px; }
+  .invite input { width: auto; flex: 1; min-width: 0; }
+  .tile { width: calc(50% - 6px); min-height: 80px; font-size: 13px; }
+  .adv { grid-template-columns: 1fr; }
+  .lob-start { flex-direction: column; }
+
+  /* igra: igraci gore, tabla u sredini, karte i dugmad dole */
+  #game { display: flex; flex-direction: column; height: 100dvh; padding: 4px; gap: 4px; }
+  .g-side { order: -1; flex-direction: row; overflow-x: auto; flex: none; gap: 4px; }
+  .g-side > .g-log, .g-side > .g-chat, .g-side > .bank { display: none; }
+  .players { flex-direction: row; overflow: visible; gap: 4px; }
+  .players .pp, .players.compact .pp { grid-template-columns: 34px auto; padding: 2px 6px; min-width: 128px; border-width: 2px; }
+  .pp .who .avatar, .players.compact .pp .who .avatar { width: 30px; height: 30px; font-size: 15px; border-width: 2px; }
+  .pp .vpb { font-size: 11px; bottom: -5px; padding: 0 4px; }
+  .pp .pname, .pp.big .pname { font-size: 12px; text-align: left; margin: 0; }
+  .pp .stats { gap: 4px; justify-content: flex-start; }
+  .pp .st, .players.compact .pp .st { flex-direction: row; gap: 2px; font-size: 11px; }
+  .pp .st .i, .players.compact .pp .st .i { font-size: 11px; }
+  /* otvoren panel: dnevnik, caskanje, banka, igraci */
+  #game.side-open .g-side { position: fixed; inset: 0; z-index: 30; flex-direction: column; overflow-y: auto; background: var(--sea2); padding: 8px; }
+  #game.side-open .g-side > .g-log, #game.side-open .g-side > .g-chat, #game.side-open .g-side > .bank { display: block; }
+  #game.side-open .g-side > .bank { display: flex; }
+  #game.side-open .g-log { flex: none; height: 38vh; }
+  #game.side-open .players { flex-direction: column; }
+  .side-close { border: 0; border-radius: 10px; background: var(--hilite); font-weight: 800; padding: 10px; flex: none; }
+  #game.side-open .side-close { display: block; }
+  #sideTab { display: block; position: relative; }
+  #sideBadge { position: absolute; top: -4px; right: -4px; background: #c0392b; color: #fff; border-radius: 8px; font-size: 10px; font-style: normal; padding: 0 4px; }
+  #sideBadge:empty { display: none; }
+
+  .g-board { flex: 1; min-height: 0; }
+  .g-tools { flex-direction: row; gap: 5px; top: 4px; left: 4px; flex-wrap: wrap; max-width: 70%; }
+  .g-tools button { width: 36px; height: 36px; font-size: 17px; }
+  .zoom-ctl { top: 4px; right: 4px; gap: 4px; }
+  .zoom-ctl button { width: 36px; height: 32px; font-size: 16px; }
+  .zoom-ctl #zoomReset { font-size: 10px; }
+  .recipes { top: 46px; left: 4px; width: 132px; padding: 4px 6px; font-size: 12px; }
+  .rec-row { padding: 3px 2px; } .rec-row .rn { font-size: 11px; }
+  .rc { width: 17px; height: 22px; font-size: 10px; }
+  .dice { right: 4px; bottom: auto; top: 44px; gap: 4px; }
+  .die { width: 40px; height: 40px; border-radius: 9px; }
+  .die i { width: 8px; height: 8px; }
+  .vote-bar { top: 44px; width: 92%; font-size: 13px; }
+
+  .g-bottom { flex-direction: column; align-items: stretch; gap: 4px; }
+  .hand { min-height: 70px; padding: 6px; gap: 4px; }
+  .rcard { width: 44px; height: 62px; font-size: 22px; }
+  .hand > .rcard { flex: 0 1 44px; min-width: 34px; }
+  .rcard .cnt { width: 19px; height: 19px; font-size: 11px; top: -5px; right: -5px; }
+  .rcard.dev small { font-size: 7px; }
+  .g-statusrow { gap: 4px; }
+  .status { height: 36px; font-size: 13px; padding: 0 8px; }
+  .timer { width: 64px; height: 36px; font-size: 15px; }
+  .actions { gap: 4px; }
+  .act { flex: 1; width: auto; height: 54px; font-size: 20px; border-width: 2px; min-width: 0; }
+  .act small { font-size: 9px; }
+  .act .cnt { font-size: 10px; padding: 0 4px; }
+
+  .offers { left: 0; right: 0; width: auto; bottom: 186px; max-height: 40vh; overflow-y: auto; }
+  .trade-panel { width: 100%; flex-direction: column; }
+  .tp-box { min-height: 0; padding: 6px; }
+  .tp-line { min-height: 56px; gap: 6px; }
+  .tp-ico { width: 46px; font-size: 20px; } .tp-ico b { font-size: 18px; }
+  .tp-side { flex-direction: row; justify-content: space-between; padding: 6px; }
+  .tbig { flex: 1; width: auto; height: 54px; font-size: 22px; }
+  .tbig small { font-size: 10px; }
+
+  .modal { padding: 8px; }
+  .modal-card { padding: 14px; max-height: 92dvh; }
+  .toast { top: 50px; width: max-content; max-width: 92vw; font-size: 14px; }
+  .net-bar { font-size: 13px; padding: 8px; }
+  .tip { max-width: 80vw; }
+}
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .shell-main { overflow-x: hidden; }
+  #lobby > * { min-width: 0; }
+  .dice { top: auto; bottom: 4px; }
+}
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .dice { bottom: 184px; }
+  .trade-panel { background: var(--sea2); border-radius: 10px 10px 0 0; padding-top: 4px; }
+}
+/* telefon polozen: tabla levo, karte i dugmad desno, igraci skroz desno */
+@media (max-height: 500px) and (orientation: landscape) and (pointer: coarse) {
+  #game { flex-direction: row; }
+  .g-side { order: 2; flex-direction: column; width: 150px; overflow-y: auto; }
+  .players { flex-direction: column; }
+  .players .pp, .players.compact .pp { min-width: 0; }
+  .g-board { display: grid; grid-template-columns: 1fr 270px; grid-template-rows: 1fr; gap: 4px; }
+  #board { grid-column: 1; grid-row: 1; height: 100%; }
+  .g-bottom { grid-column: 2; grid-row: 1; justify-content: flex-end; }
+  .hand { flex-wrap: wrap; min-height: 0; flex: none; }
+  .actions { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .act { height: 44px; }
+  .dice { right: 278px; bottom: 4px; }
+  .zoom-ctl { right: 278px; }
+  .offers { left: auto; right: 0; width: 270px; bottom: 150px; }
+  .trade-panel { left: auto; right: 0; width: 330px; max-height: 100%; overflow-y: auto; }
+  .recipes { display: none; }
+  .g-tools { flex-direction: column; flex-wrap: nowrap; }
+  #game.side-open .g-side { width: auto; }
+  #shell { flex-direction: row; }
+  .rail { width: 84px; flex-direction: column; padding-top: 6px; }
+  .logo { flex-direction: column; margin: 0 0 8px; }
+  .rail-btn.active, .rail-btn:hover { box-shadow: inset 4px 0 var(--hilite); }
+}
