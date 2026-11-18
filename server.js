@@ -51,7 +51,7 @@ function leaveRoom(socket) {
   socket.leave(socket.data.code);
   socket.data = {};
   if (!game) return;
-  if (!game.players.length) games.delete(game.code);
+  if (!game.players.length || game.players.every((p) => p.quit)) games.delete(game.code);
   else broadcast(game);
   sendRooms();
 }
@@ -81,6 +81,7 @@ io.on('connection', (socket) => {
     if (!game) return reply(cb, { ok: false, error: 'Soba ne postoji. Proveri kod.' });
     let pl = token && game.players.find((p) => p.token === token);
     if (!pl && rejoinOnly) return reply(cb, { ok: false });
+    if (pl && pl.quit) { pl.quit = false; game.addLog(`${pl.name} se vratio u igru.`); }
     if (!pl) {
       try { pl = game.addPlayer(name, token); } catch (e) { return reply(cb, { ok: false, error: e.message }); }
     }

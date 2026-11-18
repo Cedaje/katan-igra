@@ -107,17 +107,21 @@ function botTick(g) {
 
 // Kad istekne vreme: odigraj umesto igraca koji kasni.
 function timeoutTick(g) {
-  if (!g.deadline || Date.now() < g.deadline) return false;
+  if (g.phase !== 'setup' && g.phase !== 'play') return false;
+  // igrac koji je napustio igru igra se odmah automatski
+  const quitTurn = g.current().quit || Object.keys(g.pendingDiscard || {}).some((id) => g.p(id).quit);
+  if (!quitTurn && (!g.deadline || Date.now() < g.deadline)) return false;
   g.timerKey = null; // dozvoli novi rok ako se stanje ne promeni
   if (g.sub === 'discard') {
     for (const pid of Object.keys(g.pendingDiscard)) {
+      if (Date.now() < (g.deadline || 0) && !g.p(pid).quit) continue;
       const a = chooseAction(g, pid, true);
       if (a) g.action(a.pid, a.type, a.data);
     }
     return true;
   }
   const cur = g.current();
-  g.addLog(`⏰ Isteklo je vreme za ${cur.name}.`);
+  if (!cur.quit) g.addLog(`⏰ Isteklo je vreme za ${cur.name}.`);
   if (g.sub === 'roadBuilding') { g.action(cur.id, 'endTurn'); return true; }
   const a = chooseAction(g, cur.id, true);
   if (a) { try { g.action(a.pid, a.type, a.data); } catch (e) { if (!(e instanceof GameError)) throw e; g.touchTimer(); } }

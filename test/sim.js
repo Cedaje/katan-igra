@@ -78,7 +78,7 @@ for (let i = 0; i < GAMES; i++) {
   while (g.phase !== 'ended' && steps < 20000) {
     botStep(g); steps++;
     const t = totalCards(g);
-    for (const r of RES) assert.equal(t[r], lay.bank, 'broj karata se promenio: ' + r);
+    for (const r of RES) assert.equal(t[r], g.settings.resCards, 'broj karata se promenio: ' + r);
     for (const p of g.players) for (const r of RES) assert.ok(p.hand[r] >= 0);
     if (steps % 50 === 0) for (const p of g.players) JSON.stringify(g.viewFor(p.id));
   }

@@ -50,7 +50,7 @@ const LAYOUTS = {
   },
 };
 const MAP_MAX = { base: 4, ext6: 6, ext8: 8 };
-const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false };
+const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false, hideBank: false, resCards: 19, devCards: 25 };
 
 function buildBoard(layoutName = 'base') {
   const L = LAYOUTS[layoutName];
@@ -118,11 +118,25 @@ function buildBoard(layoutName = 'base') {
     const mx = (vertices[e.a].x + vertices[e.b].x) / 2, my = (vertices[e.a].y + vertices[e.b].y) / 2;
     return { e, mx, my, ang: Math.atan2(my, mx) };
   }).sort((p, q) => p.ang - q.ang);
-  const portTypes = [...L.ports]; // luke su uvek na istim mestima, kao u pravoj igri
-  const ports = [];
+  // Luke na nasumicnim mestima: izmedju dve luke uvek bar jedna ivica obale
+  const portTypes = shuffle([...L.ports]);
   const np = portTypes.length;
+  let chosen = null;
+  for (let tries = 0; tries < 2000 && !chosen; tries++) {
+    const idx = shuffle([...coast.keys()]).slice(0, np).sort((a, b) => a - b);
+    const used = new Set();
+    let ok = true;
+    for (const i of idx) {
+      const e = coast[i].e;
+      if (used.has(e.a) || used.has(e.b)) { ok = false; break; }
+      for (const v of [e.a, e.b]) { used.add(v); for (const w of vertices[v].adj) used.add(w); }
+    }
+    if (ok) chosen = idx;
+  }
+  if (!chosen) chosen = portTypes.map((_, i) => Math.floor((i * coast.length) / np));
+  const ports = [];
   for (let i = 0; i < np; i++) {
-    const c = coast[Math.floor((i * coast.length) / np)];
+    const c = coast[chosen[i]];
     const type = portTypes[i];
     vertices[c.e.a].port = type; vertices[c.e.b].port = type;
     const len = Math.hypot(c.mx, c.my);
@@ -133,8 +147,17 @@ function buildBoard(layoutName = 'base') {
   return { layout: layoutName, hexes, vertices, edges, ports, robber };
 }
 
-function makeDevDeck(layoutName = 'base') {
-  return shuffle(Object.entries(LAYOUTS[layoutName].dev).flatMap(([t, n]) => Array(n).fill(t)));
+const devTotal = (layoutName) => Object.values(LAYOUTS[layoutName].dev).reduce((a, b) => a + b, 0);
+
+// Spil razvojnih karata; ako je zadat ukupan broj, raspodela ostaje ista kao u pravoj igri
+function makeDevDeck(layoutName = 'base', total = null) {
+  const base = LAYOUTS[layoutName].dev;
+  const sum = devTotal(layoutName);
+  total = total || sum;
+  const counts = {};
+  for (const [t, n] of Object.entries(base)) counts[t] = t === 'vitez' ? 0 : Math.round((n * total) / sum);
+  counts.vitez = Math.max(0, total - Object.values(counts).reduce((a, b) => a + b, 0));
+  return shuffle(Object.entries(counts).flatMap(([t, n]) => Array(n).fill(t)));
 }
 
 class GameError extends Error {}
@@ -175,13 +198,19 @@ class Game {
   current() { return this.players[this.turn]; }
   addLog(text) { this.log.push({ t: Date.now(), text }); if (this.log.length > 200) this.log.shift(); }
 
-  hostId() { return this.players[0]?.id; }
+  hostId() {
+    // osnivac ostaje isti i posle mesanja redosleda igraca; ako ode iz lobija, osnivac postaje sledeci
+    if (!this.players.some((p) => p.id === this.hostPid)) this.hostPid = this.players[0]?.id;
+    return this.hostPid;
+  }
 
   applySettings(s) {
     const st = this.settings;
     if (s.map && MAP_MAX[s.map]) {
       st.map = s.map;
       if (s.maxPlayers === undefined) st.maxPlayers = MAP_MAX[s.map];
+      if (s.resCards === undefined) st.resCards = LAYOUTS[s.map].bank;
+      if (s.devCards === undefined) st.devCards = devTotal(s.map);
     }
     const num = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(v))));
     if (s.maxPlayers !== undefined) st.maxPlayers = num(s.maxPlayers, 2, MAP_MAX[st.map]);
@@ -191,6 +220,9 @@ class Game {
     if (s.vpToWin !== undefined) st.vpToWin = num(s.vpToWin, 3, 20);
     if (s.discardLimit !== undefined) st.discardLimit = num(s.discardLimit, 5, 20);
     if (s.private !== undefined) st.private = !!s.private;
+    if (s.hideBank !== undefined) st.hideBank = !!s.hideBank;
+    if (s.resCards !== undefined) st.resCards = num(s.resCards, 10, 50);
+    if (s.devCards !== undefined) st.devCards = num(s.devCards, 10, 80);
   }
 
   updateSettings(pl, s) {
@@ -323,6 +355,26 @@ class Game {
   }
   totalVP(pl) { return this.publicVP(pl) + pl.dev.filter((d) => d.type === 'bod').length; }
 
+  // Igrac napusta igru u toku: njegove figure ostaju, a potezi mu se automatski preskacu
+  quit(pl) {
+    if (pl.quit) return;
+    pl.quit = true;
+    this.addLog(`🚪 ${pl.name} je napustio igru.`);
+    if (this.trade && this.trade.from === pl.id) this.trade = null;
+    if (this.phase !== 'ended' && this.players.every((p) => p.quit)) { this.phase = 'ended'; this.sub = null; }
+  }
+
+  endGame(pl) {
+    if (this.phase === 'lobby' || this.phase === 'ended') fail('Igra nije u toku.');
+    if (this.hostId() !== pl.id) fail('Samo osnivač sobe može da prekine igru.');
+    this.phase = 'ended';
+    this.sub = null;
+    this.trade = null;
+    this.winner = null;
+    this.endedBy = pl.id;
+    this.addLog(`🛑 ${pl.name} je prekinuo igru.`);
+  }
+
   checkWin() {
     const pl = this.current();
     if (this.phase === 'play' && this.totalVP(pl) >= this.settings.vpToWin) {
@@ -351,7 +403,8 @@ class Game {
     if (type === 'start') return this.start(pl);
     if (type === 'settings') return this.updateSettings(pl, data || {});
     if (type === 'kick') return this.removePlayer(pl, data.pid);
-    if (type === 'leave') return this.removePlayer(pl, pl.id);
+    if (type === 'leave') return this.phase === 'lobby' ? this.removePlayer(pl, pl.id) : this.quit(pl);
+    if (type === 'endGame') return this.endGame(pl);
     if (this.phase === 'ended') fail('Igra je završena.');
     if (this.phase === 'lobby') fail('Igra još nije počela.');
 
@@ -388,8 +441,8 @@ class Game {
     const n = this.players.length;
     const layout = this.settings.map;
     this.board = buildBoard(layout);
-    this.devDeck = makeDevDeck(layout);
-    const bankSize = LAYOUTS[layout].bank;
+    this.devDeck = makeDevDeck(layout, this.settings.devCards);
+    const bankSize = this.settings.resCards;
     this.bank = Object.fromEntries(RES.map((r) => [r, bankSize]));
     this.setupOrder = [...Array(n).keys(), ...[...Array(n).keys()].reverse()];
     this.setupStep = 0;
@@ -773,7 +826,7 @@ class Game {
       buildings: this.buildings,
       roads: this.roads,
       players: this.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, connected: p.connected,
+        id: p.id, name: p.name, color: p.color, connected: p.connected, quit: !!p.quit,
         cards: handSize(p.hand), devCards: p.dev.length, knights: p.knights,
         vp: this.phase === 'ended' || p.id === pid ? this.totalVP(p) : this.publicVP(p),
         roadLen: this.roadLength(p.id), left: p.left,
@@ -783,18 +836,20 @@ class Game {
       dev: me ? me.dev.map((d) => ({ type: d.type, fresh: d.bought >= this.turnNum })) : [],
       devPlayed: !!this.devPlayed,
       rates: me ? Object.fromEntries(RES.map((r) => [r, this.tradeRate(me, r)])) : null,
-      bank: this.bank,
-      devLeft: this.devDeck.length,
+      bank: this.settings.hideBank && this.phase !== 'ended' ? null : this.bank,
+      devLeft: this.settings.hideBank && this.phase !== 'ended' ? null : this.devDeck.length,
+      devEmpty: this.devDeck.length === 0,
       pendingDiscard: this.pendingDiscard,
       freeRoads: this.freeRoads || 0,
       trade: this.trade,
       lastSteal: this.lastSteal && (this.lastSteal.thief === pid || this.lastSteal.victim === pid) ? this.lastSteal : null,
       legal,
       winner: this.winner,
+      endedBy: this.endedBy || null,
       log: this.log.slice(-60),
       chat: this.chat.slice(-60),
     };
   }
 }
 
-module.exports = { Game, GameError, RES, COST, LAYOUTS, MAP_MAX, buildBoard, handSize };
+module.exports = { makeDevDeck, Game, GameError, RES, COST, LAYOUTS, MAP_MAX, buildBoard, handSize };
