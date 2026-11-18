@@ -7,72 +7,107 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Pocetni ekran -->
-  <section id="home" class="screen">
-    <div class="home-card">
-      <h1>⛵ Ostrvo Trgovaca</h1>
-      <p class="tag">Gradi sela, trguj sirovinama i prvi stigni do 10 poena.</p>
-      <label>Tvoje ime
-        <input id="nameInput" maxlength="16" placeholder="npr. Marko">
-      </label>
-      <div id="joinInvite" class="hidden">
-        <p>Pozvan si u sobu <b id="inviteCode"></b></p>
-        <button id="joinInviteBtn" class="primary big">Uđi u sobu</button>
-      </div>
-      <div id="homeButtons">
-        <button id="createBtn" class="primary big">Napravi novu sobu</button>
-        <div class="or">ili uđi sa kodom</div>
-        <div class="row">
-          <input id="codeInput" maxlength="4" placeholder="KOD" style="text-transform:uppercase">
-          <button id="joinBtn">Uđi</button>
-        </div>
-      </div>
-      <p id="homeError" class="error"></p>
-    </div>
-  </section>
+  <!-- Meni + sobe + lobi -->
+  <div id="shell">
+    <nav class="rail">
+      <div class="logo"><span>⛵</span><b>Ostrvo</b><small>Trgovaca</small></div>
+      <button class="rail-btn active" data-nav="rooms"><span>🏝️</span>Sobe</button>
+      <button class="rail-btn" data-nav="rules"><span>📖</span>Pravila</button>
+    </nav>
+    <div class="shell-main">
+      <header class="top">
+        <label class="name-pill">Tvoje ime <input id="nameInput" maxlength="16" placeholder="Upiši ime"></label>
+      </header>
 
-  <!-- Cekaonica -->
-  <section id="lobby" class="screen hidden">
-    <div class="home-card">
-      <h2>Soba <span id="lobbyCode"></span></h2>
-      <p>Pošalji ovaj link prijateljima:</p>
-      <div class="row">
-        <input id="inviteLink" readonly>
-        <button id="copyBtn">Kopiraj</button>
-      </div>
-      <h3>Igrači (2 do 8)</h3>
-      <p class="muted" style="font-size:13px;margin-top:-6px">Do 4 igrača: obična tabla. 5–6 i 7–8 igrača: veća tabla.</p>
-      <ul id="lobbyPlayers"></ul>
-      <button id="startBtn" class="primary big">Pokreni igru</button>
-      <p id="lobbyWait" class="muted">Čeka se da osnivač sobe pokrene igru…</p>
+      <!-- Lista soba -->
+      <section id="rooms" class="page">
+        <div class="rooms-col">
+          <div class="seg"><button class="active">Otvorene sobe</button></div>
+          <div class="rooms-table">
+            <div class="rt-head"><span>Mod</span><span>Mapa</span><span>Tajmer</span><span>Igrači</span></div>
+            <div id="roomRows"></div>
+          </div>
+          <div class="rooms-buttons">
+            <button id="createBtn" class="btn green">Napravi sobu</button>
+            <button id="joinBtn" class="btn orange">Uđi u sobu</button>
+          </div>
+          <p id="homeError" class="error"></p>
+        </div>
+        <aside class="promo">
+          <div class="promo-art">
+            <svg viewBox="-110 -100 220 200" width="200"><g id="promoHex"></g></svg>
+          </div>
+          <h2>Gradi. Trguj. Pobedi.</h2>
+          <p>Napravi sobu, pošalji link prijateljima i igrajte zajedno u browseru. Od 2 do 8 igrača.</p>
+          <button class="btn ghost" data-nav="rules">Kako se igra?</button>
+        </aside>
+      </section>
+
+      <!-- Lobi -->
+      <section id="lobby" class="page hidden">
+        <div class="lob-col lob-players">
+          <h2>Igrači (<span id="lpCount"></span>)</h2>
+          <div id="lobbyPlayers"></div>
+        </div>
+        <div class="lob-col lob-settings">
+          <div class="lob-title"><h2>Soba: <span id="lobbyCode"></span></h2><button id="leaveBtn" class="x" title="Izađi iz sobe">✕</button></div>
+          <div class="lob-scroll">
+            <div class="box">
+              <h3>Pozovi prijatelje</h3>
+              <div class="invite"><input id="inviteLink" readonly><button id="copyBtn" class="btn green sm">Kopiraj</button></div>
+            </div>
+            <h3>Mapa</h3>
+            <div class="tiles" id="mapTiles"></div>
+            <h3>Pravila</h3>
+            <div class="tiles" id="ruleTiles"></div>
+            <h3>Napredna podešavanja</h3>
+            <div class="adv" id="advSettings"></div>
+          </div>
+          <div class="lob-start"><button id="startBtn" class="btn green">Pokreni igru</button><span id="lobbyWait" class="muted-light">Čeka se da osnivač pokrene igru…</span></div>
+        </div>
+        <div class="lob-col lob-chat">
+          <h2>Ćaskanje</h2>
+          <div id="lobbyChat" class="chat-list"></div>
+          <form class="chat-form" data-chat><input maxlength="300" placeholder="Pošalji poruku" autocomplete="off"><button>➤</button></form>
+        </div>
+      </section>
     </div>
-  </section>
+  </div>
 
   <!-- Igra -->
-  <section id="game" class="screen hidden">
-    <div class="main">
-      <div class="topbar">
-        <div id="status"></div>
-        <div id="dice"></div>
+  <section id="game" class="hidden">
+    <div class="g-board">
+      <div class="g-tools">
+        <button data-nav="rules" title="Pravila">📖</button>
+        <button id="fsBtn" title="Ceo ekran">⛶</button>
       </div>
-      <div class="board-wrap"><svg id="board"></svg></div>
-      <div class="bottombar">
-        <div id="hand"></div>
-        <div id="devHand"></div>
-        <div id="actions"></div>
-      </div>
-    </div>
-    <aside class="side">
-      <div id="players"></div>
-      <div id="tradeBox" class="panel"></div>
-      <div class="panel grow">
-        <div class="tabs"><button data-tab="log" class="active">Dešavanja</button><button data-tab="chat">Ćaskanje <span id="chatBadge"></span></button></div>
-        <div id="log" class="scroll"></div>
-        <div id="chatWrap" class="hidden">
-          <div id="chat" class="scroll"></div>
-          <form id="chatForm" class="row"><input id="chatInput" maxlength="300" placeholder="Napiši poruku…" autocomplete="off"><button>Pošalji</button></form>
+      <svg id="board"></svg>
+      <div id="dice" class="dice"></div>
+      <div id="offers" class="offers hidden"></div>
+      <div id="tradePanel" class="trade-panel hidden"></div>
+      <div class="g-bottom">
+        <div id="hand" class="hand"></div>
+        <div class="g-controls">
+          <div class="g-statusrow">
+            <div id="status" class="status"></div>
+            <div id="timer" class="timer"></div>
+          </div>
+          <div id="actions" class="actions"></div>
         </div>
       </div>
+    </div>
+    <aside class="g-side">
+      <div id="log" class="g-log"></div>
+      <div class="g-chat">
+        <button id="chatToggle" class="chat-head">Ćaskanje <span id="chatBadge"></span><span class="chev">▴</span></button>
+        <div id="chatBody" class="hidden">
+          <div id="chat" class="chat-list"></div>
+          <form class="chat-form" data-chat><input maxlength="300" placeholder="Pošalji poruku" autocomplete="off"><button>➤</button></form>
+        </div>
+      </div>
+      <div id="bank" class="bank"></div>
+      <div id="players" class="players"></div>
+      <div id="mePanel" class="players me"></div>
     </aside>
   </section>
 

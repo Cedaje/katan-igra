@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node test/sim.js 100"
+    "test": "node test/sim.js 60 && node test/bots.js 30"
   },
   "repository": {
     "type": "git",

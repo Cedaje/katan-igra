@@ -3,6 +3,7 @@ const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
 const { Game, GameError } = require('./game');
+const { timeoutTick } = require('./bot');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,31 +22,57 @@ function newCode() {
   return code;
 }
 
+const roomSockets = (code) => [...io.of('/').sockets.values()].filter((s) => s.data.code === code);
+
+function roomList() {
+  return [...games.values()]
+    .filter((g) => g.phase === 'lobby' && !g.settings.private && g.players.length)
+    .map((g) => ({ ...g.summary(), names: g.players.map((p) => p.name) }));
+}
+function sendRooms(target = io) { target.emit('rooms', roomList()); }
+
 function broadcast(game) {
-  for (const [, sock] of io.of('/').sockets) {
-    if (sock.data.code === game.code) sock.emit('state', game.viewFor(sock.data.pid));
-  }
+  const online = new Set(roomSockets(game.code).map((s) => s.data.pid));
+  for (const p of game.players) p.connected = online.has(p.id);
+  game.emptySince = online.size ? null : (game.emptySince || Date.now());
+  for (const sock of roomSockets(game.code)) sock.emit('state', game.viewFor(sock.data.pid));
 }
 
-function setConnected(game, pid) {
-  const online = new Set();
-  for (const [, s] of io.of('/').sockets) if (s.data.code === game.code) online.add(s.data.pid);
-  for (const p of game.players) p.connected = online.has(p.id);
+// Tajmer poteza
+setInterval(() => {
+  for (const g of games.values()) {
+    if (g.emptySince) continue; // niko nije tu: igra je pauzirana
+    try { if (timeoutTick(g)) broadcast(g); } catch (e) { console.error('timer', e); }
+  }
+}, 500);
+
+function leaveRoom(socket) {
+  const game = games.get(socket.data.code);
+  socket.leave(socket.data.code);
+  socket.data = {};
+  if (!game) return;
+  if (!game.players.length) games.delete(game.code);
+  else broadcast(game);
+  sendRooms();
 }
 
 io.on('connection', (socket) => {
+  socket.data = {};
   const reply = (cb, payload) => typeof cb === 'function' && cb(payload);
+  sendRooms(socket);
 
-  socket.on('create', ({ name, token } = {}, cb) => {
+  socket.on('rooms', () => sendRooms(socket));
+
+  socket.on('create', ({ name, token, settings } = {}, cb) => {
     const code = newCode();
-    const game = new Game(code);
+    const game = new Game(code, settings || {});
     games.set(code, game);
     const pl = game.addPlayer(name, token);
     socket.data = { code, pid: pl.id };
     socket.join(code);
-    setConnected(game);
     reply(cb, { ok: true, code });
     broadcast(game);
+    sendRooms();
   });
 
   socket.on('join', ({ code, name, token, rejoinOnly } = {}, cb) => {
@@ -59,13 +86,13 @@ io.on('connection', (socket) => {
     }
     socket.data = { code, pid: pl.id };
     socket.join(code);
-    setConnected(game);
     reply(cb, { ok: true, code });
     broadcast(game);
+    sendRooms();
   });
 
   socket.on('action', ({ type, data } = {}, cb) => {
-    const game = games.get(socket.data?.code);
+    const game = games.get(socket.data.code);
     if (!game) return reply(cb, { ok: false, error: 'Nisi u sobi.' });
     try {
       game.action(socket.data.pid, type, data);
@@ -74,21 +101,28 @@ io.on('connection', (socket) => {
       if (!(e instanceof GameError)) console.error(e);
       return reply(cb, { ok: false, error: e instanceof GameError ? e.message : 'Greška na serveru.' });
     }
+    if (type === 'leave') return leaveRoom(socket);
+    if (type === 'kick') {
+      for (const s of roomSockets(game.code)) if (!game.p(s.data.pid)) { s.emit('kicked'); s.leave(game.code); s.data = {}; }
+    }
     broadcast(game);
+    if (['settings', 'kick', 'start'].includes(type)) sendRooms();
   });
 
   socket.on('disconnect', () => {
-    const game = games.get(socket.data?.code);
-    if (!game) return;
-    setTimeout(() => { setConnected(game); broadcast(game); }, 0);
+    const game = games.get(socket.data.code);
+    if (game) setTimeout(() => broadcast(game), 0);
   });
 });
 
-// Brisanje starih soba (6 sati bez aktivnosti)
+// Brisanje starih soba (3 sata bez aktivnosti)
 setInterval(() => {
   const now = Date.now();
-  for (const [code, g] of games) if (now - g.lastActivity > 6 * 3600 * 1000) games.delete(code);
-}, 10 * 60 * 1000);
+  for (const [code, g] of games) {
+    if (now - g.lastActivity > 3 * 3600 * 1000 || (g.emptySince && now - g.emptySince > 30 * 60 * 1000)) games.delete(code);
+  }
+  sendRooms();
+}, 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Ostrvo Trgovaca radi na http://localhost:${PORT}`));

@@ -8,11 +8,9 @@ const COST = {
   city: { zito: 2, kamen: 3 },
   dev: { vuna: 1, zito: 1, kamen: 1 },
 };
-const COLORS = ['#e05a47', '#3b82c4', '#f2b134', '#4caf6a', '#9b5fc0', '#f2f2f2', '#e07ab8', '#8a5a3c'];
+const COLORS = ['#e05a47', '#3b82c4', '#f2b134', '#4caf6a', '#9b5fc0', '#26b5b0', '#e07ab8', '#8a5a3c'];
 const DEV_NAMES = { vitez: 'Vitez', bod: 'Bod pobede', putevi: 'Graditelji puteva', obilje: 'Obilje', monopol: 'Monopol' };
 const RES_NAMES = { drvo: 'drvo', glina: 'glina', vuna: 'vuna', zito: 'žito', kamen: 'kamen' };
-const MAX_PLAYERS = 8;
-const WIN_VP = 10;
 
 function shuffle(a) {
   for (let i = a.length - 1; i > 0; i--) {
@@ -30,7 +28,7 @@ const LAYOUTS = {
     rows: [3, 4, 5, 4, 3],
     terrain: { suma: 4, gliniste: 3, pasnjak: 4, polje: 4, planina: 3, pustinja: 1 },
     numbers: [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12],
-    ports: ['3:1', '3:1', '3:1', '3:1', 'drvo', 'glina', 'vuna', 'zito', 'kamen'],
+    ports: ['3:1', 'vuna', '3:1', '3:1', 'glina', 'drvo', '3:1', 'zito', 'kamen'],
     bank: 19,
     dev: { vitez: 14, bod: 5, putevi: 2, obilje: 2, monopol: 2 },
   },
@@ -38,7 +36,7 @@ const LAYOUTS = {
     rows: [3, 4, 5, 6, 5, 4, 3],
     terrain: { suma: 6, gliniste: 5, pasnjak: 6, polje: 6, planina: 5, pustinja: 2 },
     numbers: [2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 8, 8, 8, 9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12],
-    ports: ['3:1', '3:1', '3:1', '3:1', '3:1', 'drvo', 'glina', 'vuna', 'vuna', 'zito', 'kamen'],
+    ports: ['3:1', 'vuna', '3:1', 'glina', 'drvo', '3:1', 'zito', '3:1', 'kamen', 'vuna', '3:1'],
     bank: 24,
     dev: { vitez: 20, bod: 5, putevi: 3, obilje: 3, monopol: 3 },
   },
@@ -46,12 +44,13 @@ const LAYOUTS = {
     rows: [4, 5, 6, 7, 6, 5, 4],
     terrain: { suma: 7, gliniste: 7, pasnjak: 7, polje: 7, planina: 7, pustinja: 2 },
     numbers: [2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10, 10, 11, 11, 11, 12, 12],
-    ports: ['3:1', '3:1', '3:1', '3:1', '3:1', '3:1', 'drvo', 'glina', 'vuna', 'zito', 'kamen', 'drvo', 'zito'],
+    ports: ['3:1', 'vuna', '3:1', 'glina', 'drvo', '3:1', 'zito', '3:1', 'kamen', 'drvo', '3:1', 'zito', '3:1'],
     bank: 30,
     dev: { vitez: 25, bod: 6, putevi: 4, obilje: 4, monopol: 4 },
   },
 };
-const layoutFor = (n) => (n <= 4 ? 'base' : n <= 6 ? 'ext6' : 'ext8');
+const MAP_MAX = { base: 4, ext6: 6, ext8: 8 };
+const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false };
 
 function buildBoard(layoutName = 'base') {
   const L = LAYOUTS[layoutName];
@@ -119,7 +118,7 @@ function buildBoard(layoutName = 'base') {
     const mx = (vertices[e.a].x + vertices[e.b].x) / 2, my = (vertices[e.a].y + vertices[e.b].y) / 2;
     return { e, mx, my, ang: Math.atan2(my, mx) };
   }).sort((p, q) => p.ang - q.ang);
-  const portTypes = shuffle([...L.ports]);
+  const portTypes = [...L.ports]; // luke su uvek na istim mestima, kao u pravoj igri
   const ports = [];
   const np = portTypes.length;
   for (let i = 0; i < np; i++) {
@@ -142,12 +141,16 @@ class GameError extends Error {}
 const fail = (msg) => { throw new GameError(msg); };
 
 class Game {
-  constructor(code) {
+  constructor(code, settings = {}) {
     this.code = code;
     this.players = [];
+    this.settings = { ...DEFAULT_SETTINGS };
+    this.applySettings(settings);
     this.phase = 'lobby'; // lobby | setup | play | ended
     this.sub = null;
-    this.board = buildBoard();
+    this.deadline = null;
+    this.timerKey = null;
+    this.board = buildBoard(this.settings.map);
     this.buildings = {}; // vertexId -> { pid, type: 'settlement'|'city' }
     this.roads = {}; // edgeId -> pid
     this.bank = { drvo: 19, glina: 19, vuna: 19, zito: 19, kamen: 19 };
@@ -172,9 +175,45 @@ class Game {
   current() { return this.players[this.turn]; }
   addLog(text) { this.log.push({ t: Date.now(), text }); if (this.log.length > 200) this.log.shift(); }
 
+  hostId() { return this.players[0]?.id; }
+
+  applySettings(s) {
+    const st = this.settings;
+    if (s.map && MAP_MAX[s.map]) {
+      st.map = s.map;
+      if (s.maxPlayers === undefined) st.maxPlayers = MAP_MAX[s.map];
+    }
+    const num = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(v))));
+    if (s.maxPlayers !== undefined) st.maxPlayers = num(s.maxPlayers, 2, MAP_MAX[st.map]);
+    st.maxPlayers = Math.min(st.maxPlayers, MAP_MAX[st.map]);
+    if (this.players) st.maxPlayers = Math.max(st.maxPlayers, this.players.length);
+    if (s.timer !== undefined) st.timer = [0, 30, 60, 90, 120, 180, 240].includes(Number(s.timer)) ? Number(s.timer) : st.timer;
+    if (s.vpToWin !== undefined) st.vpToWin = num(s.vpToWin, 3, 20);
+    if (s.discardLimit !== undefined) st.discardLimit = num(s.discardLimit, 5, 20);
+    if (s.private !== undefined) st.private = !!s.private;
+  }
+
+  updateSettings(pl, s) {
+    if (this.phase !== 'lobby') fail('Igra je već počela.');
+    if (this.hostId() !== pl.id) fail('Samo osnivač sobe menja podešavanja.');
+    if (s.map && MAP_MAX[s.map] < this.players.length) fail('U sobi ima previše igrača za ovu mapu.');
+    const oldMap = this.settings.map;
+    this.applySettings(s);
+    if (this.settings.map !== oldMap) this.board = buildBoard(this.settings.map);
+  }
+
+  removePlayer(by, pid) {
+    if (this.phase !== 'lobby') fail('Igra je već počela.');
+    if (by.id !== pid && this.hostId() !== by.id) fail('Samo osnivač sobe može da izbaci igrača.');
+    const i = this.players.findIndex((p) => p.id === pid);
+    if (i < 0) fail('Nema tog igrača.');
+    const [p] = this.players.splice(i, 1);
+    this.addLog(`${p.name} je izašao iz sobe.`);
+  }
+
   addPlayer(name, token) {
     if (this.phase !== 'lobby') fail('Igra je već počela.');
-    if (this.players.length >= MAX_PLAYERS) fail('Soba je puna (najviše 8 igrača).');
+    if (this.players.length >= this.settings.maxPlayers) fail(`Soba je puna (${this.settings.maxPlayers} igrača).`);
     const used = new Set(this.players.map((p) => p.color));
     const pl = {
       id: 'p' + Math.random().toString(36).slice(2, 9),
@@ -286,7 +325,7 @@ class Game {
 
   checkWin() {
     const pl = this.current();
-    if (this.phase === 'play' && this.totalVP(pl) >= WIN_VP) {
+    if (this.phase === 'play' && this.totalVP(pl) >= this.settings.vpToWin) {
       this.phase = 'ended';
       this.sub = null;
       this.winner = pl.id;
@@ -297,6 +336,10 @@ class Game {
 
   // ---------- akcije ----------
   action(pid, type, data = {}) {
+    try { return this.doAction(pid, type, data); } finally { this.touchTimer(); }
+  }
+
+  doAction(pid, type, data = {}) {
     this.lastActivity = Date.now();
     const pl = this.p(pid);
     if (!pl) fail('Nisi u ovoj sobi.');
@@ -306,6 +349,9 @@ class Game {
       return;
     }
     if (type === 'start') return this.start(pl);
+    if (type === 'settings') return this.updateSettings(pl, data || {});
+    if (type === 'kick') return this.removePlayer(pl, data.pid);
+    if (type === 'leave') return this.removePlayer(pl, pl.id);
     if (this.phase === 'ended') fail('Igra je završena.');
     if (this.phase === 'lobby') fail('Igra još nije počela.');
 
@@ -336,11 +382,11 @@ class Game {
 
   start(pl) {
     if (this.phase !== 'lobby') fail('Igra je već počela.');
-    if (this.players[0].id !== pl.id) fail('Samo osnivač sobe može da pokrene igru.');
+    if (this.hostId() !== pl.id) fail('Samo osnivač sobe može da pokrene igru.');
     if (this.players.length < 2) fail('Potrebna su bar 2 igrača.');
     shuffle(this.players);
     const n = this.players.length;
-    const layout = layoutFor(n);
+    const layout = this.settings.map;
     this.board = buildBoard(layout);
     this.devDeck = makeDevDeck(layout);
     const bankSize = LAYOUTS[layout].bank;
@@ -475,11 +521,11 @@ class Game {
     this.pendingDiscard = {};
     for (const p of this.players) {
       const n = handSize(p.hand);
-      if (n > 7) this.pendingDiscard[p.id] = Math.floor(n / 2);
+      if (n > this.settings.discardLimit) this.pendingDiscard[p.id] = Math.floor(n / 2);
     }
     if (Object.keys(this.pendingDiscard).length) {
       this.sub = 'discard';
-      this.addLog(`Igrači sa više od 7 karata odbacuju polovinu.`);
+      this.addLog(`Igrači sa više od ${this.settings.discardLimit} karata odbacuju polovinu.`);
     } else {
       this.sub = 'robber';
     }
@@ -669,7 +715,26 @@ class Game {
     this.addLog(`➡️ Na potezu je ${this.current().name}.`);
   }
 
+  // ---------- tajmer poteza ----------
+  touchTimer() {
+    if (!this.settings.timer || (this.phase !== 'setup' && this.phase !== 'play')) { this.deadline = null; this.timerKey = null; return; }
+    const key = `${this.phase}|${this.turnNum}|${this.turn}|${this.sub}|${this.setupStep}`;
+    if (key === this.timerKey) return;
+    this.timerKey = key;
+    // bacanje kockica, razbojnik i odbacivanje imaju krace vreme
+    const short = ['roll', 'robber', 'steal', 'discard'].includes(this.sub);
+    const secs = short ? Math.min(30, this.settings.timer) : this.settings.timer;
+    this.deadline = Date.now() + secs * 1000;
+  }
+
   // ---------- prikaz za jednog igraca ----------
+  summary() {
+    return {
+      code: this.code, phase: this.phase, settings: this.settings,
+      players: this.players.length,
+    };
+  }
+
   viewFor(pid) {
     const me = this.p(pid);
     const isMyTurn = this.current()?.id === pid && (this.phase === 'setup' || this.phase === 'play');
@@ -691,7 +756,10 @@ class Game {
       phase: this.phase,
       sub: this.sub,
       me: pid,
-      host: this.players[0]?.id,
+      host: this.hostId(),
+      settings: this.settings,
+      deadline: this.deadline,
+      now: Date.now(),
       turn: this.current()?.id,
       turnNum: this.turnNum,
       dice: this.dice,
@@ -729,4 +797,4 @@ class Game {
   }
 }
 
-module.exports = { Game, GameError, RES, COST, LAYOUTS, buildBoard, handSize };
+module.exports = { Game, GameError, RES, COST, LAYOUTS, MAP_MAX, buildBoard, handSize };
