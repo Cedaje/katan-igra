@@ -276,3 +276,15 @@ input { font: inherit; }
 .skin-opt{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 10px;border:3px solid #0000;border-radius:12px;background:#f3ead7;cursor:pointer;font:inherit}
 .skin-opt.sel{border-color:#3aa35b;background:#e4f3e3}
 .skin-opt:hover{background:#efe2c6}
+/* izgled Kucice: ilustrovane karte */
+.skin-kucice .rcard:not(.dev) { background: #fff8e8 !important; border: 2px solid #c9b48a; flex-direction: column; justify-content: flex-start; padding: 3px; gap: 1px; }
+.skin-kucice .rcard .art { flex: 1; width: 100%; border-radius: 5px; display: grid; place-items: center; background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--c) 45%, #fff), var(--c)); box-shadow: inset 0 -3px 0 #0002; overflow: hidden; }
+.skin-kucice .rcard .art svg { width: 100%; height: 100%; }
+.skin-kucice .rcard .lbl { font-size: 9px; font-weight: 800; color: #5b4a2c; line-height: 1.1; }
+.skin-kucice .rcard.dev { background: linear-gradient(160deg, #8a6bc4, #4e3684); border: 2px solid #c9b48a; padding: 3px; justify-content: flex-start; }
+.skin-kucice .rcard.dev .art { --c: #f3ead7; background: radial-gradient(circle at 50% 35%, #fffaf0, #e2d4b4); }
+.skin-kucice .rcard.small .lbl, .skin-kucice .mini .rcard .lbl { display: none; }
+.skin-kucice .mini .rcard { padding: 1px; }
+.rc .rc-svg { width: 100%; height: 100%; }
+.skin-kucice .rc { padding: 1px; }
+.hand > .rcard { flex: 0 1 58px; min-width: 44px; }

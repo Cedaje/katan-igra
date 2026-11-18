@@ -289,11 +289,12 @@ function hexPoints(hx, V, scale = 1) {
 // ---------- skinovi (izgled figura), svaki igrac bira za sebe ----------
 const SKINS = {
   osnovni: { name: 'Osnovni', desc: 'Klasične figure, prvi izgled igre.' },
-  kucice: { name: 'Kućice', desc: 'Šarene kućice u 3D stilu. Zidovi su u boji igrača: roza kuća je roza igrač, narandžasta narandžasti.' },
+  kucice: { name: 'Kućice', desc: '3D izgled: polja sa drvećem, ovcama, žitom, ciglama i planinama, 3D putevi, razbojnik sa kapuljačom, ilustrovane karte i kućice u boji igrača.' },
 };
 let skin = 'osnovni';
 try { if (SKINS[localStorage.getItem('ot_skin')]) skin = localStorage.getItem('ot_skin'); } catch (_) { /* */ }
-function setSkin(k) { skin = k; try { localStorage.setItem('ot_skin', k); } catch (_) { /* */ } }
+function setSkin(k) { skin = k; try { localStorage.setItem('ot_skin', k); } catch (_) { /* */ } document.body.classList.toggle('skin-kucice', k === 'kucice'); }
+document.body.classList.toggle('skin-kucice', skin === 'kucice');
 
 function shade(hex, f) { // f<0 tamnije, f>0 svetlije
   const n = parseInt(hex.slice(1), 16);
@@ -370,10 +371,13 @@ function renderBoard() {
   }
 
   // polja
+  const K3 = skin === 'kucice';
+  if (K3) for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 0.97).split(' ').map((q) => { const [a, b] = q.split(','); return `${a},${+b + 8}`; }).join(' ')}" fill="${ART.shade(TERRAIN[hx.terrain].b, -0.4)}" stroke="#00000030" stroke-width="2" stroke-linejoin="round"/>`;
   for (const hx of B.hexes) {
     const t = TERRAIN[hx.terrain];
-    h += `<polygon points="${hexPoints(hx, V, 0.96)}" fill="url(#g-${hx.terrain})" stroke="#fff6dc" stroke-width="3" stroke-linejoin="round"/>`;
-    h += `<text x="${hx.x * SC}" y="${hx.y * SC - (hx.num ? 12 * (TOKEN_SCALE[B.layout] || 1) : -10)}" text-anchor="middle" font-size="${hx.num ? 26 : 34}">${t.ico}</text>`;
+    h += `<polygon points="${hexPoints(hx, V, 0.96)}" fill="url(#g-${hx.terrain})" stroke="#fff6dc" stroke-width="${K3 ? 2 : 3}" stroke-linejoin="round"/>`;
+    if (K3) h += ART.terrain(hx.terrain, hx.x * SC, hx.y * SC, TOKEN_SCALE[B.layout] || 1);
+    else h += `<text x="${hx.x * SC}" y="${hx.y * SC - (hx.num ? 12 * (TOKEN_SCALE[B.layout] || 1) : -10)}" text-anchor="middle" font-size="${hx.num ? 26 : 34}">${t.ico}</text>`;
     if (hx.num) {
       const hot = hx.num === 6 || hx.num === 8;
       const pips = 6 - Math.abs(7 - hx.num);
@@ -394,13 +398,14 @@ function renderBoard() {
     const bg = generic ? '#2f7fb5' : RES_INFO[p.type].color;
     h += `<g><rect x="${x - 20}" y="${y - 24}" width="40" height="46" rx="8" fill="#fffaf0" stroke="#7a5532" stroke-width="2"/>
       <rect x="${x - 17}" y="${y - 21}" width="34" height="24" rx="5" fill="${bg}"/>
-      <text x="${x}" y="${y - 3}" text-anchor="middle" font-size="16" fill="#fff" font-weight="800">${generic ? '?' : RES_INFO[p.type].ico}</text>
+      ${!generic && skin === 'kucice' ? ART.cardSVG(p.type, `x="${x - 17}" y="${y - 21}" width="34" height="24"`) : `<text x="${x}" y="${y - 3}" text-anchor="middle" font-size="16" fill="#fff" font-weight="800">${generic ? '?' : RES_INFO[p.type].ico}</text>`}
       <text x="${x}" y="${y + 17}" text-anchor="middle" font-size="12" font-weight="800" fill="#2a241c">${generic ? '3:1' : '2:1'}</text></g>`;
   }
 
   // razbojnik
   const rb = B.hexes[B.robber];
-  h += `<g transform="translate(${rb.x * SC + 26},${rb.y * SC + 4})"><ellipse cx="0" cy="18" rx="12" ry="4" fill="#0006"/>
+  if (skin === 'kucice') h += ART.robber(rb.x * SC + 27, rb.y * SC - 4);
+  else h += `<g transform="translate(${rb.x * SC + 26},${rb.y * SC + 4})"><ellipse cx="0" cy="18" rx="12" ry="4" fill="#0006"/>
     <path d="M-10 17 Q-12 -2 0 -5 Q12 -2 10 17 Z" fill="#3a3640" stroke="#111" stroke-width="1.5"/><circle cx="0" cy="-10" r="8" fill="#3a3640" stroke="#111" stroke-width="1.5"/></g>`;
 
   // putevi: spajaju se teme u teme; prvo sve ivice, pa boje, da se spojevi ne seku
@@ -408,8 +413,14 @@ function renderBoard() {
     const e = B.edges[eid]; const a = V[e.a], b = V[e.b];
     return { x1: a.x * SC, y1: a.y * SC, x2: b.x * SC, y2: b.y * SC, col: pById(pid).color };
   });
-  for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="#1b1712" stroke-width="12" stroke-linecap="round"/>`;
-  for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="${r.col}" stroke-width="7.5" stroke-linecap="round"/>`;
+  if (skin === 'kucice') {
+    const rr = roadLines.map(ART.road);
+    for (const r of rr) h += r.under;
+    for (const r of rr) h += r.top;
+  } else {
+    for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="#1b1712" stroke-width="12" stroke-linecap="round"/>`;
+    for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="${r.col}" stroke-width="7.5" stroke-linecap="round"/>`;
+  }
   // gradnja: kad imas sirovine i postoji mesto, mesta se sama oznace na tabli
   const mainNow = myTurn() && S.sub === 'main' && S.phase === 'play';
   const mm = me();
@@ -496,14 +507,14 @@ $('dice').onclick = () => { if (myTurn() && S.sub === 'roll') act('roll'); };
 
 // ---------- ruka ----------
 const RES_TIP = { drvo: 'iz šume', glina: 'iz gliništa', vuna: 'sa pašnjaka', zito: 'sa polja', kamen: 'iz planine' };
-const rcard = (r, n, extra = '') => `<div class="rcard ${extra}" data-r="${r}" style="background-color:${RES_INFO[r].color}" title="${RES_INFO[r].name} (${RES_TIP[r]})${extra.includes('click') ? ' – klikni za trgovinu' : ''}">${RES_INFO[r].ico}${n !== null ? `<span class="cnt">${n}</span>` : ''}</div>`;
+const rcard = (r, n, extra = '') => `<div class="rcard ${extra}" data-r="${r}" style="background-color:${RES_INFO[r].color};--c:${RES_INFO[r].color}" title="${RES_INFO[r].name} (${RES_TIP[r]})${extra.includes('click') ? ' – klikni za trgovinu' : ''}">${skin === 'kucice' ? `<i class="art">${ART.cardSVG(r)}</i><b class="lbl">${RES_INFO[r].name}</b>` : RES_INFO[r].ico}${n !== null ? `<span class="cnt">${n}</span>` : ''}</div>`;
 function renderHand() {
   let h = RES.filter((r) => S.hand[r] > 0).map((r) => rcard(r, S.hand[r] - (tradeOpen ? tradeGive[r] || 0 : 0), tradeOpen ? 'click' : '')).join('');
   if (!h) h = '<span style="color:var(--muted)">Nemaš karte sirovina.</span>';
   else if (myTurn() && S.sub === 'main') h = h.replace(/class="rcard /g, 'class="rcard click ');
   const groups = {};
   for (const d of S.dev) { groups[d.type] ??= { n: 0, ready: 0 }; groups[d.type].n++; if (!d.fresh) groups[d.type].ready++; }
-  const dev = Object.entries(groups).map(([type, g]) => `<div class="rcard dev ${g.ready ? '' : 'fresh'}" data-dev="${type}" title="${DEV_INFO[type].name}: ${DEV_INFO[type].desc}${g.ready ? '' : ' (kupljena u ovom potezu)'}">${DEV_INFO[type].ico}<small>${DEV_INFO[type].name}</small><span class="cnt">${g.n}</span></div>`).join('');
+  const dev = Object.entries(groups).map(([type, g]) => `<div class="rcard dev ${g.ready ? '' : 'fresh'}" data-dev="${type}" title="${DEV_INFO[type].name}: ${DEV_INFO[type].desc}${g.ready ? '' : ' (kupljena u ovom potezu)'}">${skin === 'kucice' ? `<i class="art">${ART.cardSVG(type)}</i>` : DEV_INFO[type].ico}<small>${DEV_INFO[type].name}</small><span class="cnt">${g.n}</span></div>`).join('');
   if (dev) h += '<span class="sep"></span>' + dev;
   $('hand').innerHTML = h;
 }
@@ -591,7 +602,7 @@ function renderRecipes() {
     ['🏰', 'Grad', COST.city, '2 poena'],
     ['🃏', 'Razvojna karta', COST.dev, '?'],
   ];
-  const cards = (c) => Object.entries(c).flatMap(([r, n]) => Array(n).fill(r)).map((r) => `<span class="rc" style="background:${RES_INFO[r].color}" title="${RES_INFO[r].name}">${RES_INFO[r].ico}</span>`).join('');
+  const cards = (c) => Object.entries(c).flatMap(([r, n]) => Array(n).fill(r)).map((r) => `<span class="rc" style="background:${RES_INFO[r].color}" title="${RES_INFO[r].name}">${skin === 'kucice' ? ART.cardSVG(r, 'class="rc-svg"') : RES_INFO[r].ico}</span>`).join('');
   $('recipes').innerHTML = `<button class="rec-head" data-rec>📜 Recepti <span>${recipesOpen ? '▾' : '▸'}</span></button>` + (recipesOpen ? rows.map(([ico, name, cost, vp]) =>
     `<div class="rec-row ${S.hand && canAfford(cost) ? 'ok' : ''}"><span class="rn">${ico} ${name}</span><span class="rcs">${cards(cost)}</span><span class="rvp">${vp}</span></div>`).join('') : '');
 }
@@ -907,7 +918,7 @@ $('modalCard').addEventListener('click', (ev) => {
   if (b.hasAttribute('data-pconfirm')) { const p = picker; picker = null; p.cb(p.sel); return renderModal(); }
   if (b.hasAttribute('data-pcancel')) { picker = null; return renderModal(); }
   if (b.dataset.startvote) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); return act('voteKick', { pid: b.dataset.startvote }); }
-  if (b.dataset.skin) { setSkin(b.dataset.skin); $('modalCard').innerHTML = ''; renderModal(); if (S && S.phase !== 'lobby') renderBoard(); return; }
+  if (b.dataset.skin) { setSkin(b.dataset.skin); $('modalCard').innerHTML = ''; renderModal(); if (S && S.phase !== 'lobby') render(); return; }
   if (b.dataset.color) { act('look', { color: b.dataset.color }); return; }
   if (b.dataset.avatar) { act('look', { avatar: Number(b.dataset.avatar) }); return; }
   if (b.hasAttribute('data-backrooms')) { setSavedRoom(''); location.href = '/'; return; }
