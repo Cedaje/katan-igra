@@ -50,7 +50,7 @@ const LAYOUTS = {
   },
 };
 const MAP_MAX = { base: 4, ext6: 6, ext8: 8 };
-const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false, hideBank: false, resCards: 19, devCards: 25 };
+const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false, hideBank: false, resCards: 19, devCards: 25, friendlyRobber: false, fairDice: false };
 
 function buildBoard(layoutName = 'base') {
   const L = LAYOUTS[layoutName];
@@ -221,8 +221,20 @@ class Game {
     if (s.discardLimit !== undefined) st.discardLimit = num(s.discardLimit, 5, 20);
     if (s.private !== undefined) st.private = !!s.private;
     if (s.hideBank !== undefined) st.hideBank = !!s.hideBank;
+    if (s.friendlyRobber !== undefined) st.friendlyRobber = !!s.friendlyRobber;
+    if (s.fairDice !== undefined) st.fairDice = !!s.fairDice;
     if (s.resCards !== undefined) st.resCards = num(s.resCards, 10, 50);
     if (s.devCards !== undefined) st.devCards = num(s.devCards, 10, 80);
+  }
+
+  setLook(pl, { color, avatar }) {
+    if (this.phase !== 'lobby') fail('Boja i avatar se biraju u lobiju.');
+    if (color !== undefined) {
+      if (!COLORS.includes(color)) fail('Nepoznata boja.');
+      if (this.players.some((p) => p.id !== pl.id && p.color === color)) fail('Tu boju već ima drugi igrač.');
+      pl.color = color;
+    }
+    if (avatar !== undefined) pl.avatar = Math.max(0, Math.min(15, Math.floor(Number(avatar)) || 0));
   }
 
   updateSettings(pl, s) {
@@ -258,6 +270,7 @@ class Game {
       token,
       name: this.uniqueName(String(name || '').trim().slice(0, 16) || 'Igrač'),
       color: COLORS.find((c) => !used.has(c)),
+      avatar: null,
       hand: emptyHand(),
       dev: [],
       knights: 0,
@@ -272,6 +285,22 @@ class Game {
   canAfford(pl, cost) { return RES.every((r) => pl.hand[r] >= (cost[r] || 0)); }
   pay(pl, cost) { for (const r of RES) { pl.hand[r] -= cost[r] || 0; this.bank[r] += cost[r] || 0; } }
   give(pl, r, n) { const k = Math.min(n, this.bank[r]); pl.hand[r] += k; this.bank[r] -= k; return k; }
+  stat(pid, key, n = 1) {
+    this.stats ??= { rolls: {}, players: {} };
+    const s = (this.stats.players[pid] ??= { gained: 0, stolen: 0, lost: 0, discarded: 0, trades: 0, bank: 0, dev: 0 });
+    s[key] += n;
+  }
+
+  // Fer kockice: 36 kombinacija se mesaju i vuku redom (kao spil), pa se ponovo mesaju
+  rollDice() {
+    if (!this.settings.fairDice) return [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
+    if (!this.diceDeck || this.diceDeck.length < 6) {
+      this.diceDeck = [];
+      for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) this.diceDeck.push([a, b]);
+      shuffle(this.diceDeck);
+    }
+    return this.diceDeck.pop();
+  }
 
   vertexFreeForSettlement(v) {
     if (this.buildings[v]) return false;
@@ -458,6 +487,7 @@ class Game {
     if (type === 'kick') return this.removePlayer(pl, data.pid);
     if (type === 'leave') return this.phase === 'lobby' ? this.removePlayer(pl, pl.id) : this.quit(pl);
     if (type === 'endGame') return this.endGame(pl);
+    if (type === 'look') return this.setLook(pl, data);
     if (type === 'voteKick') return this.startVote(pl, data.pid);
     if (type === 'vote') return this.castVote(pl, !!data.yes);
     if (this.phase === 'ended') fail('Igra je završena.');
@@ -466,6 +496,7 @@ class Game {
     // Akcije koje ne zahtevaju da je tvoj red
     if (type === 'discard') return this.discard(pl, data.cards || {});
     if (type === 'respondTrade') return this.respondTrade(pl, !!data.accept);
+    if (type === 'counterTrade') return this.counterTrade(pl, data.give || {}, data.get || {});
 
     if (this.current().id !== pid) fail('Nije tvoj red.');
     const handler = {
@@ -479,7 +510,7 @@ class Game {
       playDev: () => this.playDev(pl, data),
       bankTrade: () => this.bankTrade(pl, data.give, data.get),
       offerTrade: () => this.offerTrade(pl, data.give || {}, data.get || {}),
-      confirmTrade: () => this.confirmTrade(pl, data.with),
+      confirmTrade: () => this.confirmTrade(pl, data.with, !!data.counter),
       cancelTrade: () => { this.trade = null; },
       endTurn: () => this.endTurn(pl),
     }[type];
@@ -594,9 +625,11 @@ class Game {
 
   roll(pl) {
     if (this.phase !== 'play' || this.sub !== 'roll') fail('Sada ne možeš da baciš kockice.');
-    const d1 = 1 + Math.floor(Math.random() * 6), d2 = 1 + Math.floor(Math.random() * 6);
+    const [d1, d2] = this.rollDice();
     this.dice = [d1, d2];
     const sum = d1 + d2;
+    this.stats ??= { rolls: {}, players: {} };
+    this.stats.rolls[sum] = (this.stats.rolls[sum] || 0) + 1;
     this.addLog(`🎲 ${pl.name} je bacio ${sum}.`);
     if (sum === 7) return this.startSeven();
     // Raspodela sirovina
@@ -617,7 +650,7 @@ class Game {
       if (total > this.bank[r] && ids.length > 1) { this.addLog(`Banka nema dovoljno: ${RES_NAMES[r]}.`); continue; }
       for (const id of ids) {
         const got = this.give(this.p(id), r, byP[id]);
-        if (got) (gains[id] ??= []).push(`${got} ${RES_NAMES[r]}`);
+        if (got) { (gains[id] ??= []).push(`${got} ${RES_NAMES[r]}`); this.stat(id, 'gained', got); }
       }
     }
     for (const [id, list] of Object.entries(gains)) this.addLog(`${this.name(id)} dobija: ${list.join(', ')}.`);
@@ -653,6 +686,7 @@ class Game {
     for (const r of RES) { const n = Math.floor(Number(cards[r]) || 0); pl.hand[r] -= n; this.bank[r] += n; }
     delete this.pendingDiscard[pl.id];
     this.addLog(`${pl.name} je odbacio ${need} karata.`);
+    this.stat(pl.id, 'discarded', need);
     if (!Object.keys(this.pendingDiscard).length) this.sub = 'robber';
   }
 
@@ -660,12 +694,24 @@ class Game {
     if (this.sub !== 'robber') fail('Sada ne pomeraš razbojnika.');
     if (!this.board.hexes[hex]) fail('Pogrešno polje.');
     if (hex === this.board.robber) fail('Razbojnik mora na drugo polje.');
+    if (!this.robberHexes(pl.id).includes(hex)) fail('Prijateljski razbojnik: ne možeš na polje igrača sa 2 poena ili manje.');
     this.board.robber = hex;
     this.addLog(`🦹 ${pl.name} je pomerio razbojnika.`);
     const victims = this.robberVictims(pl.id);
     if (victims.length === 0) this.sub = this.afterRobber;
     else if (victims.length === 1) this.doSteal(pl, victims[0]);
     else this.sub = 'steal';
+  }
+
+  // Polja na koja razbojnik sme. Uz "prijateljskog razbojnika" ne sme kod igraca sa 2 poena ili manje.
+  robberHexes(pid) {
+    const all = this.board.hexes.map((h) => h.id).filter((h) => h !== this.board.robber);
+    if (!this.settings.friendlyRobber) return all;
+    const ok = all.filter((h) => !this.board.hexes[h].corners.some((v) => {
+      const b = this.buildings[v];
+      return b && b.pid !== pid && this.publicVP(this.p(b.pid)) <= 2;
+    }));
+    return ok.length ? ok : all;
   }
 
   robberVictims(pid) {
@@ -688,6 +734,7 @@ class Game {
     const pool = RES.flatMap((r) => Array(t.hand[r]).fill(r));
     const r = pool[Math.floor(Math.random() * pool.length)];
     t.hand[r]--; pl.hand[r]++;
+    this.stat(pl.id, 'stolen'); this.stat(t.id, 'lost');
     this.addLog(`${pl.name} je ukrao kartu od ${t.name}.`);
     this.lastSteal = { thief: pl.id, victim: t.id, res: r, t: Date.now() };
     this.sub = this.afterRobber;
@@ -699,6 +746,7 @@ class Game {
     if (!this.canAfford(pl, COST.dev)) fail('Nemaš dovoljno sirovina za razvojnu kartu.');
     this.pay(pl, COST.dev);
     const type = this.devDeck.pop();
+    this.stat(pl.id, 'dev');
     pl.dev.push({ type, bought: this.turnNum });
     this.addLog(`🃏 ${pl.name} je kupio razvojnu kartu.`);
   }
@@ -766,6 +814,7 @@ class Game {
     if (this.bank[get] < 1) fail('Banka nema tu sirovinu.');
     pl.hand[give] -= rate; this.bank[give] += rate;
     this.give(pl, get, 1);
+    this.stat(pl.id, 'bank');
     this.addLog(`🏦 ${pl.name} je razmenio ${rate} ${RES_NAMES[give]} za 1 ${RES_NAMES[get]} sa bankom.`);
   }
 
@@ -780,7 +829,7 @@ class Game {
     give = this.cleanOffer(give); get = this.cleanOffer(get);
     if (!Object.keys(give).length || !Object.keys(get).length) fail('Izaberi šta daješ i šta tražiš.');
     if (!this.canAfford(pl, give)) fail('Nemaš te karte.');
-    this.trade = { id: ++this.tradeSeq, from: pl.id, give, get, accepted: [], declined: [] };
+    this.trade = { id: ++this.tradeSeq, from: pl.id, give, get, accepted: [], declined: [], counters: {} };
     const fmt = (o) => Object.entries(o).map(([r, n]) => `${n} ${RES_NAMES[r]}`).join(', ');
     this.addLog(`🤝 ${pl.name} nudi ${fmt(give)} za ${fmt(get)}.`);
   }
@@ -797,16 +846,37 @@ class Game {
     } else t.declined.push(pl.id);
   }
 
-  confirmTrade(pl, withId) {
+  // Kontraponuda: igrac predlaze svoje uslove (give/get iz ugla onoga ko je ponudio)
+  counterTrade(pl, give, get) {
     const t = this.trade;
-    if (!t || t.from !== pl.id) fail('Nema tvoje ponude.');
-    if (!t.accepted.includes(withId)) fail('Taj igrač nije prihvatio.');
+    if (!t) fail('Nema aktivne ponude.');
+    if (t.from === pl.id) fail('Ne možeš da odgovoriš na svoju ponudu.');
+    give = this.cleanOffer(give); get = this.cleanOffer(get); // give = sta ti dajes, get = sta trazis
+    if (!Object.keys(give).length || !Object.keys(get).length) fail('Izaberi šta daješ i šta tražiš.');
+    if (!this.canAfford(pl, give)) fail('Nemaš te karte.');
+    t.counters ??= {};
+    t.counters[pl.id] = { give: get, get: give }; // iz ugla igraca na potezu
+    t.accepted = t.accepted.filter((x) => x !== pl.id);
+    t.declined = t.declined.filter((x) => x !== pl.id);
+    const fmt = (o) => Object.entries(o).map(([r, n]) => `${n} ${RES_NAMES[r]}`).join(', ');
+    this.addLog(`🤝 ${pl.name} predlaže: daje ${fmt(give)} za ${fmt(get)}.`);
+  }
+
+  confirmTrade(pl, withId, counter = false) {
+    const t0 = this.trade;
+    if (!t0 || t0.from !== pl.id) fail('Nema tvoje ponude.');
+    let t = t0;
+    if (counter) {
+      if (!t0.counters?.[withId]) fail('Taj igrač nije dao kontraponudu.');
+      t = t0.counters[withId];
+    } else if (!t0.accepted.includes(withId)) fail('Taj igrač nije prihvatio.');
     const o = this.p(withId);
     if (!this.canAfford(pl, t.give)) fail('Više nemaš te karte.');
     if (!this.canAfford(o, t.get)) fail(`${o.name} više nema te karte.`);
     for (const [r, n] of Object.entries(t.give)) { pl.hand[r] -= n; o.hand[r] += n; }
     for (const [r, n] of Object.entries(t.get)) { o.hand[r] -= n; pl.hand[r] += n; }
     this.addLog(`✅ ${pl.name} i ${o.name} su razmenili karte.`);
+    this.stat(pl.id, 'trades'); this.stat(o.id, 'trades');
     this.trade = null;
   }
 
@@ -855,7 +925,7 @@ class Game {
         legal.roads = me.left.road > 0 ? this.legalRoads(pid) : [];
         legal.cities = me.left.city > 0 ? this.legalCities(pid) : [];
       }
-      if (this.sub === 'robber') legal.robber = this.board.hexes.map((h) => h.id).filter((h) => h !== this.board.robber);
+      if (this.sub === 'robber') legal.robber = this.robberHexes(pid);
       if (this.sub === 'steal') legal.victims = this.robberVictims(pid);
     }
     const B = this.board;
@@ -882,7 +952,7 @@ class Game {
       buildings: this.buildings,
       roads: this.roads,
       players: this.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, connected: p.connected, quit: !!p.quit, kicked: !!p.kicked,
+        id: p.id, name: p.name, color: p.color, avatar: p.avatar ?? null, connected: p.connected, quit: !!p.quit, kicked: !!p.kicked,
         cards: handSize(p.hand), devCards: p.dev.length, knights: p.knights,
         vp: this.phase === 'ended' || p.id === pid ? this.totalVP(p) : this.publicVP(p),
         roadLen: this.roadLength(p.id), left: p.left,
@@ -902,6 +972,8 @@ class Game {
       lastSteal: this.lastSteal && (this.lastSteal.thief === pid || this.lastSteal.victim === pid) ? this.lastSteal : null,
       legal,
       winner: this.winner,
+      stats: this.phase === 'ended' ? (this.stats || { rolls: {}, players: {} }) : null,
+      colors: COLORS,
       endedBy: this.endedBy || null,
       log: this.log.slice(-60),
       chat: this.chat.slice(-60),
@@ -909,4 +981,4 @@ class Game {
   }
 }
 
-module.exports = { makeDevDeck, Game, GameError, RES, COST, LAYOUTS, MAP_MAX, buildBoard, handSize };
+module.exports = { COLORS, makeDevDeck, Game, GameError, RES, COST, LAYOUTS, MAP_MAX, buildBoard, handSize };

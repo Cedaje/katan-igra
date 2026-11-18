@@ -38,12 +38,13 @@ const MAPS = [
 ];
 const MAP_NAME = { base: 'Osnovna', ext6: 'Proširenje 5–6', ext8: 'Proširenje 7–8' };
 const TIMERS = [0, 30, 60, 90, 120, 180, 240];
-const AVATARS = ['🦊', '🐻', '🦉', '🐢', '🦁', '🐺', '🐙', '🦌'];
+const AVATARS = ['🦊', '🐻', '🦉', '🐢', '🦁', '🐺', '🐙', '🦌', '🐸', '🐧', '🦄', '🐼', '🐯', '🦅', '🐳', '🐝'];
 
 let S = null; // stanje sa servera
 let clockOffset = 0;
 let mode = null; // 'road' | 'settlement' | 'city' | null
 let tradeOpen = false;
+let counterMode = false; // kontraponuda na tudju ponudu
 let tradeGive = {}, tradeGet = {};
 let chatOpen = false, seenChat = 0;
 let lastTick = 0;
@@ -74,7 +75,7 @@ function act(type, data = {}) {
 }
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const COLOR_ORDER = ['#e05a47', '#3b82c4', '#f2b134', '#4caf6a', '#9b5fc0', '#26b5b0', '#e07ab8', '#8a5a3c'];
-const avatarOf = (p) => AVATARS[Math.max(0, COLOR_ORDER.indexOf(p.color)) % AVATARS.length];
+const avatarOf = (p) => AVATARS[(p.avatar ?? Math.max(0, COLOR_ORDER.indexOf(p.color))) % AVATARS.length];
 
 // ---------- navigacija ----------
 document.addEventListener('click', (e) => {
@@ -106,6 +107,7 @@ socket.on('rooms', (rooms) => {
 $('roomRows').addEventListener('click', (e) => { const r = e.target.closest('[data-room]'); if (r) join(r.dataset.room); });
 
 function enter(code) {
+  setSavedRoom(code);
   const url = new URL(location.href); url.search = '?soba=' + code;
   history.replaceState(null, '', url);
 }
@@ -126,16 +128,26 @@ $('joinBtn').onclick = () => {
 
 // poziv preko linka i povratak posle osvezavanja
 const inviteCode = (new URLSearchParams(location.search).get('soba') || '').toUpperCase();
+function savedRoom() { try { return localStorage.getItem('ot_room') || ''; } catch (_) { return ''; } }
+function setSavedRoom(code) { try { if (code) localStorage.setItem('ot_room', code); else localStorage.removeItem('ot_room'); } catch (_) { /* */ } }
+// Povratak u igru: posle prekida interneta ili osvezavanja stranice igrac se vraca na svoje mesto
+socket.on('disconnect', () => { if (S) $('netBar').classList.remove('hidden'); });
 socket.on('connect', () => {
-  const code = (S && S.code) || inviteCode;
+  $('netBar').classList.add('hidden');
+  const code = (S && S.code) || inviteCode || savedRoom();
   if (!code) return;
   socket.emit('join', { code, token: token(), rejoinOnly: true }, (r) => {
-    if (r.ok || S) return;
+    if (r.ok) { if (code !== inviteCode) enter(code); return; }
+    if (S) { S = null; render(); toast('Partija više ne postoji.'); setSavedRoom(''); return; }
+    if (!inviteCode) { setSavedRoom(''); return; }
     if (localStorage.getItem('ot_name')) join(code);
     else { $('nameInput').focus(); toast(`Upiši ime i klikni sobu ${code} ili „Uđi u sobu“.`); }
   });
 });
-socket.on('kicked', () => { S = null; modalExtra = null; showPage('rooms'); renderModal(); history.replaceState(null, '', '/'); SFX.play('kick'); toast('Izbačen si iz sobe.'); });
+socket.on('kicked', () => { setSavedRoom(''); S = null; modalExtra = null; showPage('rooms'); renderModal(); history.replaceState(null, '', '/'); SFX.play('kick'); toast('Izbačen si iz sobe.'); });
+
+// dok si u sobi, server se drzi budnim (besplatni hosting zaspi posle 15 minuta tisine)
+setInterval(() => { if (S) fetch('/health').catch(() => {}); }, 4 * 60 * 1000);
 
 // ---------- prijem stanja ----------
 // ---------- zvukovi prema dogadjajima iz dnevnika ----------
@@ -185,7 +197,8 @@ socket.on('state', (state) => {
   playEventSounds(prev);
   clockOffset = S.now - Date.now();
   if (S.sub !== 'main' || S.turn !== S.me) { mode = null; }
-  if (!(S.turn === S.me && S.sub === 'main')) tradeOpen = false;
+  if (!S.trade || S.trade.from === S.me) counterMode = false;
+  if (!(S.turn === S.me && S.sub === 'main') && !counterMode) tradeOpen = false;
   render();
 });
 
@@ -210,19 +223,31 @@ function renderLobby() {
   $('lpCount').textContent = `${S.players.length}/${st.maxPlayers}`;
   const url = new URL(location.href); url.search = '?soba=' + S.code;
   $('inviteLink').value = url.toString();
-  let h = S.players.map((p) => `<div class="lp-slot"><div class="avatar" style="background:${p.color}">${avatarOf(p)}</div>
+  let h = S.players.map((p) => `<div class="lp-slot"><div class="avatar ${p.id === S.me ? 'pickable' : ''}" ${p.id === S.me ? 'data-look title="Klikni da izabereš svoju boju i avatara"' : ''} style="background:${p.color}">${avatarOf(p)}</div>
     <div class="nm">${esc(p.name)}${p.id === S.me ? ' (ti)' : ''}<div class="sub">${p.id === S.host ? '👑 osnivač' : p.connected ? 'spreman' : 'van mreže'}</div></div>
-    ${host && p.id !== S.me ? `<button class="kick" data-kick="${p.id}" title="Izbaci">✕</button>` : ''}</div>`).join('');
+    ${host && p.id !== S.me ? `<button class="kick" data-kick="${p.id}" title="Izbaci ovog igrača iz sobe">✕</button>` : ''}</div>`).join('');
   for (let i = S.players.length; i < st.maxPlayers; i++) {
     h += `<div class="lp-slot empty"><span class="muted-light">Čeka se igrač…</span></div>`;
   }
   $('lobbyPlayers').innerHTML = h;
 
-  $('mapTiles').innerHTML = MAPS.map((m) => `<button class="tile ${st.map === m.id ? 'sel' : ''}" data-map="${m.id}" ${host ? '' : 'disabled'}>
+  $('mapTiles').innerHTML = MAPS.map((m) => `<button class="tile ${st.map === m.id ? 'sel' : ''}" data-map="${m.id}" ${host ? '' : 'disabled'} title="Tabla za ${m.sub}. Veća tabla ima više polja, luka i karata.">
     <span class="ti">${'⬢'.repeat(m.max / 2)}</span>${m.name}<small>${m.sub}</small></button>`).join('');
-  $('ruleTiles').innerHTML = `<button class="tile ${st.private ? 'sel' : ''}" data-private ${host ? '' : 'disabled'}><span class="ti">🕶️</span>Privatna igra<small>${st.private ? 'ne vidi se u listi' : 'vidi se u listi soba'}</small></button>
-    <button class="tile ${st.hideBank ? 'sel' : ''}" data-hidebank ${host ? '' : 'disabled'}><span class="ti">🏦</span>Sakrij banku<small>${st.hideBank ? 'broj karata se ne vidi' : 'broj karata se vidi'}</small></button>`;
-  const stepper = (key, label, value, canDec, canInc) => `<div class="adv-item"><b>${label}</b><div class="stepper">
+  const rule = (key, ico, name, on, off, tip) => `<button class="tile ${st[key] ? 'sel' : ''}" data-rule="${key}" ${host ? '' : 'disabled'} title="${tip}"><span class="ti">${ico}</span>${name}<small>${st[key] ? on : off}</small></button>`;
+  $('ruleTiles').innerHTML =
+    rule('private', '🕶️', 'Privatna igra', 'ne vidi se u listi', 'vidi se u listi soba', 'Soba se ne prikazuje u listi otvorenih soba. Ulazi se samo preko linka ili koda.') +
+    rule('hideBank', '🏦', 'Sakrij banku', 'broj karata se ne vidi', 'broj karata se vidi', 'Niko ne vidi koliko je karata ostalo u banci i u špilu razvojnih karata.') +
+    rule('friendlyRobber', '🤝', 'Prijateljski razbojnik', 'štiti slabe igrače', 'isključeno', 'Razbojnik ne može da se stavi na polje igrača koji ima 2 poena ili manje. Pomaže novim igračima.') +
+    rule('fairDice', '⚖️', 'Fer kockice', 'manje sreće', 'obične kockice', 'Svih 36 kombinacija kockica izlazi redom kao iz špila, pa se brojevi pojavljuju onoliko često koliko i treba. Manje zavisi od sreće.');
+  const TIPS = {
+    timer: 'Koliko vremena igrač ima za potez. Kad istekne, igra sama baci kockice ili završi potez.',
+    maxPlayers: 'Najveći broj igrača u ovoj sobi.',
+    vpToWin: 'Koliko poena treba za pobedu.',
+    discardLimit: 'Kad padne 7, svako ko ima više karata od ovog broja odbacuje polovinu.',
+    resCards: 'Koliko karata svake sirovine ima u banci na početku.',
+    devCards: 'Koliko razvojnih karata ima u špilu.',
+  };
+  const stepper = (key, label, value, canDec, canInc) => `<div class="adv-item" title="${TIPS[key]}"><b>${label}</b><div class="stepper">
     <button data-dec="${key}" ${host && canDec ? '' : 'disabled'}>‹</button><span>${value}</span><button data-inc="${key}" ${host && canInc ? '' : 'disabled'}>›</button></div></div>`;
   const ti = TIMERS.indexOf(st.timer);
   const mapMax = MAPS.find((m) => m.id === st.map).max;
@@ -238,11 +263,11 @@ function renderLobby() {
   $('lobbyWait').classList.toggle('hidden', host);
 }
 $('lobby').addEventListener('click', (e) => {
+  if (e.target.closest('[data-look]')) return showLookPicker();
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   const st = S.settings;
   if (b.dataset.map) act('settings', { map: b.dataset.map });
-  else if (b.hasAttribute('data-private')) act('settings', { private: !st.private });
-  else if (b.hasAttribute('data-hidebank')) act('settings', { hideBank: !st.hideBank });
+  else if (b.dataset.rule) act('settings', { [b.dataset.rule]: !st[b.dataset.rule] });
   else if (b.dataset.kick) act('kick', { pid: b.dataset.kick });
   else if (b.dataset.inc || b.dataset.dec) {
     const key = b.dataset.inc || b.dataset.dec, d = b.dataset.inc ? 1 : -1;
@@ -252,7 +277,7 @@ $('lobby').addEventListener('click', (e) => {
 });
 $('copyBtn').onclick = () => { $('inviteLink').select(); navigator.clipboard?.writeText($('inviteLink').value); toast('Link je kopiran. Pošalji ga prijateljima.'); };
 $('startBtn').onclick = () => act('start');
-function doLeave() { act('leave'); S = null; modalExtra = null; picker = null; tradeOpen = false; history.replaceState(null, '', '/'); showPage('rooms'); renderModal(); socket.emit('rooms'); }
+function doLeave() { setSavedRoom(''); act('leave'); S = null; modalExtra = null; picker = null; tradeOpen = false; history.replaceState(null, '', '/'); showPage('rooms'); renderModal(); socket.emit('rooms'); }
 $('leaveBtn').onclick = doLeave;
 
 // ---------- tabla ----------
@@ -413,7 +438,8 @@ function renderDice() {
 $('dice').onclick = () => { if (myTurn() && S.sub === 'roll') act('roll'); };
 
 // ---------- ruka ----------
-const rcard = (r, n, extra = '') => `<div class="rcard ${extra}" data-r="${r}" style="background-color:${RES_INFO[r].color}" title="${RES_INFO[r].name}">${RES_INFO[r].ico}${n !== null ? `<span class="cnt">${n}</span>` : ''}</div>`;
+const RES_TIP = { drvo: 'iz šume', glina: 'iz gliništa', vuna: 'sa pašnjaka', zito: 'sa polja', kamen: 'iz planine' };
+const rcard = (r, n, extra = '') => `<div class="rcard ${extra}" data-r="${r}" style="background-color:${RES_INFO[r].color}" title="${RES_INFO[r].name} (${RES_TIP[r]})${extra.includes('click') ? ' – klikni za trgovinu' : ''}">${RES_INFO[r].ico}${n !== null ? `<span class="cnt">${n}</span>` : ''}</div>`;
 function renderHand() {
   let h = RES.filter((r) => S.hand[r] > 0).map((r) => rcard(r, S.hand[r] - (tradeOpen ? tradeGive[r] || 0 : 0), tradeOpen ? 'click' : '')).join('');
   if (!h) h = '<span style="color:var(--muted)">Nemaš karte sirovina.</span>';
@@ -479,15 +505,23 @@ function renderActions() {
   const L = S.legal || {};
   // dugme je ukljuceno samo ako imas sirovine I postoji mesto na tabli
   const why = (cost, left, spots, what) => !main ? '' : !canAfford(cost) ? 'Nemaš dovoljno sirovina' : left <= 0 ? `Nemaš više: ${what}` : spots === 0 ? `Nema slobodnog mesta za ${what}` : '';
-  const b = (a, ico, label, enabled, cnt, extra = '', reason = '') => `<button class="act ${extra} ${mode === a || (a === 'trade' && tradeOpen) ? 'on' : ''}" data-a="${a}" ${enabled ? '' : 'disabled'} title="${label}${reason ? ' – ' + reason : ''}">${ico}<small>${label}</small>${cnt !== undefined ? `<span class="cnt">${cnt}</span>` : ''}</button>`;
+  const b = (a, ico, label, enabled, cnt, extra = '', reason = '') => `<button class="act ${extra} ${mode === a || (a === 'trade' && tradeOpen) ? 'on' : ''}" data-a="${a}" ${enabled ? '' : 'disabled'} title="${reason || label}">${ico}<small>${label}</small>${cnt !== undefined ? `<span class="cnt">${cnt}</span>` : ''}</button>`;
   const rs = L.roads?.length ?? 0, ss = L.settlements?.length ?? 0, cs = L.cities?.length ?? 0;
+  const D = {
+    trade: 'Trgovina (T): razmeni karte sa igračima ili bankom. Možeš i da klikneš kartu u svojoj ruci.',
+    dev: 'Razvojna karta (K): 🐑🌾🪨. Može biti vitez, poen, putevi, obilje ili monopol. Broj = karte u špilu.',
+    road: 'Put (P): 🌲🧱. Gradi se pored svog sela ili puta. Broj = preostali putevi.',
+    settlement: 'Selo (S): 🌲🧱🐑🌾, 1 poen. Mora biti na tvom putu, bar 2 ivice od drugog sela.',
+    city: 'Grad (G): 🌾🌾🪨🪨🪨, 2 poena. Pravi se od tvog sela i daje duplo sirovina.',
+    end: 'Kraj poteza (E): predaj red sledećem igraču.',
+  };
   $('actions').innerHTML =
-    b('trade', '🤝', 'Trgovina', main) +
-    b('dev', '🃏', 'Karta', main && canAfford(COST.dev) && !S.devEmpty, S.devLeft ?? '?', '', main && S.devEmpty ? 'Nema više karata' : '') +
-    b('road', '🛤️', 'Put', main && canAfford(COST.road) && m.left.road > 0 && rs > 0, m.left.road, '', why(COST.road, m.left.road, rs, 'put')) +
-    b('settlement', '🏠', 'Selo', main && canAfford(COST.settlement) && m.left.settlement > 0 && ss > 0, m.left.settlement, '', why(COST.settlement, m.left.settlement, ss, 'selo')) +
-    b('city', '🏰', 'Grad', main && canAfford(COST.city) && m.left.city > 0 && cs > 0, m.left.city, '', why(COST.city, m.left.city, cs, 'grad')) +
-    b('end', '⏩', 'Kraj poteza', myTurn() && (S.sub === 'main' || S.sub === 'roadBuilding'), undefined, 'end');
+    b('trade', '🤝', 'Trgovina', main, undefined, '', D.trade) +
+    b('dev', '🃏', 'Karta', main && canAfford(COST.dev) && !S.devEmpty, S.devLeft ?? '?', '', D.dev + (main && S.devEmpty ? ' Nema više karata.' : main && !canAfford(COST.dev) ? ' Nemaš dovoljno sirovina.' : '')) +
+    b('road', '🛤️', 'Put', main && canAfford(COST.road) && m.left.road > 0 && rs > 0, m.left.road, '', D.road + (why(COST.road, m.left.road, rs, 'put') ? ' ' + why(COST.road, m.left.road, rs, 'put') + '.' : '')) +
+    b('settlement', '🏠', 'Selo', main && canAfford(COST.settlement) && m.left.settlement > 0 && ss > 0, m.left.settlement, '', D.settlement + (why(COST.settlement, m.left.settlement, ss, 'selo') ? ' ' + why(COST.settlement, m.left.settlement, ss, 'selo') + '.' : '')) +
+    b('city', '🏰', 'Grad', main && canAfford(COST.city) && m.left.city > 0 && cs > 0, m.left.city, '', D.city + (why(COST.city, m.left.city, cs, 'grad') ? ' ' + why(COST.city, m.left.city, cs, 'grad') + '.' : '')) +
+    b('end', '⏩', 'Kraj poteza', myTurn() && (S.sub === 'main' || S.sub === 'roadBuilding'), undefined, 'end', D.end);
 }
 
 // ---------- recepti (cene gradnje) ----------
@@ -570,13 +604,18 @@ function renderOffers() {
   let h = `<div class="offer"><div class="offer-row"><b>${esc(from.name)}</b> daje ${miniCards(t.give)} za ${miniCards(t.get)}</div>`;
   if (t.from === S.me) {
     h += '<div class="offer-row" style="margin-top:8px">';
-    h += t.accepted.map((id) => `<button class="ob" data-with="${id}">✔ ${esc(pById(id).name)}</button>`).join('');
-    if (!t.accepted.length) h += '<span style="color:var(--muted)">Čeka se odgovor…</span>';
+    h += t.accepted.map((id) => `<button class="ob" data-with="${id}" title="Završi razmenu sa ovim igračem">✔ ${esc(pById(id).name)}</button>`).join('');
+    if (!t.accepted.length && !Object.keys(t.counters || {}).length) h += '<span style="color:var(--muted)">Čeka se odgovor…</span>';
     if (t.declined.length) h += `<span style="color:var(--muted)">Odbili: ${t.declined.map((id) => esc(pById(id).name)).join(', ')}</span>`;
-    h += '<button class="ob gray" data-tr="cancel" style="margin-left:auto">Povuci</button></div>';
+    h += '<button class="ob gray" data-tr="cancel" style="margin-left:auto" title="Povuci svoju ponudu">Povuci</button></div>';
+    for (const [id, c] of Object.entries(t.counters || {})) {
+      h += `<div class="offer-row counter"><b>${esc(pById(id).name)}</b> predlaže: ti daješ ${miniCards(c.give)} za ${miniCards(c.get)}
+        <button class="ob" data-with="${id}" data-counter="1" title="Prihvati ovu kontraponudu i odmah razmeni">✔ Prihvati</button></div>`;
+    }
   } else {
     const mine = t.accepted.includes(S.me) ? '✔ prihvatio si' : t.declined.includes(S.me) ? '✕ odbio si' : '';
-    h += `<div class="offer-row" style="margin-top:8px"><button class="ob" data-tr="accept">Prihvati</button><button class="ob red" data-tr="decline">Odbij</button><span style="color:var(--muted)">${mine}</span></div>`;
+    const myCounter = t.counters?.[S.me] ? '✎ poslao si kontraponudu' : '';
+    h += `<div class="offer-row" style="margin-top:8px"><button class="ob" data-tr="accept" title="Prihvati ponudu (igrač na potezu zatim potvrđuje)">Prihvati</button><button class="ob red" data-tr="decline" title="Odbij ponudu">Odbij</button><button class="ob gray" data-tr="counter" title="Predloži svoje uslove razmene">✎ Kontraponuda</button><span style="color:var(--muted)">${mine || myCounter}</span></div>`;
   }
   h += '</div>';
   box.innerHTML = h;
@@ -605,9 +644,11 @@ function renderTradePanel() {
       <div class="tp-box" data-row="hand">${handCards}</div>
     </div>
     <div class="tp-side">
-      <button class="tbig" data-tr="bank" ${bankTradeValid() ? '' : 'disabled'} title="Trguj sa bankom">🏦<small>Banka</small></button>
-      <button class="tbig" data-tr="offer" ${canOffer ? '' : 'disabled'} title="Ponudi igračima">👥<small>Igračima</small></button>
-      <button class="tbig close" data-tr="close" title="Zatvori (Esc)">✕</button>
+      ${counterMode
+        ? `<button class="tbig" data-tr="sendcounter" ${canOffer ? '' : 'disabled'} title="Pošalji kontraponudu igraču na potezu">✎<small>Pošalji</small></button>`
+        : `<button class="tbig" data-tr="bank" ${bankTradeValid() ? '' : 'disabled'} title="Trguj sa bankom: daješ broj karata koji piše na kartici gore (4:1, 3:1 ili 2:1) za 1 kartu">🏦<small>Banka</small></button>
+      <button class="tbig" data-tr="offer" ${canOffer ? '' : 'disabled'} title="Pošalji ponudu svim igračima; ti biraš sa kim ćeš razmeniti">👥<small>Igračima</small></button>`}
+      <button class="tbig close" data-tr="close" title="Zatvori trgovinu (Esc)">✕</button>
     </div>`;
 }
 function onTradeClick(ev) {
@@ -623,12 +664,19 @@ function onTradeClick(ev) {
     return render();
   }
   if (!b) return;
-  if (b.dataset.with) return act('confirmTrade', { with: b.dataset.with });
+  if (b.dataset.with) return act('confirmTrade', { with: b.dataset.with, counter: !!b.dataset.counter });
   const a = b.dataset.tr;
   if (a === 'accept') act('respondTrade', { accept: true });
   if (a === 'decline') act('respondTrade', { accept: false });
   if (a === 'cancel') act('cancelTrade');
-  if (a === 'close') { tradeOpen = false; render(); }
+  if (a === 'close') { tradeOpen = false; counterMode = false; render(); }
+  if (a === 'counter') {
+    counterMode = true; tradeOpen = true;
+    tradeGive = { ...S.trade.get }; tradeGet = { ...S.trade.give };
+    for (const r of Object.keys(tradeGive)) { tradeGive[r] = Math.min(tradeGive[r], S.hand[r]); if (!tradeGive[r]) delete tradeGive[r]; }
+    return render();
+  }
+  if (a === 'sendcounter') { act('counterTrade', { give: tradeGive, get: tradeGet }); counterMode = false; tradeOpen = false; tradeGive = {}; tradeGet = {}; return render(); }
   if (a === 'offer') { act('offerTrade', { give: tradeGive, get: tradeGet }); tradeGive = {}; tradeGet = {}; tradeOpen = false; render(); }
   if (a === 'bank') {
     if (!bankTradeValid()) return toast('Za banku: daj jednu vrstu sirovine (broj piše na kartici gore) i traži 1 kartu.');
@@ -729,6 +777,38 @@ function showRules() {
     <button class="ob" data-close>Zatvori</button></div>`;
   renderModal();
 }
+function statsHTML() {
+  const st = S.stats; if (!st) return '';
+  const rolls = st.rolls || {};
+  const total = Object.values(rolls).reduce((a, b) => a + b, 0);
+  const max = Math.max(1, ...Object.values(rolls));
+  const expected = (n) => (6 - Math.abs(7 - n)) / 36 * total;
+  let h = `<h4 style="margin:14px 0 6px">🎲 Kockice (${total} bacanja)</h4><div class="hist">`;
+  for (let n = 2; n <= 12; n++) {
+    const c = rolls[n] || 0;
+    h += `<div class="hcol" title="${n} je pao ${c} puta (očekivano oko ${expected(n).toFixed(1)})"><span class="hv">${c}</span><div class="hbar ${n === 7 ? 'seven' : ''}" style="height:${(c / max) * 70}px"></div><span class="hn">${n}</span></div>`;
+  }
+  h += '</div><h4 style="margin:14px 0 6px">📊 Igrači</h4><table class="stat-table"><tr><th></th><th title="Dobijene sirovine od kockica">🎲 Dobio</th><th title="Ukradene karte">🦹 Ukrao</th><th title="Karte koje su mu ukradene">😢 Izgubio</th><th title="Odbačene karte na 7">🗑️ Odbacio</th><th title="Razmene sa igračima">🤝</th><th title="Razmene sa bankom">🏦</th><th title="Kupljene razvojne karte">🃏</th></tr>';
+  for (const p of S.players) {
+    const x = (st.players || {})[p.id] || {};
+    h += `<tr><td><b style="color:${p.color};text-shadow:0 0 1px #0008">${esc(p.name)}</b></td><td>${x.gained || 0}</td><td>${x.stolen || 0}</td><td>${x.lost || 0}</td><td>${x.discarded || 0}</td><td>${x.trades || 0}</td><td>${x.bank || 0}</td><td>${x.dev || 0}</td></tr>`;
+  }
+  return h + '</table>';
+}
+
+function showLookPicker() {
+  const m = me();
+  const taken = new Set(S.players.filter((p) => p.id !== S.me).map((p) => p.color));
+  modalExtra = () => {
+    const cur = me();
+    return `<h3>🎨 Tvoja boja i avatar</h3>
+    <div class="pick">${S.colors.map((c) => `<button class="swatch ${cur.color === c ? 'sel' : ''}" data-color="${c}" ${taken.has(c) ? 'disabled title="Ovu boju već ima drugi igrač"' : 'title="Izaberi ovu boju"'} style="background:${c}"></button>`).join('')}</div>
+    <div class="pick">${AVATARS.map((a, i) => `<button class="av ${avatarOf(cur) === a ? 'sel' : ''}" data-avatar="${i}" title="Izaberi ovog avatara">${a}</button>`).join('')}</div>
+    <button class="ob" data-close>Gotovo</button>`;
+  };
+  renderModal();
+}
+
 function renderModal() {
   const modal = $('modal'), card = $('modalCard');
   let h = null;
@@ -736,7 +816,8 @@ function renderModal() {
     const ranking = [...S.players].sort((a, b) => b.vp - a.vp);
     h = `<h3>${S.winner ? `🏆 ${esc(pById(S.winner).name)} je pobedio!` : `🛑 Igra je prekinuta${S.endedBy ? ` (prekinuo ${esc(pById(S.endedBy).name)})` : ''}`}</h3>
       ${ranking.map((p, i) => `<div class="row" style="padding:4px 0"><b>${i + 1}.</b><div class="avatar" style="background:${p.color};width:30px;height:30px;font-size:15px;border-width:2px">${avatarOf(p)}</div>${esc(p.name)} <b style="margin-left:auto">${p.vp} poena</b></div>`).join('')}
-      <p><button class="btn green" style="width:100%" onclick="location.href='/'">Nazad na sobe</button></p>`;
+      ${statsHTML()}
+      <p><button class="btn green" style="width:100%" data-backrooms>Nazad na sobe</button></p>`;
   } else if (S && S.phase !== 'lobby' && S.sub === 'discard' && S.pendingDiscard[S.me]) {
     const need = S.pendingDiscard[S.me];
     const sum = RES.reduce((s, r) => s + (discardSel[r] || 0), 0);
@@ -767,6 +848,9 @@ $('modalCard').addEventListener('click', (ev) => {
   if (b.hasAttribute('data-pconfirm')) { const p = picker; picker = null; p.cb(p.sel); return renderModal(); }
   if (b.hasAttribute('data-pcancel')) { picker = null; return renderModal(); }
   if (b.dataset.startvote) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); return act('voteKick', { pid: b.dataset.startvote }); }
+  if (b.dataset.color) { act('look', { color: b.dataset.color }); return; }
+  if (b.dataset.avatar) { act('look', { avatar: Number(b.dataset.avatar) }); return; }
+  if (b.hasAttribute('data-backrooms')) { setSavedRoom(''); location.href = '/'; return; }
   if (b.hasAttribute('data-exit')) { modalExtra = null; $('modalCard').innerHTML = ''; return doLeave(); }
   if (b.hasAttribute('data-endgame')) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); return act('endGame'); }
   if (b.hasAttribute('data-close')) { modalExtra = null; $('modalCard').innerHTML = ''; return renderModal(); }
@@ -784,3 +868,28 @@ $('modalCard').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.t
   }).join('');
 })();
 render();
+
+// ---------- opisi kad predjes misem (brzi, umesto obicnog title) ----------
+(() => {
+  const tip = $('tip');
+  let cur = null;
+  document.addEventListener('mouseover', (e) => {
+    const el = e.target.closest('[title], [data-tip]');
+    if (!el) { tip.classList.add('hidden'); cur = null; return; }
+    if (el.hasAttribute('title')) { el.dataset.tip = el.getAttribute('title'); el.removeAttribute('title'); }
+    if (!el.dataset.tip) return;
+    cur = el;
+    tip.textContent = el.dataset.tip;
+    tip.classList.remove('hidden');
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!cur) return;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = e.clientX + 14, y = e.clientY + 18;
+    if (x + w > innerWidth - 8) x = e.clientX - w - 10;
+    if (y + h > innerHeight - 8) y = e.clientY - h - 12;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  });
+  document.addEventListener('mouseout', (e) => { if (cur && !cur.contains(e.relatedTarget)) { tip.classList.add('hidden'); cur = null; } });
+  document.addEventListener('mousedown', () => { tip.classList.add('hidden'); });
+})();

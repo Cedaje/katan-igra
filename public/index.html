@@ -28,8 +28,8 @@
             <div id="roomRows"></div>
           </div>
           <div class="rooms-buttons">
-            <button id="createBtn" class="btn green">Napravi sobu</button>
-            <button id="joinBtn" class="btn orange">Uđi u sobu</button>
+            <button id="createBtn" class="btn green" title="Napravi novu sobu i pozovi prijatelje linkom">Napravi sobu</button>
+            <button id="joinBtn" class="btn orange" title="Uđi u sobu preko koda od 4 slova">Uđi u sobu</button>
           </div>
           <p id="homeError" class="error"></p>
         </div>
@@ -50,11 +50,11 @@
           <div id="lobbyPlayers"></div>
         </div>
         <div class="lob-col lob-settings">
-          <div class="lob-title"><h2>Soba: <span id="lobbyCode"></span></h2><button id="leaveBtn" class="x" title="Izađi iz sobe">✕</button></div>
+          <div class="lob-title"><h2>Soba: <span id="lobbyCode"></span></h2><button id="leaveBtn" class="x" title="Izađi iz sobe i vrati se na listu soba">✕</button></div>
           <div class="lob-scroll">
             <div class="box">
               <h3>Pozovi prijatelje</h3>
-              <div class="invite"><input id="inviteLink" readonly><button id="copyBtn" class="btn green sm">Kopiraj</button></div>
+              <div class="invite"><input id="inviteLink" readonly><button id="copyBtn" class="btn green sm" title="Kopiraj link i pošalji ga prijateljima">Kopiraj</button></div>
             </div>
             <h3>Mapa</h3>
             <div class="tiles" id="mapTiles"></div>
@@ -63,7 +63,7 @@
             <h3>Napredna podešavanja</h3>
             <div class="adv" id="advSettings"></div>
           </div>
-          <div class="lob-start"><button id="startBtn" class="btn green">Pokreni igru</button><span id="lobbyWait" class="muted-light">Čeka se da osnivač pokrene igru…</span></div>
+          <div class="lob-start"><button id="startBtn" class="btn green" title="Pokreni partiju sa igračima koji su u sobi (najmanje 2)">Pokreni igru</button><span id="lobbyWait" class="muted-light">Čeka se da osnivač pokrene igru…</span></div>
         </div>
         <div class="lob-col lob-chat">
           <h2>Ćaskanje</h2>
@@ -78,15 +78,15 @@
   <section id="game" class="hidden">
     <div class="g-board">
       <div class="g-tools">
-        <button data-nav="rules" title="Pravila">📖</button>
-        <button id="fsBtn" title="Ceo ekran">⛶</button>
-        <button id="exitBtn" title="Izlaz">🚪</button>
+        <button data-nav="rules" title="Pravila igre, cene i prečice na tastaturi">📖</button>
+        <button id="fsBtn" title="Prikaži igru preko celog ekrana">⛶</button>
+        <button id="exitBtn" title="Napusti igru ili je prekini (osnivač)">🚪</button>
         <button id="soundBtn" title="Zvuk">🔊</button>
       </div>
       <div id="voteBar" class="vote-bar hidden"></div>
       <div id="recipes" class="recipes"></div>
       <svg id="board"></svg>
-      <div id="dice" class="dice"></div>
+      <div id="dice" class="dice" title="Kockice. Klikni ili pritisni Space da baciš kad si na potezu."></div>
       <div id="offers" class="offers hidden"></div>
       <div id="tradePanel" class="trade-panel hidden"></div>
       <div class="g-bottom">
@@ -94,7 +94,7 @@
         <div class="g-controls">
           <div class="g-statusrow">
             <div id="status" class="status"></div>
-            <div id="timer" class="timer"></div>
+            <div id="timer" class="timer" title="Preostalo vreme za potez. Kad istekne, igra sama odigra umesto igrača."></div>
           </div>
           <div id="actions" class="actions"></div>
         </div>
@@ -103,7 +103,7 @@
     <aside class="g-side">
       <div id="log" class="g-log"></div>
       <div class="g-chat">
-        <button id="chatToggle" class="chat-head">Ćaskanje <span id="chatBadge"></span><span class="chev">▴</span></button>
+        <button id="chatToggle" class="chat-head" title="Otvori ili zatvori ćaskanje. Komande: /izlaz, /kraj">Ćaskanje <span id="chatBadge"></span><span class="chev">▴</span></button>
         <div id="chatBody" class="hidden">
           <div id="chat" class="chat-list"></div>
           <form class="chat-form" data-chat><input maxlength="300" placeholder="Pošalji poruku" autocomplete="off"><button>➤</button></form>
@@ -117,6 +117,8 @@
 
   <div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
   <div id="toast" class="toast hidden"></div>
+  <div id="netBar" class="net-bar hidden">📡 Veza sa serverom je prekinuta. Povezujem se ponovo… Tvoje mesto u igri je sačuvano.</div>
+  <div id="tip" class="tip hidden"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="sfx.js"></script>

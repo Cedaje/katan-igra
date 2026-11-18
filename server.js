@@ -12,7 +12,41 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (_req, res) => res.send('ok'));
 
+const fs = require('fs');
 const games = new Map(); // code -> Game
+
+// ---------- cuvanje partija na disk (da prezive restart servera) ----------
+const SAVE_FILE = process.env.SAVE_FILE || path.join(__dirname, 'data', 'games.json');
+let dirty = false;
+function saveGames() {
+  if (!dirty) return;
+  dirty = false;
+  try {
+    fs.mkdirSync(path.dirname(SAVE_FILE), { recursive: true });
+    const list = [...games.values()].filter((g) => g.phase !== 'ended').map((g) => {
+      const { botTimer, ...data } = g; // eslint-disable-line no-unused-vars
+      return data;
+    });
+    fs.writeFileSync(SAVE_FILE + '.tmp', JSON.stringify(list));
+    fs.renameSync(SAVE_FILE + '.tmp', SAVE_FILE);
+  } catch (e) { console.error('cuvanje nije uspelo', e.message); }
+}
+function loadGames() {
+  try {
+    const list = JSON.parse(fs.readFileSync(SAVE_FILE, 'utf8'));
+    for (const data of list) {
+      const g = Object.assign(Object.create(Game.prototype), data);
+      g.emptySince = Date.now();
+      g.botTimer = null;
+      for (const p of g.players) p.connected = false;
+      games.set(g.code, g);
+    }
+    if (list.length) console.log(`Učitano ${list.length} sačuvanih partija.`);
+  } catch (e) { if (e.code !== 'ENOENT') console.error('ucitavanje nije uspelo', e.message); }
+}
+loadGames();
+setInterval(saveGames, 5000);
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { dirty = true; saveGames(); process.exit(0); });
 
 function newCode() {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -34,7 +68,9 @@ function sendRooms(target = io) { target.emit('rooms', roomList()); }
 function broadcast(game) {
   const online = new Set(roomSockets(game.code).map((s) => s.data.pid));
   for (const p of game.players) p.connected = online.has(p.id);
+  if (online.size && game.emptySince) { game.timerKey = null; game.touchTimer(); } // igra se nastavlja: novo vreme za potez
   game.emptySince = online.size ? null : (game.emptySince || Date.now());
+  dirty = true;
   for (const sock of roomSockets(game.code)) sock.emit('state', game.viewFor(sock.data.pid));
 }
 
