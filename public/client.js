@@ -173,8 +173,7 @@ function renderBoard() {
   let h = '';
 
   // more oko ostrva
-  const R = Math.max(maxX, -minX, maxY, -minY) * SC;
-  h += `<circle cx="0" cy="0" r="${R * 0.93}" fill="#2a7a96" opacity=".35"/>`;
+  h += `<ellipse cx="0" cy="0" rx="${Math.max(maxX, -minX) * SC * 0.98}" ry="${Math.max(maxY, -minY) * SC * 0.98}" fill="#2a7a96" opacity=".35"/>`;
 
   // luke
   for (const p of B.ports) {
@@ -293,6 +292,7 @@ $('actions').addEventListener('click', (ev) => {
 });
 
 function renderPlayers() {
+  $('players').classList.toggle('compact', S.players.length > 4);
   $('players').innerHTML = S.players.map((p) => `
     <div class="pl ${p.id === S.turn ? 'turn' : ''}">
       <span class="dot" style="background:${p.color}"></span>

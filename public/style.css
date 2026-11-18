@@ -112,3 +112,8 @@ input, select { font: inherit; padding: 7px 10px; border: 1px solid var(--line);
   #game { grid-template-columns: 1fr; height: auto; }
   .board-wrap { height: 70vh; }
 }
+
+#players.compact { gap: 3px; padding: 6px 10px; }
+#players.compact .pl { padding: 3px 8px; grid-template-columns: auto 1fr auto auto; }
+#players.compact .pl .stats { grid-column: auto; font-size: 12px; gap: 6px; }
+#players.compact .pl .vp { font-size: 15px; order: 4; }

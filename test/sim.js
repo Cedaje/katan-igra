@@ -1,6 +1,6 @@
 // Simulacija: botovi igraju nasumicne poteze dok neko ne pobedi. Hvata greske u pravilima.
 const assert = require('assert');
-const { Game, GameError, RES, COST, handSize } = require('../game');
+const { Game, GameError, RES, COST, LAYOUTS } = require('../game');
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -65,17 +65,20 @@ let wins = 0, turnsTotal = 0;
 const GAMES = Number(process.argv[2] || 200);
 for (let i = 0; i < GAMES; i++) {
   const g = new Game('TEST');
-  const n = 2 + (i % 3);
+  const n = 2 + (i % 7);
   for (let k = 0; k < n; k++) g.addPlayer('Bot' + k, 't' + k);
   g.action(g.players[0].id, 'start');
-  assert.equal(g.board.hexes.length, 19);
-  assert.equal(g.board.vertices.length, 54);
-  assert.equal(g.board.edges.length, 72);
+  const lay = LAYOUTS[g.board.layout];
+  assert.equal(g.board.hexes.length, lay.rows.reduce((a, b) => a + b, 0));
+  if (n <= 4) { assert.equal(g.board.vertices.length, 54); assert.equal(g.board.edges.length, 72); }
+  assert.equal(g.board.vertices.filter((v) => v.port).length, lay.ports.length * 2, 'luke dele teme');
+  assert.ok(g.board.hexes.every((h) => h.terrain === 'pustinja' || h.num), 'polje bez broja');
+  for (const a of g.board.hexes) for (const b of g.board.hexes) if (a !== b && [6, 8].includes(a.num) && [6, 8].includes(b.num)) assert.ok(Math.hypot(a.x - b.x, a.y - b.y) > 1.8, '6/8 susedi');
   let steps = 0;
   while (g.phase !== 'ended' && steps < 20000) {
     botStep(g); steps++;
     const t = totalCards(g);
-    for (const r of RES) assert.equal(t[r], 19, 'broj karata se promenio: ' + r);
+    for (const r of RES) assert.equal(t[r], lay.bank, 'broj karata se promenio: ' + r);
     for (const p of g.players) for (const r of RES) assert.ok(p.hand[r] >= 0);
     if (steps % 50 === 0) for (const p of g.players) JSON.stringify(g.viewFor(p.id));
   }

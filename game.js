@@ -8,10 +8,10 @@ const COST = {
   city: { zito: 2, kamen: 3 },
   dev: { vuna: 1, zito: 1, kamen: 1 },
 };
-const COLORS = ['#e05a47', '#3b82c4', '#f2b134', '#4caf6a'];
+const COLORS = ['#e05a47', '#3b82c4', '#f2b134', '#4caf6a', '#9b5fc0', '#f2f2f2', '#e07ab8', '#8a5a3c'];
 const DEV_NAMES = { vitez: 'Vitez', bod: 'Bod pobede', putevi: 'Graditelji puteva', obilje: 'Obilje', monopol: 'Monopol' };
 const RES_NAMES = { drvo: 'drvo', glina: 'glina', vuna: 'vuna', zito: 'žito', kamen: 'kamen' };
-const MAX_PLAYERS = 4;
+const MAX_PLAYERS = 8;
 const WIN_VP = 10;
 
 function shuffle(a) {
@@ -24,34 +24,62 @@ function shuffle(a) {
 const emptyHand = () => ({ drvo: 0, glina: 0, vuna: 0, zito: 0, kamen: 0 });
 const handSize = (h) => RES.reduce((s, r) => s + h[r], 0);
 
-function buildBoard() {
-  const coords = [];
-  for (let q = -2; q <= 2; q++) for (let r = -2; r <= 2; r++) if (Math.abs(q + r) <= 2) coords.push([q, r]);
+// Velicina table prema broju igraca: osnovna (2-4), prosirenje (5-6) i veliko prosirenje (7-8)
+const LAYOUTS = {
+  base: {
+    rows: [3, 4, 5, 4, 3],
+    terrain: { suma: 4, gliniste: 3, pasnjak: 4, polje: 4, planina: 3, pustinja: 1 },
+    numbers: [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12],
+    ports: ['3:1', '3:1', '3:1', '3:1', 'drvo', 'glina', 'vuna', 'zito', 'kamen'],
+    bank: 19,
+    dev: { vitez: 14, bod: 5, putevi: 2, obilje: 2, monopol: 2 },
+  },
+  ext6: {
+    rows: [3, 4, 5, 6, 5, 4, 3],
+    terrain: { suma: 6, gliniste: 5, pasnjak: 6, polje: 6, planina: 5, pustinja: 2 },
+    numbers: [2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 8, 8, 8, 9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12],
+    ports: ['3:1', '3:1', '3:1', '3:1', '3:1', 'drvo', 'glina', 'vuna', 'vuna', 'zito', 'kamen'],
+    bank: 24,
+    dev: { vitez: 20, bod: 5, putevi: 3, obilje: 3, monopol: 3 },
+  },
+  ext8: {
+    rows: [4, 5, 6, 7, 6, 5, 4],
+    terrain: { suma: 7, gliniste: 7, pasnjak: 7, polje: 7, planina: 7, pustinja: 2 },
+    numbers: [2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10, 10, 11, 11, 11, 12, 12],
+    ports: ['3:1', '3:1', '3:1', '3:1', '3:1', '3:1', 'drvo', 'glina', 'vuna', 'zito', 'kamen', 'drvo', 'zito'],
+    bank: 30,
+    dev: { vitez: 25, bod: 6, putevi: 4, obilje: 4, monopol: 4 },
+  },
+};
+const layoutFor = (n) => (n <= 4 ? 'base' : n <= 6 ? 'ext6' : 'ext8');
 
-  const terrains = shuffle([
-    ...Array(4).fill('suma'), ...Array(3).fill('gliniste'), ...Array(4).fill('pasnjak'),
-    ...Array(4).fill('polje'), ...Array(3).fill('planina'), 'pustinja',
-  ]);
-  const hexes = coords.map(([q, r], id) => ({
-    id, q, r,
-    x: Math.sqrt(3) * (q + r / 2),
-    y: 1.5 * r,
-    terrain: terrains[id],
-    res: TERRAIN_RES[terrains[id]],
-    num: null,
+function buildBoard(layoutName = 'base') {
+  const L = LAYOUTS[layoutName];
+  const centers = [];
+  L.rows.forEach((count, i) => {
+    for (let c = 0; c < count; c++) centers.push([Math.sqrt(3) * (c - (count - 1) / 2), 1.5 * (i - (L.rows.length - 1) / 2)]);
+  });
+  const terrains = shuffle(Object.entries(L.terrain).flatMap(([t, n]) => Array(n).fill(t)));
+  const hexes = centers.map(([x, y], id) => ({
+    id, x, y, terrain: terrains[id], res: TERRAIN_RES[terrains[id]], num: null,
   }));
+  const isNeighbor = (a, b) => Math.abs(Math.hypot(a.x - b.x, a.y - b.y) - Math.sqrt(3)) < 0.01;
 
-  const isNeighbor = (a, b) => {
-    const dq = a.q - b.q, dr = a.r - b.r;
-    return (Math.abs(dq) + Math.abs(dr) + Math.abs(dq + dr)) === 2;
-  };
   // Brojevi: 6 i 8 ne smeju biti jedan pored drugog
-  const nonDesert = hexes.filter((h) => h.terrain !== 'pustinja');
-  for (let tries = 0; tries < 1000; tries++) {
-    const nums = shuffle([2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12]);
-    nonDesert.forEach((h, i) => { h.num = nums[i]; });
-    const hot = nonDesert.filter((h) => h.num === 6 || h.num === 8);
-    if (!hot.some((a) => hot.some((b) => a !== b && isNeighbor(a, b)))) break;
+  const producing = hexes.filter((h) => h.terrain !== 'pustinja');
+  const hotNums = L.numbers.filter((n) => n === 6 || n === 8);
+  const coldNums = L.numbers.filter((n) => n !== 6 && n !== 8);
+  for (let tries = 0; tries < 5000; tries++) {
+    const order = shuffle([...producing]);
+    const hot = [];
+    for (const h of order) {
+      if (hot.length === hotNums.length) break;
+      if (!hot.some((o) => isNeighbor(o, h))) hot.push(h);
+    }
+    if (hot.length < hotNums.length) continue;
+    const hn = shuffle([...hotNums]), cn = shuffle([...coldNums]);
+    for (const h of producing) h.num = hot.includes(h) ? hn.pop() : cn.pop();
+    break;
   }
 
   const vertices = [], vIndex = new Map();
@@ -91,10 +119,11 @@ function buildBoard() {
     const mx = (vertices[e.a].x + vertices[e.b].x) / 2, my = (vertices[e.a].y + vertices[e.b].y) / 2;
     return { e, mx, my, ang: Math.atan2(my, mx) };
   }).sort((p, q) => p.ang - q.ang);
-  const portTypes = shuffle(['3:1', '3:1', '3:1', '3:1', ...RES]);
+  const portTypes = shuffle([...L.ports]);
   const ports = [];
-  for (let i = 0; i < 9; i++) {
-    const c = coast[Math.floor((i * coast.length) / 9)];
+  const np = portTypes.length;
+  for (let i = 0; i < np; i++) {
+    const c = coast[Math.floor((i * coast.length) / np)];
     const type = portTypes[i];
     vertices[c.e.a].port = type; vertices[c.e.b].port = type;
     const len = Math.hypot(c.mx, c.my);
@@ -102,14 +131,11 @@ function buildBoard() {
   }
 
   const robber = hexes.find((h) => h.terrain === 'pustinja').id;
-  return { hexes, vertices, edges, ports, robber };
+  return { layout: layoutName, hexes, vertices, edges, ports, robber };
 }
 
-function makeDevDeck() {
-  return shuffle([
-    ...Array(14).fill('vitez'), ...Array(5).fill('bod'),
-    'putevi', 'putevi', 'obilje', 'obilje', 'monopol', 'monopol',
-  ]);
+function makeDevDeck(layoutName = 'base') {
+  return shuffle(Object.entries(LAYOUTS[layoutName].dev).flatMap(([t, n]) => Array(n).fill(t)));
 }
 
 class GameError extends Error {}
@@ -148,7 +174,7 @@ class Game {
 
   addPlayer(name, token) {
     if (this.phase !== 'lobby') fail('Igra je već počela.');
-    if (this.players.length >= MAX_PLAYERS) fail('Soba je puna (najviše 4 igrača).');
+    if (this.players.length >= MAX_PLAYERS) fail('Soba je puna (najviše 8 igrača).');
     const used = new Set(this.players.map((p) => p.color));
     const pl = {
       id: 'p' + Math.random().toString(36).slice(2, 9),
@@ -314,6 +340,11 @@ class Game {
     if (this.players.length < 2) fail('Potrebna su bar 2 igrača.');
     shuffle(this.players);
     const n = this.players.length;
+    const layout = layoutFor(n);
+    this.board = buildBoard(layout);
+    this.devDeck = makeDevDeck(layout);
+    const bankSize = LAYOUTS[layout].bank;
+    this.bank = Object.fromEntries(RES.map((r) => [r, bankSize]));
     this.setupOrder = [...Array(n).keys(), ...[...Array(n).keys()].reverse()];
     this.setupStep = 0;
     this.turn = this.setupOrder[0];
@@ -698,4 +729,4 @@ class Game {
   }
 }
 
-module.exports = { Game, GameError, RES, COST, buildBoard, handSize };
+module.exports = { Game, GameError, RES, COST, LAYOUTS, buildBoard, handSize };
