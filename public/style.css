@@ -516,3 +516,30 @@ body.skin-podvodni #game { background: radial-gradient(ellipse at 40% 20%, #1249
 .confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: 14px; }
 .confetti i { position: absolute; top: -12px; width: 8px; height: 13px; border-radius: 2px; opacity: .9; animation: fall linear 3 both; }
 @keyframes fall { from { transform: translateY(0) rotate(0); } to { transform: translateY(560px) rotate(540deg); opacity: 0; } }
+/* izgled Kucice – tamno */
+body.skin-tamne { --sea1: #142430; --sea2: #070d12; --rail: #0a1218; --panel: #1f262c; --panel2: #262e35; --card: #2c353d; --ink: #ebe5d8; --muted: #9ba4ab; --line: #3a444c; --green: #2f8f57; --green-d: #23723f; --orange: #c9772c; --orange-d: #a8601e; --blue-l: #2a5f75; --hilite: #f2b84b; }
+body.skin-tamne #game { background: radial-gradient(ellipse at 45% 25%, #1b3342 0%, #0d1a23 60%, #05090c 100%); }
+.skin-tamne .rcard:not(.dev) { background: #2f2a22 !important; border: 2px solid #6b5d42; flex-direction: column; justify-content: flex-start; padding: 3px; gap: 1px; }
+.skin-tamne .rcard .art { flex: 1; width: 100%; border-radius: 5px; display: grid; place-items: center; background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--c) 70%, #fff), var(--c)); box-shadow: inset 0 -3px 0 #0003; overflow: hidden; }
+.skin-tamne .rcard .art svg { width: 100%; height: 100%; }
+.skin-tamne .rcard .lbl { font-size: 9px; font-weight: 800; color: #e8dcc0; line-height: 1.1; }
+.skin-tamne .rcard.dev { background: linear-gradient(160deg, #5d4790, #2e2052); border: 2px solid #6b5d42; padding: 3px; justify-content: flex-start; }
+.skin-tamne .rcard.dev .art { background: radial-gradient(circle at 50% 35%, #e9dfc6, #b9a982); }
+.skin-tamne .rcard.small .lbl, .skin-tamne .mini .rcard .lbl { display: none; }
+.skin-tamne .mini .rcard, .skin-tamne .rc { padding: 1px; }
+.skin-tamne .g-tools button, .skin-tamne .zoom-ctl button { background: rgba(38,46,53,.95); color: #ebe5d8; }
+.skin-tamne .status.click, .skin-tamne .act.on, .skin-tamne .av.sel { color: #1d1a14; }
+.skin-tamne .pp.turn { background: linear-gradient(90deg, color-mix(in srgb, var(--pc, #fff) 30%, #3a3524) 0%, #3a3524 70%); }
+.skin-tamne .pp .pname, .skin-tamne .pod-name, .skin-tamne .rest-table .rn { color: color-mix(in srgb, var(--pc, var(--ink)) 70%, #fff); }
+.skin-tamne .rec-row.ok { background: #24412e; }
+.skin-tamne .vote-bar { background: #262e35; }
+.skin-tamne .step button, .skin-tamne .av { background: #2c353d; color: var(--ink); }
+.skin-tamne .tbig { background: #2a3a42; border-color: #4b6470; color: var(--ink); }
+.skin-tamne .tbig:not(:disabled):hover { background: #24412e; }
+.skin-tamne .act { background: #2a3a42; border-color: #4b6470; }
+.skin-tamne .act.end { background: #24412e; border-color: #3f7a55; }
+.skin-tamne .act.on { background: var(--hilite); }
+.skin-tamne .die { background: #e9e2cf; box-shadow: 0 4px 0 #8a7f68, 0 6px 14px rgba(0,0,0,.6); }
+.skin-tamne .chat-form input { background: #2c353d; color: var(--ink); border-color: var(--line); }
+.skin-tamne .name-pill input { background: #2c353d; color: var(--ink); }
+.skin-tamne .modal-x { color: var(--ink); }

@@ -293,16 +293,20 @@ function hexPoints(hx, V, scale = 1) {
 const SKINS = {
   osnovni: { name: 'Osnovni', desc: 'Klasične figure, prvi izgled igre.' },
   podvodni: { name: 'Podvodni svet', desc: 'Morsko dno: alge, korali, meduze, školjke i kristali umesto običnih sirovina. Sela su školjke, gradovi velike spiralne školjke, putevi nizovi bisera, a lopov je ajkula.' },
+  tamne: { name: 'Kućice – tamno', desc: 'Isto kao Kućice, ali u tamnim bojama, kao noću: tamnija polja i paneli, a prozori na kućama svetle.' },
   kucice: { name: 'Kućice', desc: '3D izgled: polja sa drvećem, ovcama, žitom, ciglama i planinama, 3D putevi, lopov sa kapuljačom, ilustrovane karte i kućice u boji igrača.' },
 };
 let skin = 'osnovni';
 try { if (SKINS[localStorage.getItem('ot_skin')]) skin = localStorage.getItem('ot_skin'); } catch (_) { /* */ }
 const BASE_RES = JSON.parse(JSON.stringify(RES_INFO)), BASE_TERRAIN = JSON.parse(JSON.stringify(TERRAIN));
-const SKA = () => (skin === 'kucice' ? ART : skin === 'podvodni' ? SEA : null);
+const DARK = { ...ART, BOARD: { ring1: '#0e2230', ring2: '#4a4231', hexStroke: '#5b5547', token: '#efe6cf', tokenInk: '#1d1a14', hot: '#d8433a', side: -0.6 } };
+const SKA = () => (skin === 'kucice' ? ART : skin === 'tamne' ? DARK : skin === 'podvodni' ? SEA : null);
 function applySkin() {
   for (const k of Object.keys(SKINS)) document.body.classList.toggle('skin-' + k, k === skin);
   for (const r of RES) Object.assign(RES_INFO[r], BASE_RES[r], skin === 'podvodni' ? SEA.RES[r] : {});
   for (const t of Object.keys(TERRAIN)) Object.assign(TERRAIN[t], BASE_TERRAIN[t], skin === 'podvodni' ? SEA.TERRAIN[t] : {});
+  if (skin === 'tamne') for (const t of Object.keys(TERRAIN)) { TERRAIN[t].a = shade(BASE_TERRAIN[t].a, -0.32); TERRAIN[t].b = shade(BASE_TERRAIN[t].b, -0.42); }
+  if (skin === 'tamne') for (const r of RES) RES_INFO[r].color = shade(BASE_RES[r].color, -0.25);
 }
 function setSkin(k) { skin = k; try { localStorage.setItem('ot_skin', k); } catch (_) { /* */ } applySkin(); }
 applySkin();
@@ -333,7 +337,7 @@ function isoHouse(ox, oy, wl, wr, h, rh, col, o = {}) {
   let s = poly([B, L, up(L), up(B)], shade(col, -0.22), ol) + poly([B, R, up(R), up(B)], col, ol);
   s += poly([up(L), up(B), A1], shade(col, -0.22), ol); // zabat
   // prozori i vrata
-  const win = '#e8f6ff', glass = '#7cc7ec';
+  const win = o.night ? '#3a3221' : '#e8f6ff', glass = o.night ? '#ffd36b' : '#7cc7ec';
   const floors = o.floors || 1;
   for (let f = 0; f < floors; f++) {
     const v1 = 0.22 + f / floors * 0.9 * (floors > 1 ? 1 : 0), v2 = v1 + 0.5 / floors;
@@ -348,9 +352,10 @@ function isoHouse(ox, oy, wl, wr, h, rh, col, o = {}) {
 }
 function pieceSVG(type, x, y, col) {
   if (skin === 'podvodni') return SEA.piece(type, x, y, col);
-  if (skin === 'kucice') {
-    if (type === 'settlement') return `<g class="piece" transform="translate(${x} ${y}) scale(1.45)">${isoHouse(-1, 14.5, 10, 12, 9, 9, col, { door: true })}</g>`;
-    return `<g class="piece" transform="translate(${x} ${y}) scale(1.3)">${isoHouse(-4.5, 16, 11, 15, 17, 10, col, { floors: 2, chimney: true })}${isoHouse(7.5, 23, 7, 8, 7, 6, col, { door: true, roof: shade(col, -0.45) })}</g>`;
+  if (skin === 'kucice' || skin === 'tamne') {
+    const n = skin === 'tamne';
+    if (type === 'settlement') return `<g class="piece" transform="translate(${x} ${y}) scale(1.45)">${isoHouse(-1, 14.5, 10, 12, 9, 9, col, { door: true, night: n })}</g>`;
+    return `<g class="piece" transform="translate(${x} ${y}) scale(1.3)">${isoHouse(-4.5, 16, 11, 15, 17, 10, col, { floors: 2, chimney: true, night: n })}${isoHouse(7.5, 23, 7, 8, 7, 6, col, { door: true, night: n, roof: shade(col, -0.45) })}</g>`;
   }
   if (type === 'settlement') return `<path d="M${x - 11} ${y + 10} V${y - 2} L${x} ${y - 13} L${x + 11} ${y - 2} V${y + 10} Z" fill="${col}" stroke="#1b1712" stroke-width="2.5" stroke-linejoin="round"/><path d="M${x - 11} ${y - 2} L${x} ${y - 13} L${x + 11} ${y - 2}" fill="none" stroke="#fff8" stroke-width="2"/>`;
   return `<path d="M${x - 16} ${y + 12} V${y - 4} H${x - 4} V${y - 9} L${x + 5} ${y - 18} L${x + 14} ${y - 9} V${y + 12} Z" fill="${col}" stroke="#1b1712" stroke-width="2.5" stroke-linejoin="round"/><rect x="${x - 11}" y="${y + 1}" width="5" height="6" fill="#1b1712" opacity=".55"/><rect x="${x + 3}" y="${y - 4}" width="5" height="6" fill="#1b1712" opacity=".55"/>`;
