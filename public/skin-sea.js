@@ -119,17 +119,21 @@ const SEA = (() => {
     </g>`;
   }
 
-  // razbojnik: ajkula
+  // razbojnik: ajkula, iznad broja na polju (x, y dolaze kao kod obicnog razbojnika)
   function robber(x, y) {
-    return `<g transform="translate(${x} ${y})">
-      <ellipse cx="0" cy="20" rx="14" ry="3.5" fill="#00000045"/>
-      <path d="M-18 4 Q-6 -8 10 -2 Q16 0 18 4 Q10 10 -4 9 Q-12 8 -18 4 Z" fill="#5d7486" stroke="#132634" stroke-width="1.4"/>
-      <path d="M-14 6 Q0 10 16 5 Q10 10 -4 9 Q-10 8 -14 6 Z" fill="#e8f0f4"/>
-      <path d="M-4 -5 L0 -16 L5 -3 Z" fill="#4a6072" stroke="#132634" stroke-width="1.2"/>
-      <path d="M-17 4 L-25 -4 L-23 4 L-26 11 Z" fill="#4a6072" stroke="#132634" stroke-width="1.2"/>
-      <circle cx="10" cy="0" r="1.6" fill="#132634"/><circle cx="10.5" cy="-.5" r=".5" fill="#fff"/>
-      <path d="M11 5 l1.5 1.8 l1.2 -1.8 l1.4 1.6 l1 -1.6" stroke="#fff" stroke-width=".9" fill="none"/>
-      ${'<circle cx="20" cy="-6" r="1.5" fill="none" stroke="#e6fbff" stroke-width=".6"/><circle cx="23" cy="-11" r="1" fill="none" stroke="#e6fbff" stroke-width=".5"/>'}
+    return `<g transform="translate(${x - 27} ${y - 24}) scale(1.45)">
+      <defs><linearGradient id="shk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f6f88"/><stop offset=".55" stop-color="#7f9db3"/><stop offset=".56" stop-color="#eef5f8"/><stop offset="1" stop-color="#d6e3ea"/></linearGradient></defs>
+      <ellipse cx="0" cy="17" rx="17" ry="3" fill="#00000040"/>
+      <path d="M-15 1 Q-21 -9 -25 -10 Q-23 -2 -24 7 Q-20 4 -15 3 Z" fill="#46637a" stroke="#14283a" stroke-width="1"/>
+      <path d="M-2 -6 Q1 -17 7 -19 Q6 -12 8 -5 Z" fill="#46637a" stroke="#14283a" stroke-width="1"/>
+      <path d="M-17 2 Q-8 -8 6 -7 Q17 -6 22 1 Q20 6 13 8 Q2 11 -8 8 Q-14 6 -17 2 Z" fill="url(#shk)" stroke="#14283a" stroke-width="1.1"/>
+      <path d="M0 7 Q3 13 -2 15 Q-1 10 -4 8 Z" fill="#46637a" stroke="#14283a" stroke-width=".9"/>
+      <path d="M8 -2 q-1 3 0 5 M10 -2.5 q-1 3 0 5 M12 -3 q-1 3 0 5" stroke="#2e4a60" stroke-width=".6" fill="none"/>
+      <circle cx="15.5" cy="-2" r="1.6" fill="#0d1a24"/><circle cx="16" cy="-2.5" r=".55" fill="#fff"/>
+      <path d="M13 4.2 Q17.5 5.6 21 2.2" stroke="#14283a" stroke-width=".8" fill="none"/>
+      <path d="M14 4.6 l.8 1.2 l.7 -1.1 l.8 1.1 l.7 -1.2 l.7 1 l.6 -1.2" stroke="#fff" stroke-width=".6" fill="none"/>
+      <path d="M-10 -3 Q0 -7.5 10 -5.5" stroke="#9fbdd1" stroke-width="1" fill="none" opacity=".7"/>
+      <circle cx="24" cy="-6" r="1.4" fill="none" stroke="#e6fbff" stroke-width=".5"/><circle cx="26.5" cy="-10" r=".9" fill="none" stroke="#e6fbff" stroke-width=".45"/>
     </g>`;
   }
 
