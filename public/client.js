@@ -213,6 +213,7 @@ $('leaveBtn').onclick = doLeave;
 
 // ---------- tabla ----------
 const SC = 62;
+const TOKEN_SCALE = { base: 1, ext6: 1.2, ext8: 1.3 };
 function hexPoints(hx, V, scale = 1) {
   return hx.corners.map((c) => `${(hx.x + (V[c].x - hx.x) * scale) * SC},${(hx.y + (V[c].y - hx.y) * scale) * SC}`).join(' ');
 }
@@ -245,14 +246,17 @@ function renderBoard() {
   for (const hx of B.hexes) {
     const t = TERRAIN[hx.terrain];
     h += `<polygon points="${hexPoints(hx, V, 0.96)}" fill="url(#g-${hx.terrain})" stroke="#fff6dc" stroke-width="3" stroke-linejoin="round"/>`;
-    h += `<text x="${hx.x * SC}" y="${hx.y * SC - (hx.num ? 14 : -10)}" text-anchor="middle" font-size="${hx.num ? 26 : 34}">${t.ico}</text>`;
+    h += `<text x="${hx.x * SC}" y="${hx.y * SC - (hx.num ? 12 * (TOKEN_SCALE[B.layout] || 1) : -10)}" text-anchor="middle" font-size="${hx.num ? 26 : 34}">${t.ico}</text>`;
     if (hx.num) {
       const hot = hx.num === 6 || hx.num === 8;
       const pips = 6 - Math.abs(7 - hx.num);
       const col = hot ? '#c0392b' : '#2a241c';
-      h += `<rect x="${hx.x * SC - 17}" y="${hx.y * SC - 2}" width="34" height="34" rx="7" fill="#fffaf0" stroke="#0003" stroke-width="1.5"/>`;
-      h += `<text x="${hx.x * SC}" y="${hx.y * SC + 20}" text-anchor="middle" font-size="19" font-weight="900" fill="${col}">${hx.num}</text>`;
-      h += `<text x="${hx.x * SC}" y="${hx.y * SC + 29}" text-anchor="middle" font-size="7" fill="${col}" letter-spacing="-1">${'●'.repeat(pips)}</text>`;
+      const k = TOKEN_SCALE[B.layout] || 1; // na vecim mapama brojevi su veci
+      const cx = hx.x * SC, top = hx.y * SC - 4 * k, w = 36 * k;
+      h += `<rect x="${cx - w / 2}" y="${top}" width="${w}" height="${w}" rx="${7 * k}" fill="#fffaf0" stroke="#0003" stroke-width="1.5"/>`;
+      h += `<text x="${cx}" y="${top + 22 * k}" text-anchor="middle" font-size="${20 * k}" font-weight="900" fill="${col}">${hx.num}</text>`;
+      const pr = 2.4 * k, gap = 6 * k;
+      for (let i = 0; i < pips; i++) h += `<circle cx="${cx + (i - (pips - 1) / 2) * gap}" cy="${top + 29.5 * k}" r="${pr}" fill="${col}"/>`;
     }
   }
 
@@ -272,14 +276,13 @@ function renderBoard() {
   h += `<g transform="translate(${rb.x * SC + 26},${rb.y * SC + 4})"><ellipse cx="0" cy="18" rx="12" ry="4" fill="#0006"/>
     <path d="M-10 17 Q-12 -2 0 -5 Q12 -2 10 17 Z" fill="#3a3640" stroke="#111" stroke-width="1.5"/><circle cx="0" cy="-10" r="8" fill="#3a3640" stroke="#111" stroke-width="1.5"/></g>`;
 
-  // putevi
-  for (const [eid, pid] of Object.entries(S.roads)) {
+  // putevi: spajaju se teme u teme; prvo sve ivice, pa boje, da se spojevi ne seku
+  const roadLines = Object.entries(S.roads).map(([eid, pid]) => {
     const e = B.edges[eid]; const a = V[e.a], b = V[e.b];
-    const col = pById(pid).color;
-    const sx = a.x + (b.x - a.x) * 0.16, sy = a.y + (b.y - a.y) * 0.16, ex = a.x + (b.x - a.x) * 0.84, ey = a.y + (b.y - a.y) * 0.84;
-    h += `<line x1="${sx * SC}" y1="${sy * SC}" x2="${ex * SC}" y2="${ey * SC}" stroke="#1b1712" stroke-width="12" stroke-linecap="round"/>`;
-    h += `<line x1="${sx * SC}" y1="${sy * SC}" x2="${ex * SC}" y2="${ey * SC}" stroke="${col}" stroke-width="7.5" stroke-linecap="round"/>`;
-  }
+    return { x1: a.x * SC, y1: a.y * SC, x2: b.x * SC, y2: b.y * SC, col: pById(pid).color };
+  });
+  for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="#1b1712" stroke-width="12" stroke-linecap="round"/>`;
+  for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="${r.col}" stroke-width="7.5" stroke-linecap="round"/>`;
   const showRoads = L.roads && (S.sub === 'road' || S.sub === 'roadBuilding' || mode === 'road');
   if (showRoads) for (const eid of L.roads) {
     const e = B.edges[eid]; const a = V[e.a], b = V[e.b];
@@ -521,11 +524,21 @@ $('offers').addEventListener('click', onTradeClick);
 
 // ---------- dnevnik i caskanje ----------
 function colorNames(text) {
-  let t = esc(text);
-  for (const p of [...S.players].sort((a, b) => b.name.length - a.name.length)) {
-    t = t.split(esc(p.name)).join(`<b style="color:${p.color};text-shadow:0 0 1px #0006">${esc(p.name)}</b>`);
+  // jedan prolaz kroz tekst, da se ime (npr. "a") ne bi menjalo unutar vec obojenog dela
+  const names = [...S.players].sort((a, b) => b.name.length - a.name.length);
+  if (!names.length) return esc(text);
+  const re = new RegExp(names.map((p) => p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
+  let out = '', last = 0, m;
+  while ((m = re.exec(text))) {
+    if (!m[0]) { re.lastIndex++; continue; }
+    const before = text[m.index - 1], after = text[m.index + m[0].length];
+    const isWord = (c) => c && /[\p{L}\p{N}_]/u.test(c);
+    if (isWord(before) || isWord(after)) continue; // samo cela rec
+    const p = names.find((x) => x.name === m[0]);
+    out += esc(text.slice(last, m.index)) + `<b style="color:${p.color};text-shadow:0 0 1px #0006">${esc(m[0])}</b>`;
+    last = m.index + m[0].length;
   }
-  return t;
+  return out + esc(text.slice(last));
 }
 function renderLog() {
   const log = $('log');

@@ -9,7 +9,7 @@ for (let i = 0; i < GAMES; i++) {
   const map = ['base', 'ext6', 'ext8'][i % 3];
   const g = new Game('T' + i);
   const host = g.addPlayer('Covek', 'tok');
-  g.action(host.id, 'settings', { map, timer: 60, vpToWin: 8 + (i % 5), discardLimit: 7 + (i % 3) });
+  g.action(host.id, 'settings', { map, timer: 60, vpToWin: map === 'base' ? 8 + (i % 5) : 7 + (i % 4), discardLimit: 7 + (i % 3) });
   g.action(host.id, 'settings', { resCards: 12 + (i % 20), devCards: 10 + (i % 40), hideBank: i % 2 === 0 });
   assert.equal(g.settings.map, map);
   const n = 2 + (i % (MAP_MAX[map] - 1));

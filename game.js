@@ -243,6 +243,12 @@ class Game {
     this.addLog(`${p.name} je izašao iz sobe.`);
   }
 
+  uniqueName(n) {
+    const taken = new Set(this.players.map((p) => p.name));
+    if (!taken.has(n)) return n;
+    for (let i = 2; ; i++) if (!taken.has(`${n} ${i}`)) return `${n} ${i}`;
+  }
+
   addPlayer(name, token) {
     if (this.phase !== 'lobby') fail('Igra je već počela.');
     if (this.players.length >= this.settings.maxPlayers) fail(`Soba je puna (${this.settings.maxPlayers} igrača).`);
@@ -250,7 +256,7 @@ class Game {
     const pl = {
       id: 'p' + Math.random().toString(36).slice(2, 9),
       token,
-      name: String(name || 'Igrač').slice(0, 16),
+      name: this.uniqueName(String(name || '').trim().slice(0, 16) || 'Igrač'),
       color: COLORS.find((c) => !used.has(c)),
       hand: emptyHand(),
       dev: [],
@@ -817,6 +823,7 @@ class Game {
       turnNum: this.turnNum,
       dice: this.dice,
       board: {
+        layout: B.layout,
         hexes: B.hexes.map(({ id, x, y, terrain, num, corners }) => ({ id, x, y, terrain, num, corners })),
         vertices: B.vertices.map(({ id, x, y, port }) => ({ id, x, y, port })),
         edges: B.edges.map(({ id, a, b }) => ({ id, a, b })),
