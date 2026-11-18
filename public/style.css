@@ -120,7 +120,7 @@ input { font: inherit; }
 .die i { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #2a241c; transform: translate(-50%, -50%); }
 .die.tumble { transition: transform .07s linear; box-shadow: 0 10px 18px rgba(0,0,0,.35); }
 .die.land { animation: land .45s cubic-bezier(.3,1.6,.5,1); }
-.die.idle { opacity: .55; }
+.die.idle { opacity: .9; }
 @keyframes land { 0% { transform: translateY(-26px) rotate(-25deg) scale(1.12); } 60% { transform: translateY(4px) rotate(4deg) scale(.96); } 100% { transform: none; } }
 
 .g-bottom { display: flex; gap: 8px; align-items: flex-end; }
@@ -231,7 +231,6 @@ input { font: inherit; }
 /* SVG */
 .hex-target { cursor: pointer; fill: rgba(255,255,255,.2); stroke: #fff; stroke-width: 4; animation: pulse 1s infinite alternate; }
 .spot { cursor: pointer; fill: #fff; stroke: #2a241c; stroke-width: 2.5; animation: pulse .8s infinite alternate; }
-.road-spot { cursor: pointer; stroke: #fff; stroke-width: 10; stroke-linecap: round; animation: pulse .8s infinite alternate; }
 @keyframes pulse { from { opacity: .4; } to { opacity: 1; } }
 
 @media (max-width: 1250px) {

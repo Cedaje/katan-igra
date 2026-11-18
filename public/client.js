@@ -339,7 +339,7 @@ function renderBoard() {
   if (showRoads) for (const eid of L.roads) {
     const e = B.edges[eid]; const a = V[e.a], b = V[e.b];
     const sx = a.x + (b.x - a.x) * 0.22, sy = a.y + (b.y - a.y) * 0.22, ex = a.x + (b.x - a.x) * 0.78, ey = a.y + (b.y - a.y) * 0.78;
-    h += `<line class="road-spot" data-e="${eid}" x1="${sx * SC}" y1="${sy * SC}" x2="${ex * SC}" y2="${ey * SC}"/>`;
+    h += `<circle class="spot road-spot" data-e="${eid}" cx="${(sx + ex) / 2 * SC}" cy="${(sy + ey) / 2 * SC}" r="10"/>`;
   }
 
   // gradjevine
@@ -408,7 +408,7 @@ function renderDice() {
   if (lastDiceKey === '') lastDiceKey = key || '-';
   if (diceRolling) return;
   if (key) lastDiceKey = key;
-  $('dice').innerHTML = d ? d.map((n) => dieHTML(n)).join('') : [null, null].map(() => dieHTML(null, 'idle')).join('');
+  $('dice').innerHTML = d ? d.map((n) => dieHTML(n)).join('') : [6, 6].map((n) => dieHTML(n, 'idle')).join('');
 }
 $('dice').onclick = () => { if (myTurn() && S.sub === 'roll') act('roll'); };
 
