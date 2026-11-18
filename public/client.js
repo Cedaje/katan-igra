@@ -46,6 +46,7 @@ let mode = null; // 'road' | 'settlement' | 'city' | null
 let tradeOpen = false;
 let tradeGive = {}, tradeGet = {};
 let chatOpen = false, seenChat = 0;
+let lastTick = 0;
 let lastToastSteal = 0, lastDiceKey = '';
 
 // ---------- identitet ----------
@@ -69,7 +70,7 @@ function toast(msg) {
   clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), 3200);
 }
 function act(type, data = {}) {
-  socket.emit('action', { type, data }, (r) => { if (r && !r.ok) toast(r.error); });
+  socket.emit('action', { type, data }, (r) => { if (r && !r.ok) { toast(r.error); SFX.play('error'); } });
 }
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const COLOR_ORDER = ['#e05a47', '#3b82c4', '#f2b134', '#4caf6a', '#9b5fc0', '#26b5b0', '#e07ab8', '#8a5a3c'];
@@ -134,11 +135,54 @@ socket.on('connect', () => {
     else { $('nameInput').focus(); toast(`Upiši ime i klikni sobu ${code} ili „Uđi u sobu“.`); }
   });
 });
-socket.on('kicked', () => { S = null; showPage('rooms'); history.replaceState(null, '', '/'); toast('Izbačen si iz sobe.'); });
+socket.on('kicked', () => { S = null; modalExtra = null; showPage('rooms'); renderModal(); history.replaceState(null, '', '/'); SFX.play('kick'); toast('Izbačen si iz sobe.'); });
 
 // ---------- prijem stanja ----------
+// ---------- zvukovi prema dogadjajima iz dnevnika ----------
+let seenLog = null, seenChatN = null;
+function playEventSounds(prev) {
+  const keys = S.log.map((l) => `${l.t}|${l.text}`);
+  if (seenLog === null || !prev || prev.code !== S.code) { seenLog = new Set(keys); seenChatN = S.chat.length; return; }
+  const fresh = S.log.filter((l, i) => !seenLog.has(keys[i]));
+  keys.forEach((k) => seenLog.add(k));
+  if (S.chat.length > seenChatN && S.chat[S.chat.length - 1].pid !== S.me) SFX.play('chat');
+  seenChatN = S.chat.length;
+  const myName = me()?.name;
+  const DICE_MS = 900; // zvuk posle kockica ceka da se kockice zaustave
+  let gains = 0, delay = 0;
+  for (const l of fresh) {
+    const t = l.text;
+    if (t.startsWith('🎲')) { SFX.play('dice'); delay = DICE_MS; if (/bacio 7\./.test(t)) setTimeout(() => SFX.play('seven'), DICE_MS); }
+    else if (t.startsWith('🛤️')) SFX.play('road');
+    else if (t.startsWith('🏠')) SFX.play('settlement');
+    else if (t.startsWith('🏰')) SFX.play('city');
+    else if (t.startsWith('🃏')) SFX.play('devBuy');
+    else if (t.startsWith('⚔️')) SFX.play('knight');
+    else if (t.startsWith('✨') || t.startsWith('💰')) SFX.play('coins');
+    else if (t.startsWith('🛠️')) SFX.play('devPlay');
+    else if (t.startsWith('🦹')) SFX.play('robber');
+    else if (t.includes('je ukrao kartu')) setTimeout(() => SFX.play('steal'), 250);
+    else if (t.startsWith('🤝')) SFX.play('offer');
+    else if (t.startsWith('✅')) SFX.play('tradeDone');
+    else if (t.startsWith('🏦')) SFX.play('bank');
+    else if (t.startsWith('🛣️') || t.startsWith('🛡️')) setTimeout(() => SFX.play('achieve'), 300);
+    else if (t.startsWith('🏆')) setTimeout(() => SFX.play(S.winner === S.me ? 'win' : 'lose'), 400);
+    else if (t.startsWith('➡️')) SFX.play(S.turn === S.me ? 'myTurn' : 'turn');
+    else if (t.includes('je odbacio')) SFX.play('discard');
+    else if (t.startsWith('🗳️')) SFX.play('vote');
+    else if (t.startsWith('🥾')) SFX.play('kick');
+    else if (t.startsWith('🚪') || t.startsWith('🛑')) SFX.play('leave');
+    else if (myName && t.startsWith(myName + ' dobija')) gains += (t.match(/\d+/g) || []).reduce((a, n) => a + Number(n), 0) || t.split(',').length;
+  }
+  if (gains) setTimeout(() => SFX.play('gain', gains), delay);
+  // postavljanje: kad je red na tebe
+  if (S.phase === 'setup' && prev.turn !== S.turn && S.turn === S.me) SFX.play('myTurn');
+}
+
 socket.on('state', (state) => {
+  const prev = S;
   S = state;
+  playEventSounds(prev);
   clockOffset = S.now - Date.now();
   if (S.sub !== 'main' || S.turn !== S.me) { mode = null; }
   if (!(S.turn === S.me && S.sub === 'main')) tradeOpen = false;
@@ -154,7 +198,7 @@ function render() {
   if (!S) return showPage('rooms');
   if (S.phase === 'lobby') { showPage('lobby'); renderLobby(); renderChat(); renderModal(); return; }
   showPage('game');
-  renderBoard(); renderDice(); renderHand(); renderStatus(); renderActions();
+  renderBoard(); renderDice(); renderHand(); renderStatus(); renderActions(); renderRecipes(); renderVote();
   renderPlayers(); renderBank(); renderOffers(); renderTradePanel(); renderLog(); renderChat(); renderModal();
 }
 
@@ -283,7 +327,15 @@ function renderBoard() {
   });
   for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="#1b1712" stroke-width="12" stroke-linecap="round"/>`;
   for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="${r.col}" stroke-width="7.5" stroke-linecap="round"/>`;
-  const showRoads = L.roads && (S.sub === 'road' || S.sub === 'roadBuilding' || mode === 'road');
+  // gradnja: kad imas sirovine i postoji mesto, mesta se sama oznace na tabli
+  const mainNow = myTurn() && S.sub === 'main' && S.phase === 'play';
+  const mm = me();
+  const can = {
+    road: mainNow && canAfford(COST.road) && mm.left.road > 0 && L.roads?.length > 0,
+    settlement: mainNow && canAfford(COST.settlement) && mm.left.settlement > 0 && L.settlements?.length > 0,
+    city: mainNow && canAfford(COST.city) && mm.left.city > 0 && L.cities?.length > 0,
+  };
+  const showRoads = L.roads && (S.sub === 'road' || S.sub === 'roadBuilding' || mode === 'road' || (!mode && !tradeOpen && can.road));
   if (showRoads) for (const eid of L.roads) {
     const e = B.edges[eid]; const a = V[e.a], b = V[e.b];
     const sx = a.x + (b.x - a.x) * 0.22, sy = a.y + (b.y - a.y) * 0.22, ex = a.x + (b.x - a.x) * 0.78, ey = a.y + (b.y - a.y) * 0.78;
@@ -296,12 +348,12 @@ function renderBoard() {
     const x = v.x * SC, y = v.y * SC;
     if (b.type === 'settlement') h += `<path d="M${x - 11} ${y + 10} V${y - 2} L${x} ${y - 13} L${x + 11} ${y - 2} V${y + 10} Z" fill="${col}" stroke="#1b1712" stroke-width="2.5" stroke-linejoin="round"/><path d="M${x - 11} ${y - 2} L${x} ${y - 13} L${x + 11} ${y - 2}" fill="none" stroke="#fff8" stroke-width="2"/>`;
     else h += `<path d="M${x - 16} ${y + 12} V${y - 4} H${x - 4} V${y - 9} L${x + 5} ${y - 18} L${x + 14} ${y - 9} V${y + 12} Z" fill="${col}" stroke="#1b1712" stroke-width="2.5" stroke-linejoin="round"/><rect x="${x - 11}" y="${y + 1}" width="5" height="6" fill="#1b1712" opacity=".55"/><rect x="${x + 3}" y="${y - 4}" width="5" height="6" fill="#1b1712" opacity=".55"/>`;
-    if (L.cities && mode === 'city' && L.cities.includes(Number(vid))) h += `<circle class="spot" data-v="${vid}" data-kind="city" cx="${x}" cy="${y}" r="17" fill-opacity=".35"/>`;
+    if (L.cities && (mode === 'city' || (!mode && !tradeOpen && can.city)) && L.cities.includes(Number(vid))) h += `<circle class="spot" data-v="${vid}" data-kind="city" cx="${x}" cy="${y}" r="17" fill-opacity=".35"/>`;
   }
-  const showSett = L.settlements && (S.sub === 'settlement' || mode === 'settlement');
+  const showSett = L.settlements && (S.sub === 'settlement' || mode === 'settlement' || (!mode && !tradeOpen && can.settlement));
   if (showSett) for (const vid of L.settlements) h += `<circle class="spot" data-v="${vid}" data-kind="settlement" cx="${V[vid].x * SC}" cy="${V[vid].y * SC}" r="10"/>`;
   const sum = S.dice ? S.dice[0] + S.dice[1] : 0;
-  if (sum && sum !== 7 && S.phase === 'play') for (const hx of B.hexes) {
+  if (sum && sum !== 7 && S.phase === 'play' && S.sub !== 'roll') for (const hx of B.hexes) {
     if (hx.num === sum) h += `<polygon class="hex-hit ${hx.id === B.robber ? 'blocked' : ''}" points="${hexPoints(hx, V, 0.96)}"/>`;
   }
   if (L.robber && S.sub === 'robber') for (const hid of L.robber) h += `<polygon class="hex-target" data-hex="${hid}" points="${hexPoints(B.hexes[hid], V, 0.96)}"/>`;
@@ -328,14 +380,35 @@ document.addEventListener('keydown', (e) => {
 
 // ---------- kockice ----------
 const PIP_POS = { 1: [[50, 50]], 2: [[28, 28], [72, 72]], 3: [[26, 26], [50, 50], [74, 74]], 4: [[28, 28], [72, 28], [28, 72], [72, 72]], 5: [[26, 26], [74, 26], [50, 50], [26, 74], [74, 74]], 6: [[28, 24], [72, 24], [28, 50], [72, 50], [28, 76], [72, 76]] };
+let diceRolling = false;
+const dieHTML = (n, cls = '', style = '') => `<div class="die ${cls}" style="${style}">${n ? PIP_POS[n].map(([x, y]) => `<i style="left:${x}%;top:${y}%"></i>`).join('') : ''}</div>`;
 function renderDice() {
   const d = S.dice;
   const key = d ? `${S.turnNum}-${d}` : '';
-  const anim = key && key !== lastDiceKey ? 'roll' : '';
-  lastDiceKey = key || lastDiceKey;
-  const dd = d || [null, null];
-  $('dice').innerHTML = dd.map((n) => `<div class="die ${anim}" ${n ? '' : 'style="opacity:.55"'}>${n ? PIP_POS[n].map(([x, y]) => `<i style="left:${x}%;top:${y}%"></i>`).join('') : ''}</div>`).join('');
   $('dice').style.cursor = myTurn() && S.sub === 'roll' ? 'pointer' : '';
+  if (key && key !== lastDiceKey && lastDiceKey !== '') {
+    // nova bacanja: kockice se kotrljaju ~0.85s pa padnu na pravi broj
+    lastDiceKey = key;
+    diceRolling = true;
+    const start = performance.now();
+    const step = () => {
+      const t = performance.now() - start;
+      if (t < 850) {
+        const r = () => 1 + Math.floor(Math.random() * 6);
+        $('dice').innerHTML = [0, 1].map((i) => dieHTML(r(), 'tumble', `transform: translate(${(Math.random() - 0.5) * 30}px, ${-Math.abs(Math.sin(t / 110 + i)) * 40}px) rotate(${Math.random() * 360}deg) scale(${0.85 + Math.random() * 0.2})`)).join('');
+        setTimeout(step, 70);
+      } else {
+        diceRolling = false;
+        $('dice').innerHTML = d.map((n) => dieHTML(n, 'land')).join('');
+      }
+    };
+    step();
+    return;
+  }
+  if (lastDiceKey === '') lastDiceKey = key || '-';
+  if (diceRolling) return;
+  if (key) lastDiceKey = key;
+  $('dice').innerHTML = d ? d.map((n) => dieHTML(n)).join('') : [null, null].map(() => dieHTML(null, 'idle')).join('');
 }
 $('dice').onclick = () => { if (myTurn() && S.sub === 'roll') act('roll'); };
 
@@ -396,20 +469,64 @@ setInterval(() => {
   const left = Math.max(0, Math.ceil((S.deadline - (Date.now() + clockOffset)) / 1000));
   t.textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
   t.classList.toggle('low', left <= 10);
+  if (left <= 5 && left > 0 && left !== lastTick && myTurn()) { lastTick = left; SFX.play('tick'); }
+  if (S.vote && $('voteLeft')) $('voteLeft').textContent = `${Math.max(0, Math.ceil((S.vote.until - (Date.now() + clockOffset)) / 1000))}s`;
 }, 250);
 
 function renderActions() {
   const m = me();
   const main = myTurn() && S.sub === 'main' && S.phase === 'play';
-  const b = (a, ico, label, enabled, cnt, extra = '') => `<button class="act ${extra} ${mode === a || (a === 'trade' && tradeOpen) ? 'on' : ''}" data-a="${a}" ${enabled ? '' : 'disabled'} title="${label}">${ico}<small>${label}</small>${cnt !== undefined ? `<span class="cnt">${cnt}</span>` : ''}</button>`;
+  const L = S.legal || {};
+  // dugme je ukljuceno samo ako imas sirovine I postoji mesto na tabli
+  const why = (cost, left, spots, what) => !main ? '' : !canAfford(cost) ? 'Nemaš dovoljno sirovina' : left <= 0 ? `Nemaš više: ${what}` : spots === 0 ? `Nema slobodnog mesta za ${what}` : '';
+  const b = (a, ico, label, enabled, cnt, extra = '', reason = '') => `<button class="act ${extra} ${mode === a || (a === 'trade' && tradeOpen) ? 'on' : ''}" data-a="${a}" ${enabled ? '' : 'disabled'} title="${label}${reason ? ' – ' + reason : ''}">${ico}<small>${label}</small>${cnt !== undefined ? `<span class="cnt">${cnt}</span>` : ''}</button>`;
+  const rs = L.roads?.length ?? 0, ss = L.settlements?.length ?? 0, cs = L.cities?.length ?? 0;
   $('actions').innerHTML =
     b('trade', '🤝', 'Trgovina', main) +
-    b('dev', '🃏', 'Karta', main && canAfford(COST.dev) && !S.devEmpty, S.devLeft ?? '?') +
-    b('road', '🛤️', 'Put', main && canAfford(COST.road) && m.left.road > 0, m.left.road) +
-    b('settlement', '🏠', 'Selo', main && canAfford(COST.settlement) && m.left.settlement > 0, m.left.settlement) +
-    b('city', '🏰', 'Grad', main && canAfford(COST.city) && m.left.city > 0, m.left.city) +
+    b('dev', '🃏', 'Karta', main && canAfford(COST.dev) && !S.devEmpty, S.devLeft ?? '?', '', main && S.devEmpty ? 'Nema više karata' : '') +
+    b('road', '🛤️', 'Put', main && canAfford(COST.road) && m.left.road > 0 && rs > 0, m.left.road, '', why(COST.road, m.left.road, rs, 'put')) +
+    b('settlement', '🏠', 'Selo', main && canAfford(COST.settlement) && m.left.settlement > 0 && ss > 0, m.left.settlement, '', why(COST.settlement, m.left.settlement, ss, 'selo')) +
+    b('city', '🏰', 'Grad', main && canAfford(COST.city) && m.left.city > 0 && cs > 0, m.left.city, '', why(COST.city, m.left.city, cs, 'grad')) +
     b('end', '⏩', 'Kraj poteza', myTurn() && (S.sub === 'main' || S.sub === 'roadBuilding'), undefined, 'end');
 }
+
+// ---------- recepti (cene gradnje) ----------
+let recipesOpen = true;
+try { recipesOpen = localStorage.getItem('ot_recipes') !== '0'; } catch (_) { /* */ }
+function renderRecipes() {
+  const rows = [
+    ['🛤️', 'Put', COST.road, '0 poena'],
+    ['🏠', 'Selo', COST.settlement, '1 poen'],
+    ['🏰', 'Grad', COST.city, '2 poena'],
+    ['🃏', 'Razvojna karta', COST.dev, '?'],
+  ];
+  const cards = (c) => Object.entries(c).flatMap(([r, n]) => Array(n).fill(r)).map((r) => `<span class="rc" style="background:${RES_INFO[r].color}" title="${RES_INFO[r].name}">${RES_INFO[r].ico}</span>`).join('');
+  $('recipes').innerHTML = `<button class="rec-head" data-rec>📜 Recepti <span>${recipesOpen ? '▾' : '▸'}</span></button>` + (recipesOpen ? rows.map(([ico, name, cost, vp]) =>
+    `<div class="rec-row ${S.hand && canAfford(cost) ? 'ok' : ''}"><span class="rn">${ico} ${name}</span><span class="rcs">${cards(cost)}</span><span class="rvp">${vp}</span></div>`).join('') : '');
+}
+$('recipes').addEventListener('click', (e) => { if (e.target.closest('[data-rec]')) { recipesOpen = !recipesOpen; try { localStorage.setItem('ot_recipes', recipesOpen ? '1' : '0'); } catch (_) { /* */ } renderRecipes(); } });
+
+// ---------- glasanje za izbacivanje ----------
+function renderVote() {
+  const bar = $('voteBar'), v = S.vote;
+  if (!v || (S.phase !== 'play' && S.phase !== 'setup')) { bar.classList.add('hidden'); return; }
+  const t = pById(v.target), by = pById(v.by);
+  const voted = v.yes.includes(S.me) ? 'da' : v.no.includes(S.me) ? 'ne' : null;
+  const left = Math.max(0, Math.ceil((v.until - (Date.now() + clockOffset)) / 1000));
+  bar.classList.remove('hidden');
+  bar.innerHTML = `<span>🗳️ <b>${esc(by.name)}</b> predlaže da se izbaci <b style="color:${t.color}">${esc(t.name)}</b></span>
+    <span class="vcount">✔ ${v.yes.length} · ✕ ${v.no.length} od ${v.voters} · <span id="voteLeft">${left}s</span></span>
+    ${v.target === S.me ? '<span>Ti ne glasaš.</span>' : `<button class="ob ${voted === 'da' ? '' : 'gray'}" data-vote="1">Da, izbaci</button><button class="ob ${voted === 'ne' ? 'red' : 'gray'}" data-vote="0">Ne</button>`}`;
+}
+$('voteBar').addEventListener('click', (e) => { const b = e.target.closest('[data-vote]'); if (b) act('vote', { yes: b.dataset.vote === '1' }); });
+$('players').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-votekick]'); if (!b) return;
+  const p = pById(b.dataset.votekick);
+  modalExtra = () => `<h3>🥾 Izbaci igrača ${esc(p.name)}?</h3><p>Pokrenućeš glasanje. Ako se većina ostalih igrača složi u roku od 60 sekundi, ${esc(p.name)} se izbacuje. Njegove figure ostaju na tabli, a potezi mu se preskaču.</p>
+    <div class="row"><button class="ob red" data-startvote="${p.id}">Pokreni glasanje</button><button class="ob gray" data-close>Otkaži</button></div>`;
+  renderModal();
+});
+
 $('actions').addEventListener('click', (ev) => {
   const b = ev.target.closest('button'); if (!b || b.disabled) return;
   const a = b.dataset.a;
@@ -423,7 +540,7 @@ $('actions').addEventListener('click', (ev) => {
 function playerPanel(p, big = false) {
   return `<div class="pp ${p.id === S.turn ? 'turn' : ''} ${big ? 'big' : ''}">
     <div class="who"><div class="avatar" style="background:${p.color}">${avatarOf(p)}</div><span class="vpb" title="Poeni">${p.vp}</span></div>
-    <div><div class="pname">${esc(p.name)} ${p.quit ? '<span class="off">napustio</span>' : p.connected ? '' : '<span class="off">van mreže</span>'}</div>
+    <div><div class="pname">${esc(p.name)} ${p.kicked ? '<span class="off">izbačen</span>' : p.quit ? '<span class="off">napustio</span>' : p.connected ? '' : '<span class="off">van mreže</span>'}${!big && !p.kicked && !S.vote && (S.phase === 'play' || S.phase === 'setup') && !me().quit ? `<button class="vk" data-votekick="${p.id}" title="Glasanje za izbacivanje">🥾</button>` : ''}</div>
     <div class="stats">
       <span class="st" title="Karte sirovina"><span class="i">🂠</span>${p.cards}</span>
       <span class="st" title="Razvojne karte"><span class="i">🃏</span>${p.devCards}</span>
@@ -588,6 +705,9 @@ function showExitMenu() {
   renderModal();
 }
 $('exitBtn').onclick = showExitMenu;
+const soundIcon = () => { $('soundBtn').textContent = SFX.muted ? '🔇' : '🔊'; $('soundBtn').title = SFX.muted ? 'Uključi zvuk' : 'Isključi zvuk'; };
+$('soundBtn').onclick = () => { SFX.toggle(); soundIcon(); };
+soundIcon();
 $('fsBtn').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.());
 
 // ---------- prozori ----------
@@ -603,6 +723,7 @@ function showRules() {
     <h4>Cene</h4><ul><li>Put: 🌲🧱</li><li>Selo: 🌲🧱🐑🌾</li><li>Grad: 🌾🌾🪨🪨🪨</li><li>Razvojna karta: 🐑🌾🪨</li></ul>
     <h4>Sedmica</h4><p>Ko ima više karata od limita odbacuje polovinu. Igrač na potezu pomera razbojnika (to polje ne daje sirovine) i krade jednu kartu.</p>
     <h4>Tasteri</h4><p><b>Space</b> baci kockice · <b>E</b> kraj poteza · <b>T</b> trgovina · <b>P</b> put · <b>S</b> selo · <b>G</b> grad · <b>K</b> razvojna karta · <b>Esc</b> otkaži</p>
+    <h4>Izbacivanje</h4><p>Klikni 🥾 pored imena igrača da pokreneš glasanje. Ako se većina ostalih složi, igrač je izbačen.</p>
     <h4>Komande u ćaskanju</h4><p><b>/izlaz</b> napusti igru · <b>/kraj</b> osnivač prekida igru za sve</p>
     <h4>Postavljanje</h4><p>Svako postavlja selo i put, pa opet obrnutim redom. Drugo selo odmah daje sirovine.</p>
     <button class="ob" data-close>Zatvori</button></div>`;
@@ -645,6 +766,7 @@ $('modalCard').addEventListener('click', (ev) => {
   if (b.dataset.steal) return act('steal', { target: b.dataset.steal });
   if (b.hasAttribute('data-pconfirm')) { const p = picker; picker = null; p.cb(p.sel); return renderModal(); }
   if (b.hasAttribute('data-pcancel')) { picker = null; return renderModal(); }
+  if (b.dataset.startvote) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); return act('voteKick', { pid: b.dataset.startvote }); }
   if (b.hasAttribute('data-exit')) { modalExtra = null; $('modalCard').innerHTML = ''; return doLeave(); }
   if (b.hasAttribute('data-endgame')) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); return act('endGame'); }
   if (b.hasAttribute('data-close')) { modalExtra = null; $('modalCard').innerHTML = ''; return renderModal(); }

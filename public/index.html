@@ -81,7 +81,10 @@
         <button data-nav="rules" title="Pravila">📖</button>
         <button id="fsBtn" title="Ceo ekran">⛶</button>
         <button id="exitBtn" title="Izlaz">🚪</button>
+        <button id="soundBtn" title="Zvuk">🔊</button>
       </div>
+      <div id="voteBar" class="vote-bar hidden"></div>
+      <div id="recipes" class="recipes"></div>
       <svg id="board"></svg>
       <div id="dice" class="dice"></div>
       <div id="offers" class="offers hidden"></div>
@@ -116,6 +119,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="sfx.js"></script>
   <script src="client.js"></script>
 </body>
 </html>

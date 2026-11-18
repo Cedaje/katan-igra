@@ -42,9 +42,18 @@ function broadcast(game) {
 setInterval(() => {
   for (const g of games.values()) {
     if (g.emptySince) continue; // niko nije tu: igra je pauzirana
+    if (g.vote && Date.now() > g.vote.until && g.resolveVote()) broadcast(g);
     try { if (timeoutTick(g)) broadcast(g); } catch (e) { console.error('timer', e); }
   }
 }, 500);
+
+// Posalji izbacene igrace nazad na listu soba
+function kickOut(game) {
+  for (const s of roomSockets(game.code)) {
+    const p = game.p(s.data.pid);
+    if (p && p.kicked) { s.emit('kicked'); s.leave(game.code); s.data = {}; }
+  }
+}
 
 function leaveRoom(socket) {
   const game = games.get(socket.data.code);
@@ -81,6 +90,7 @@ io.on('connection', (socket) => {
     if (!game) return reply(cb, { ok: false, error: 'Soba ne postoji. Proveri kod.' });
     let pl = token && game.players.find((p) => p.token === token);
     if (!pl && rejoinOnly) return reply(cb, { ok: false });
+    if (pl && pl.kicked) return reply(cb, { ok: false, error: 'Izbačen si iz ove igre glasanjem.' });
     if (pl && pl.quit) { pl.quit = false; game.addLog(`${pl.name} se vratio u igru.`); }
     if (!pl) {
       try { pl = game.addPlayer(name, token); } catch (e) { return reply(cb, { ok: false, error: e.message }); }
@@ -103,6 +113,7 @@ io.on('connection', (socket) => {
       return reply(cb, { ok: false, error: e instanceof GameError ? e.message : 'Greška na serveru.' });
     }
     if (type === 'leave') return leaveRoom(socket);
+    if (type === 'kick' || type === 'vote' || type === 'voteKick') kickOut(game);
     if (type === 'kick') {
       for (const s of roomSockets(game.code)) if (!game.p(s.data.pid)) { s.emit('kicked'); s.leave(game.code); s.data = {}; }
     }

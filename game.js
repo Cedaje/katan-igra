@@ -370,6 +370,53 @@ class Game {
     if (this.phase !== 'ended' && this.players.every((p) => p.quit)) { this.phase = 'ended'; this.sub = null; }
   }
 
+  // ---------- glasanje za izbacivanje ----------
+  voters(target) { return this.players.filter((p) => !p.quit && p.id !== target); }
+
+  startVote(pl, target) {
+    if (this.phase !== 'setup' && this.phase !== 'play') fail('Glasanje je moguće samo tokom igre.');
+    if (pl.quit) fail('Napustio si igru.');
+    const t = this.p(target);
+    if (!t || t.kicked) fail('Nema tog igrača.');
+    if (t.id === pl.id) fail('Ne možeš da glasaš protiv sebe.');
+    if (this.vote) fail('Već traje jedno glasanje.');
+    this.vote = { id: ++this.tradeSeq, target: t.id, by: pl.id, yes: [pl.id], no: [], until: Date.now() + 60000 };
+    this.addLog(`🗳️ ${pl.name} predlaže da se izbaci ${t.name}. Glasajte!`);
+    this.resolveVote();
+  }
+
+  castVote(pl, yes) {
+    const v = this.vote;
+    if (!v) fail('Nema glasanja.');
+    if (pl.id === v.target || pl.quit) fail('Ti ne glasaš u ovom glasanju.');
+    v.yes = v.yes.filter((x) => x !== pl.id);
+    v.no = v.no.filter((x) => x !== pl.id);
+    (yes ? v.yes : v.no).push(pl.id);
+    this.resolveVote();
+  }
+
+  // Vecina igraca koji glasaju odlucuje; posle 60 sekundi glasanje propada
+  resolveVote() {
+    const v = this.vote;
+    if (!v) return false;
+    const n = this.voters(v.target).length;
+    const t = this.p(v.target);
+    if (v.yes.length > n / 2) {
+      this.vote = null;
+      t.kicked = true;
+      this.addLog(`🥾 ${t.name} je izbačen iz igre (glasanje ${v.yes.length}/${n}).`);
+      this.quit(t);
+      this.lastKick = t.id;
+      return true;
+    }
+    if (v.no.length >= n / 2 || Date.now() > v.until) {
+      this.vote = null;
+      this.addLog(`🗳️ Glasanje za izbacivanje ${t.name} nije prošlo.`);
+      return true;
+    }
+    return false;
+  }
+
   endGame(pl) {
     if (this.phase === 'lobby' || this.phase === 'ended') fail('Igra nije u toku.');
     if (this.hostId() !== pl.id) fail('Samo osnivač sobe može da prekine igru.');
@@ -411,6 +458,8 @@ class Game {
     if (type === 'kick') return this.removePlayer(pl, data.pid);
     if (type === 'leave') return this.phase === 'lobby' ? this.removePlayer(pl, pl.id) : this.quit(pl);
     if (type === 'endGame') return this.endGame(pl);
+    if (type === 'voteKick') return this.startVote(pl, data.pid);
+    if (type === 'vote') return this.castVote(pl, !!data.yes);
     if (this.phase === 'ended') fail('Igra je završena.');
     if (this.phase === 'lobby') fail('Igra još nije počela.');
 
@@ -833,7 +882,7 @@ class Game {
       buildings: this.buildings,
       roads: this.roads,
       players: this.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, connected: p.connected, quit: !!p.quit,
+        id: p.id, name: p.name, color: p.color, connected: p.connected, quit: !!p.quit, kicked: !!p.kicked,
         cards: handSize(p.hand), devCards: p.dev.length, knights: p.knights,
         vp: this.phase === 'ended' || p.id === pid ? this.totalVP(p) : this.publicVP(p),
         roadLen: this.roadLength(p.id), left: p.left,
@@ -849,6 +898,7 @@ class Game {
       pendingDiscard: this.pendingDiscard,
       freeRoads: this.freeRoads || 0,
       trade: this.trade,
+      vote: this.vote ? { ...this.vote, voters: this.voters(this.vote.target).length } : null,
       lastSteal: this.lastSteal && (this.lastSteal.thief === pid || this.lastSteal.victim === pid) ? this.lastSteal : null,
       legal,
       winner: this.winner,

@@ -25,6 +25,12 @@ for (let i = 0; i < GAMES; i++) {
   while (g.phase !== 'ended' && steps < 30000) {
     if (steps === 200 && i % 4 === 1) g.action(g.players[1].id, 'leave'); // igrac napusta igru
     if (steps === 300 && i % 10 === 3) g.action(g.hostId(), 'endGame');
+    if (steps === 250 && i % 5 === 2 && g.players.length >= 3 && !g.vote) {
+      const tgt = g.players[2];
+      g.action(g.players[0].id, 'voteKick', { pid: tgt.id });
+      for (const p of g.players) if (p.id !== tgt.id && p.id !== g.players[0].id && !p.quit && g.vote) g.action(p.id, 'vote', { yes: true });
+      assert.ok(tgt.kicked && tgt.quit, 'igrac nije izbacen');
+    }
     if (g.phase === 'ended') break;
     if (Math.random() < 0.03) { g.deadline = Date.now() - 1; timeoutTick(g); }
     else if (!botTick(g)) { g.deadline = Date.now() - 1; assert.ok(timeoutTick(g), 'zaglavljeno: ' + g.sub); }
