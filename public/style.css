@@ -451,3 +451,68 @@ body.skin-podvodni #game { background: radial-gradient(ellipse at 40% 20%, #1249
   .logo { flex-direction: column; margin: 0 0 8px; }
   .rail-btn.active, .rail-btn:hover { box-shadow: inset 4px 0 var(--hilite); }
 }
+/* boja igraca u tabeli */
+.pp { box-shadow: inset 7px 0 0 var(--pc, transparent); background: linear-gradient(90deg, color-mix(in srgb, var(--pc, #fff) 22%, var(--panel2)) 0%, var(--panel2) 70%); padding-left: 14px; }
+.pp.turn { background: linear-gradient(90deg, color-mix(in srgb, var(--pc, #fff) 30%, #f6ecc9) 0%, #f6ecc9 70%); }
+.skin-podvodni .pp.turn { background: linear-gradient(90deg, color-mix(in srgb, var(--pc, #fff) 30%, #1b5577) 0%, #1b5577 70%); }
+.pp .pname { color: color-mix(in srgb, var(--pc, var(--ink)) 75%, #000); }
+.skin-podvodni .pp .pname { color: color-mix(in srgb, var(--pc, var(--ink)) 70%, #fff); }
+.pdot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--pc); border: 2px solid #fff; box-shadow: 0 0 0 1px #0005; margin-right: 5px; vertical-align: -1px; }
+.pp .who .avatar { box-shadow: 0 0 0 3px var(--pc); }
+/* ponuda koja stize: veca i uocljivija */
+.offers.big-offer { width: 470px; padding: 14px; border: 4px solid var(--hilite); animation: offerIn .35s ease-out, offerGlow 1.6s ease-in-out infinite alternate; }
+@keyframes offerIn { from { transform: translateY(30px) scale(.9); opacity: 0; } }
+@keyframes offerGlow { from { box-shadow: 0 6px 18px rgba(0,0,0,.35), 0 0 0 0 #ffd16600; } to { box-shadow: 0 6px 18px rgba(0,0,0,.35), 0 0 22px 6px #ffd166aa; } }
+.incoming .inc-head { display: flex; align-items: center; gap: 10px; font-size: 18px; margin-bottom: 8px; }
+.incoming .inc-head .avatar { width: 42px; height: 42px; font-size: 21px; }
+.incoming .inc-rows { display: flex; flex-direction: column; gap: 8px; }
+.incoming .inc-row { display: flex; align-items: center; gap: 10px; background: var(--card); border-radius: 10px; padding: 6px 10px; }
+.incoming .inc-lbl { width: 88px; font-weight: 800; font-size: 15px; flex: none; }
+.incoming .inc-lbl.get { color: #2f9e5b; } .incoming .inc-lbl.give { color: #d0453a; }
+.incoming .inc-cards { display: flex; gap: 6px; flex-wrap: wrap; }
+.incoming .inc-cards .rcard { width: 50px; height: 70px; font-size: 26px; }
+.incoming .inc-warn { color: #c0392b; font-weight: 700; margin-top: 6px; }
+.incoming .inc-state { margin-top: 6px; font-weight: 700; color: var(--muted); }
+.incoming .inc-btns { display: flex; gap: 8px; margin-top: 10px; }
+.ob.big { flex: 1; padding: 12px 8px; font-size: 17px; border-radius: 10px; box-shadow: 0 3px 0 rgba(0,0,0,.2); }
+.ob:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .offers.big-offer { width: auto; padding: 10px; }
+  .incoming .inc-head { font-size: 15px; }
+  .incoming .inc-cards .rcard { width: 40px; height: 56px; font-size: 20px; }
+  .ob.big { font-size: 14px; padding: 10px 4px; }
+}
+.game-clock { position: absolute; top: 12px; right: 64px; z-index: 2; background: rgba(0,0,0,.35); color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; padding: 6px 12px; border-radius: 20px; font-size: 15px; }
+.game-clock:empty { display: none; }
+.stat-dur { font-size: 15px; margin: 6px 0; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .game-clock { top: 6px; right: 46px; font-size: 12px; padding: 4px 8px; }
+}
+/* kraj igre: postolje */
+.end-title { text-align: center; font-size: 22px; }
+.podium { display: flex; justify-content: center; align-items: flex-end; gap: 8px; margin: 44px 0 12px; }
+.pod-col { flex: 1; max-width: 150px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.pod-who { position: relative; }
+.pod-col .avatar { width: 58px; height: 58px; font-size: 30px; box-shadow: 0 0 0 3px var(--pc); }
+.pod-col.p1 .avatar { width: 76px; height: 76px; font-size: 40px; animation: winBounce 1.2s ease-in-out .9s infinite alternate; }
+.pod-name { font-weight: 800; margin-top: 4px; color: color-mix(in srgb, var(--pc) 70%, #000); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skin-podvodni .pod-name { color: color-mix(in srgb, var(--pc) 70%, #fff); }
+.pod-vp { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.pod-block { width: 100%; border-radius: 8px 8px 0 0; display: grid; place-items: center; font-size: 30px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 #0004; animation: podUp .7s ease-out both; }
+.p1 .pod-block { height: 110px; background: linear-gradient(#f6cf4a, #d7a520); }
+.p2 .pod-block { height: 80px; background: linear-gradient(#d3d8df, #9aa3ad); animation-delay: .15s; }
+.p3 .pod-block { height: 56px; background: linear-gradient(#e0a26a, #b06d36); animation-delay: .3s; }
+@keyframes podUp { from { transform: scaleY(0); transform-origin: bottom; } to { transform: scaleY(1); transform-origin: bottom; } }
+.crown { position: absolute; left: 50%; top: -30px; font-size: 40px; transform: translateX(-50%) rotate(-8deg); z-index: 2; filter: drop-shadow(0 2px 2px #0006); animation: crownDrop 1s cubic-bezier(.3,1.5,.5,1) .5s both, crownShine 1.5s ease-in-out 1.6s infinite alternate; }
+@keyframes crownDrop { from { top: -160px; opacity: 0; transform: translateX(-50%) rotate(-40deg) scale(1.4); } to { top: -30px; opacity: 1; transform: translateX(-50%) rotate(-8deg); } }
+@keyframes crownShine { from { filter: drop-shadow(0 2px 2px #0006); } to { filter: drop-shadow(0 0 10px #ffd84a) drop-shadow(0 2px 2px #0006); } }
+@keyframes winBounce { from { transform: translateY(0); } to { transform: translateY(-6px); } }
+.rest-table { width: 100%; border-collapse: collapse; margin: 6px 0 4px; font-size: 14px; }
+.rest-table td { padding: 4px 6px; border-top: 1px solid var(--line); }
+.rest-table tr { box-shadow: inset 5px 0 0 var(--pc); }
+.rest-table .avatar { width: 28px; height: 28px; font-size: 14px; border-width: 2px; }
+.rest-table .rn { font-weight: 700; color: color-mix(in srgb, var(--pc) 70%, #000); }
+.modal-card { position: relative; }
+.confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: 14px; }
+.confetti i { position: absolute; top: -12px; width: 8px; height: 13px; border-radius: 2px; opacity: .9; animation: fall linear 3 both; }
+@keyframes fall { from { transform: translateY(0) rotate(0); } to { transform: translateY(560px) rotate(540deg); opacity: 0; } }

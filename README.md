@@ -4,7 +4,7 @@ Online igra za 2 do 8 igrača u browseru: gradi sela i gradove na ostrvu od šes
 
 ## Šta igra ima
 - Sobe sa linkom za prijatelje (2–4 igrača obična tabla, 5–6 i 7–8 veća tabla)
-- Kockice, sirovine, razbojnik na 7 i odbacivanje karata
+- Kockice, sirovine, lopov na 7 i odbacivanje karata
 - Putevi, sela, gradovi, luke (4:1, 3:1, 2:1)
 - Razvojne karte: Vitez, Bod pobede, Graditelji puteva, Obilje, Monopol
 - Trgovina sa igračima i bankom

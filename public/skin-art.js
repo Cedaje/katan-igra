@@ -1,4 +1,4 @@
-// Crtezi za izgled "Kucice": 3D polja, putevi, razbojnik i karte. Sve je SVG, bez slika.
+// Crtezi za izgled "Kucice": 3D polja, putevi, lopov i karte. Sve je SVG, bez slika.
 /* exported ART */
 const ART = (() => {
   const shade = (hex, f) => {
@@ -104,7 +104,7 @@ const ART = (() => {
     };
   }
 
-  // razbojnik: covek sa kapuljacom na okruglom postolju
+  // lopov: covek sa kapuljacom na okruglom postolju
   function robber(x, y) {
     return `<g transform="translate(${x} ${y})">
       <ellipse cx="0" cy="22" rx="15" ry="5" fill="#00000055"/>

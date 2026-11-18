@@ -6,7 +6,7 @@ const RES = ['drvo', 'glina', 'vuna', 'zito', 'kamen'];
 const RES_INFO = {
   drvo: { name: 'Drvo', ico: '🌲', color: '#4f9a46' },
   glina: { name: 'Glina', ico: '🧱', color: '#d0734a' },
-  vuna: { name: 'Vuna', ico: '🐑', color: '#9ccc5f' },
+  vuna: { name: 'Ovca', ico: '🐑', color: '#9ccc5f' },
   zito: { name: 'Žito', ico: '🌾', color: '#eac04f' },
   kamen: { name: 'Kamen', ico: '🪨', color: '#a3a9b3' },
 };
@@ -19,7 +19,7 @@ const TERRAIN = {
   pustinja: { a: '#efe0b4', b: '#cdb57d', ico: '🌵' },
 };
 const DEV_INFO = {
-  vitez: { name: 'Vitez', ico: '⚔️', desc: 'Pomeri razbojnika i ukradi kartu.' },
+  vitez: { name: 'Vitez', ico: '⚔️', desc: 'Pomeri lopova i ukradi kartu.' },
   bod: { name: 'Poen', ico: '⭐', desc: '+1 poen (računa se sam).' },
   putevi: { name: 'Putevi', ico: '🛠️', desc: 'Sagradi 2 puta besplatno.' },
   obilje: { name: 'Obilje', ico: '✨', desc: 'Uzmi 2 sirovine iz banke.' },
@@ -38,7 +38,7 @@ const MAPS = [
 ];
 const MAP_NAME = { base: 'Osnovna', ext6: 'Proširenje 5–6', ext8: 'Proširenje 7–8' };
 const TIMERS = [0, 30, 60, 90, 120, 180, 240];
-const AVATARS = ['🦊', '🐻', '🦉', '🐢', '🦁', '🐺', '🐙', '🦌', '🐸', '🐧', '🦄', '🐼', '🐯', '🦅', '🐳', '🐝'];
+const AVATARS = ['🦊', '🐻', '🦉', '🐢', '🦁', '🐺', '🐙', '🦌', '🐸', '🐧', '🦄', '🐼', '🐯', '🦅', '🐳', '🐝', '🐵', '🐒', '🦍', '🐨', '🐰', '🐱', '🐶', '🐷', '🐮', '🐔', '🦖', '🐉', '🦈', '🦩', '🦜', '🐬', '🦒', '🦓', '🐘', '🦔', '🦦', '🦥', '🦀', '🐞', '🦋', '🐊', '🦘', '🐹'];
 
 let S = null; // stanje sa servera
 let clockOffset = 0;
@@ -238,8 +238,10 @@ function renderLobby() {
   $('ruleTiles').innerHTML =
     rule('private', '🕶️', 'Privatna igra', 'ne vidi se u listi', 'vidi se u listi soba', 'Soba se ne prikazuje u listi otvorenih soba. Ulazi se samo preko linka ili koda.') +
     rule('hideBank', '🏦', 'Sakrij banku', 'broj karata se ne vidi', 'broj karata se vidi', 'Niko ne vidi koliko je karata ostalo u banci i u špilu razvojnih karata.') +
-    rule('friendlyRobber', '🤝', 'Prijateljski razbojnik', 'štiti slabe igrače', 'isključeno', 'Razbojnik ne može da se stavi na polje igrača koji ima 2 poena ili manje. Pomaže novim igračima.') +
-    rule('fairDice', '⚖️', 'Fer kockice', 'manje sreće', 'obične kockice', 'Svih 36 kombinacija kockica izlazi redom kao iz špila, pa se brojevi pojavljuju onoliko često koliko i treba. Manje zavisi od sreće.');
+    rule('friendlyRobber', '🤝', 'Prijateljski lopov', 'štiti slabe igrače', 'isključeno', 'Lopov ne može da se stavi na polje igrača koji ima 2 poena ili manje. Pomaže novim igračima.') +
+    rule('fairDice', '⚖️', 'Fer kockice', 'manje sreće', 'obične kockice', 'Svih 36 kombinacija kockica izlazi redom kao iz špila, pa se brojevi pojavljuju onoliko često koliko i treba. Manje zavisi od sreće.') +
+    rule('sameRes', '🧩', 'Iste sirovine jedna do druge', 'mogu da se dodiruju', 'nikad se ne dodiruju', 'Uključeno: polja se raspoređuju potpuno nasumično, pa dve iste sirovine (npr. dve šume) mogu biti jedna pored druge. Isključeno: ista polja se nikad ne dodiruju.') +
+    rule('sameNum', '🔢', 'Isti brojevi jedan do drugog', 'mogu da se dodiruju', 'nikad se ne dodiruju', 'Uključeno: isti brojevi (npr. dve devetke) mogu biti na susednim poljima. Isključeno: isti brojevi se nikad ne dodiruju. Šestica i osmica nikad nisu jedna pored druge.');
   const TIPS = {
     timer: 'Koliko vremena igrač ima za potez. Kad istekne, igra sama baci kockice ili završi potez.',
     maxPlayers: 'Najveći broj igrača u ovoj sobi.',
@@ -256,7 +258,7 @@ function renderLobby() {
     stepper('timer', 'Tajmer poteza', st.timer ? `${st.timer}s` : 'Bez', ti > 0, ti < TIMERS.length - 1) +
     stepper('maxPlayers', 'Broj igrača', `${st.maxPlayers}/${mapMax}`, st.maxPlayers > Math.max(2, S.players.length), st.maxPlayers < mapMax) +
     stepper('vpToWin', 'Poeni za pobedu', st.vpToWin, st.vpToWin > 3, st.vpToWin < 20) +
-    stepper('discardLimit', 'Limit karata (razbojnik)', st.discardLimit, st.discardLimit > 5, st.discardLimit < 20) +
+    stepper('discardLimit', 'Limit karata (lopov)', st.discardLimit, st.discardLimit > 5, st.discardLimit < 20) +
     stepper('resCards', 'Karte sirovina (po vrsti)', st.resCards, st.resCards > 10, st.resCards < 50) +
     stepper('devCards', 'Razvojne karte (ukupno)', st.devCards, st.devCards > 10, st.devCards < 80);
   $('startBtn').classList.toggle('hidden', !host);
@@ -290,8 +292,8 @@ function hexPoints(hx, V, scale = 1) {
 // ---------- skinovi (izgled figura), svaki igrac bira za sebe ----------
 const SKINS = {
   osnovni: { name: 'Osnovni', desc: 'Klasične figure, prvi izgled igre.' },
-  podvodni: { name: 'Podvodni svet', desc: 'Morsko dno: alge, korali, meduze, školjke i kristali umesto običnih sirovina. Sela su školjke, gradovi velike spiralne školjke, putevi nizovi bisera, a razbojnik je ajkula.' },
-  kucice: { name: 'Kućice', desc: '3D izgled: polja sa drvećem, ovcama, žitom, ciglama i planinama, 3D putevi, razbojnik sa kapuljačom, ilustrovane karte i kućice u boji igrača.' },
+  podvodni: { name: 'Podvodni svet', desc: 'Morsko dno: alge, korali, meduze, školjke i kristali umesto običnih sirovina. Sela su školjke, gradovi velike spiralne školjke, putevi nizovi bisera, a lopov je ajkula.' },
+  kucice: { name: 'Kućice', desc: '3D izgled: polja sa drvećem, ovcama, žitom, ciglama i planinama, 3D putevi, lopov sa kapuljačom, ilustrovane karte i kućice u boji igrača.' },
 };
 let skin = 'osnovni';
 try { if (SKINS[localStorage.getItem('ot_skin')]) skin = localStorage.getItem('ot_skin'); } catch (_) { /* */ }
@@ -307,8 +309,8 @@ applySkin();
 // u podvodnom svetu i dnevnik koristi nova imena sirovina
 function skinWords(text) {
   if (skin !== 'podvodni') return text;
-  const map = { drvo: 'drvo', glina: 'glina', vuna: 'vuna', 'žito': 'zito', kamen: 'kamen' };
-  return text.replace(/(?<!\p{L})(drvo|glina|vuna|žito|kamen)(?!\p{L})/giu, (w) => SEA.RES[map[w.toLowerCase()]].name.toLowerCase());
+  const map = { drvo: 'drvo', glina: 'glina', ovca: 'vuna', 'žito': 'zito', kamen: 'kamen' };
+  return text.replace(/(?<!\p{L})(drvo|glina|ovca|žito|kamen)(?!\p{L})/giu, (w) => SEA.RES[map[w.toLowerCase()]].name.toLowerCase());
 }
 
 function shade(hex, f) { // f<0 tamnije, f>0 svetlije
@@ -419,7 +421,7 @@ function renderBoard() {
       <text x="${x}" y="${y + 17}" text-anchor="middle" font-size="12" font-weight="800" fill="#2a241c">${generic ? '3:1' : '2:1'}</text></g>`;
   }
 
-  // razbojnik
+  // lopov
   const rb = B.hexes[B.robber];
   if (SK) h += SK.robber(rb.x * SC + 27, rb.y * SC - 4);
   else h += `<g transform="translate(${rb.x * SC + 26},${rb.y * SC + 4})"><ellipse cx="0" cy="18" rx="12" ry="4" fill="#0006"/>
@@ -627,7 +629,7 @@ function renderStatus() {
   else if (S.sub === 'road') txt = myTurn() ? 'Postavi put' : `${who} postavlja put`;
   else if (S.sub === 'roll') { txt = myTurn() ? '🎲 Baci kockice' : `${who} baca kockice`; click = myTurn(); }
   else if (S.sub === 'discard') txt = S.pendingDiscard[S.me] ? `Odbaci ${S.pendingDiscard[S.me]} karata` : 'Čeka se odbacivanje';
-  else if (S.sub === 'robber') txt = myTurn() ? 'Pomeri razbojnika' : `${who} pomera razbojnika`;
+  else if (S.sub === 'robber') txt = myTurn() ? 'Pomeri lopova' : `${who} pomera lopova`;
   else if (S.sub === 'steal') txt = myTurn() ? 'Izaberi od koga kradeš' : `${who} krade kartu`;
   else if (S.sub === 'roadBuilding') txt = myTurn() ? `Postavi besplatan put (${S.freeRoads})` : `${who} gradi puteve`;
   else txt = myTurn() ? (mode ? `Izaberi mesto (Esc za otkaz)` : 'Tvoj red') : `Na potezu: ${who}`;
@@ -637,8 +639,13 @@ function renderStatus() {
 }
 $('status').onclick = () => { if (S && myTurn() && S.sub === 'roll') act('roll'); };
 
+function fmtDur(ms) {
+  const sec = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, s2 = sec % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s2).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s2).padStart(2, '0')}`;
+}
 setInterval(() => {
   if (!S || S.phase === 'lobby') return;
+  if (S.startedAt) $('gameClock').textContent = '⏱ ' + fmtDur((S.endedAt || (Date.now() + clockOffset)) - S.startedAt);
   const t = $('timer');
   if (!S.deadline || S.phase === 'ended') { t.textContent = S.settings.timer ? '--:--' : '∞'; t.classList.remove('low'); return; }
   const left = Math.max(0, Math.ceil((S.deadline - (Date.now() + clockOffset)) / 1000));
@@ -721,9 +728,9 @@ $('actions').addEventListener('click', (ev) => {
 
 // ---------- igraci i banka ----------
 function playerPanel(p, big = false) {
-  return `<div class="pp ${p.id === S.turn ? 'turn' : ''} ${big ? 'big' : ''}">
+  return `<div class="pp ${p.id === S.turn ? 'turn' : ''} ${big ? 'big' : ''}" style="--pc:${p.color}">
     <div class="who"><div class="avatar" style="background:${p.color}">${avatarOf(p)}</div><span class="vpb" title="Poeni">${p.vp}</span></div>
-    <div><div class="pname">${esc(p.name)} ${p.kicked ? '<span class="off">izbačen</span>' : p.quit ? '<span class="off">napustio</span>' : p.connected ? '' : '<span class="off">van mreže</span>'}${!big && !p.kicked && !S.vote && (S.phase === 'play' || S.phase === 'setup') && !me().quit ? `<button class="vk" data-votekick="${p.id}" title="Glasanje za izbacivanje">🥾</button>` : ''}</div>
+    <div><div class="pname"><i class="pdot"></i>${esc(p.name)} ${p.kicked ? '<span class="off">izbačen</span>' : p.quit ? '<span class="off">napustio</span>' : p.connected ? '' : '<span class="off">van mreže</span>'}${!big && !p.kicked && !S.vote && (S.phase === 'play' || S.phase === 'setup') && !me().quit ? `<button class="vk" data-votekick="${p.id}" title="Glasanje za izbacivanje">🥾</button>` : ''}</div>
     <div class="stats">
       <span class="st" title="Karte sirovina"><span class="i">🂠</span>${p.cards}</span>
       <span class="st" title="Razvojne karte"><span class="i">🃏</span>${p.devCards}</span>
@@ -762,13 +769,23 @@ function renderOffers() {
         <button class="ob" data-with="${id}" data-counter="1" title="Prihvati ovu kontraponudu i odmah razmeni">✔ Prihvati</button></div>`;
     }
   } else {
-    const mine = t.accepted.includes(S.me) ? '✔ prihvatio si' : t.declined.includes(S.me) ? '✕ odbio si' : '';
-    const myCounter = t.counters?.[S.me] ? '✎ poslao si kontraponudu' : '';
-    h += `<div class="offer-row" style="margin-top:8px"><button class="ob" data-tr="accept" title="Prihvati ponudu (igrač na potezu zatim potvrđuje)">Prihvati</button><button class="ob red" data-tr="decline" title="Odbij ponudu">Odbij</button><button class="ob gray" data-tr="counter" title="Predloži svoje uslove razmene">✎ Kontraponuda</button><span style="color:var(--muted)">${mine || myCounter}</span></div>`;
+    // ponuda koja stize meni: velika i jasna
+    const answered = t.accepted.includes(S.me) || t.declined.includes(S.me) || t.counters?.[S.me];
+    const mine = t.accepted.includes(S.me) ? '✔ Prihvatio si, čeka se da ' + esc(from.name) + ' potvrdi.' : t.declined.includes(S.me) ? '✕ Odbio si ovu ponudu.' : t.counters?.[S.me] ? '✎ Poslao si kontraponudu.' : '';
+    const cards = (o) => Object.entries(o).map(([r, n]) => rcard(r, n)).join('');
+    const enough = Object.entries(t.get).every(([r, n]) => (S.hand[r] || 0) >= n);
+    h = `<div class="offer incoming" style="--pc:${from.color}">
+      <div class="inc-head"><div class="avatar" style="background:${from.color}">${avatarOf(from)}</div><div><b style="color:${from.color}">${esc(from.name)}</b> ti nudi razmenu</div></div>
+      <div class="inc-rows"><div class="inc-row"><span class="inc-lbl get">⬇ Dobijaš</span><div class="inc-cards">${cards(t.give)}</div></div>
+      <div class="inc-row"><span class="inc-lbl give">⬆ Daješ</span><div class="inc-cards">${cards(t.get)}</div></div></div>
+      ${enough ? '' : '<div class="inc-warn">Nemaš dovoljno karata za ovu razmenu.</div>'}
+      ${answered ? `<div class="inc-state">${mine}</div>` : ''}
+      <div class="inc-btns"><button class="ob big" data-tr="accept" ${enough ? '' : 'disabled'} title="Prihvati ponudu (igrač na potezu zatim potvrđuje)">✔ Prihvati</button><button class="ob big red" data-tr="decline" title="Odbij ponudu">✕ Odbij</button><button class="ob big gray" data-tr="counter" title="Predloži svoje uslove razmene">✎ Kontraponuda</button></div>`;
   }
   h += '</div>';
   box.innerHTML = h;
   box.classList.toggle('hidden', tradeOpen);
+  box.classList.toggle('big-offer', t.from !== S.me);
 }
 function bankTradeValid() {
   const give = Object.keys(tradeGive), get = Object.keys(tradeGet);
@@ -921,7 +938,7 @@ function showRules() {
     <h4>Poeni</h4><ul><li>Selo 1 poen, grad 2 poena</li><li>Najduži put (bar 5 puteva) +2</li><li>Najveća vojska (bar 3 viteza) +2</li><li>Karta „Poen“ +1</li></ul>
     <h4>Tok poteza</h4><ul><li>Baci kockice: svako polje sa tim brojem daje sirovine selima (1) i gradovima (2) oko njega.</li><li>Trguj sa igračima ili bankom (4:1, a sa lukom 3:1 ili 2:1).</li><li>Gradi i završi potez.</li></ul>
     <h4>Cene</h4><ul><li>Put: 🌲🧱</li><li>Selo: 🌲🧱🐑🌾</li><li>Grad: 🌾🌾🪨🪨🪨</li><li>Razvojna karta: 🐑🌾🪨</li></ul>
-    <h4>Sedmica</h4><p>Ko ima više karata od limita odbacuje polovinu. Igrač na potezu pomera razbojnika (to polje ne daje sirovine) i krade jednu kartu.</p>
+    <h4>Sedmica</h4><p>Ko ima više karata od limita odbacuje polovinu. Igrač na potezu pomera lopova (to polje ne daje sirovine) i krade jednu kartu.</p>
     <h4>Tasteri</h4><p><b>Space</b> baci kockice · <b>E</b> kraj poteza · <b>T</b> trgovina · <b>P</b> put · <b>S</b> selo · <b>G</b> grad · <b>K</b> razvojna karta · <b>Esc</b> otkaži · <b>+</b> / <b>−</b> zum mape · <b>0</b> cela mapa. Točkić miša zumira, a mapu pomeraš držanjem levog klika.</p>
     <h4>Izbacivanje</h4><p>Klikni 🥾 pored imena igrača da pokreneš glasanje. Ako se većina ostalih složi, igrač je izbačen.</p>
     <h4>Komande u ćaskanju</h4><p><b>/izlaz</b> napusti igru · <b>/kraj</b> osnivač prekida igru za sve</p>
@@ -935,7 +952,8 @@ function statsHTML() {
   const total = Object.values(rolls).reduce((a, b) => a + b, 0);
   const max = Math.max(1, ...Object.values(rolls));
   const expected = (n) => (6 - Math.abs(7 - n)) / 36 * total;
-  let h = `<h4 style="margin:14px 0 6px">🎲 Kockice (${total} bacanja)</h4><div class="hist">`;
+  const dur = S.startedAt && S.endedAt ? fmtDur(S.endedAt - S.startedAt) : '';
+  let h = (dur ? `<p class="stat-dur">⏱ Igra je trajala <b>${dur}</b> · ${S.turnNum || 0} poteza</p>` : '') + `<h4 style="margin:14px 0 6px">🎲 Kockice (${total} bacanja)</h4><div class="hist">`;
   for (let n = 2; n <= 12; n++) {
     const c = rolls[n] || 0;
     h += `<div class="hcol" title="${n} je pao ${c} puta (očekivano oko ${expected(n).toFixed(1)})"><span class="hv">${c}</span><div class="hbar ${n === 7 ? 'seven' : ''}" style="height:${(c / max) * 70}px"></div><span class="hn">${n}</span></div>`;
@@ -966,14 +984,25 @@ function renderModal() {
   let h = null;
   if (S && S.phase === 'ended') {
     const ranking = [...S.players].sort((a, b) => b.vp - a.vp);
-    h = `<h3>${S.winner ? `🏆 ${esc(pById(S.winner).name)} je pobedio!` : `🛑 Igra je prekinuta${S.endedBy ? ` (prekinuo ${esc(pById(S.endedBy).name)})` : ''}`}</h3>
-      ${ranking.map((p, i) => `<div class="row" style="padding:4px 0"><b>${i + 1}.</b><div class="avatar" style="background:${p.color};width:30px;height:30px;font-size:15px;border-width:2px">${avatarOf(p)}</div>${esc(p.name)} <b style="margin-left:auto">${p.vp} poena</b></div>`).join('')}
+    const podium = [ranking[1], ranking[0], ranking[2]].map((p, k) => {
+      if (!p) return '<div class="pod-col empty"></div>';
+      const place = [2, 1, 3][k];
+      return `<div class="pod-col p${place}" style="--pc:${p.color}">
+        <div class="pod-who">${place === 1 && S.winner ? '<span class="crown">👑</span>' : ''}<div class="avatar" style="background:${p.color}">${avatarOf(p)}</div></div>
+        <div class="pod-name">${esc(p.name)}</div><div class="pod-vp">${p.vp} poena</div>
+        <div class="pod-block">${place}</div></div>`;
+    }).join('');
+    const rest = ranking.slice(3);
+    const confetti = S.winner ? `<div class="confetti">${Array.from({ length: 28 }, (_, i) => `<i style="left:${(i * 37) % 100}%;background:${COLOR_ORDER[i % COLOR_ORDER.length]};animation-delay:${(i % 7) * 0.25}s;animation-duration:${2.4 + (i % 5) * 0.4}s"></i>`).join('')}</div>` : '';
+    h = `${confetti}<h3 class="end-title">${S.winner ? `🏆 ${esc(pById(S.winner).name)} je pobedio!` : `🛑 Igra je prekinuta${S.endedBy ? ` (prekinuo ${esc(pById(S.endedBy).name)})` : ''}`}</h3>
+      <div class="podium">${podium}</div>
+      ${rest.length ? `<table class="rest-table">${rest.map((p, i) => `<tr style="--pc:${p.color}"><td><b>${i + 4}.</b></td><td><div class="avatar" style="background:${p.color}">${avatarOf(p)}</div></td><td class="rn">${esc(p.name)}</td><td title="Vitezovi">⚔️ ${p.knights}</td><td title="Najduži put">🛤️ ${p.roadLen}</td><td><b>${p.vp} poena</b></td></tr>`).join('')}</table>` : ''}
       ${statsHTML()}
       <p><button class="btn green" style="width:100%" data-backrooms>Nazad na sobe</button></p>`;
   } else if (S && S.phase !== 'lobby' && S.sub === 'discard' && S.pendingDiscard[S.me]) {
     const need = S.pendingDiscard[S.me];
     const sum = RES.reduce((s, r) => s + (discardSel[r] || 0), 0);
-    h = `<h3>Razbojnik! Odbaci ${need} karata</h3><p>Izabrano: <b>${sum} / ${need}</b></p>
+    h = `<h3>Lopov! Odbaci ${need} karata</h3><p>Izabrano: <b>${sum} / ${need}</b></p>
       <div class="pick">${RES.filter((r) => S.hand[r]).map((r) => `<div class="step"><button data-dinc="${r}">+</button>${rcard(r, S.hand[r] - (discardSel[r] || 0))}<b>${discardSel[r] || 0}</b><button data-ddec="${r}">−</button></div>`).join('')}</div>
       <button class="btn green" style="width:100%" data-dconfirm ${sum === need ? '' : 'disabled'}>Odbaci</button>`;
   } else if (S && S.sub === 'steal' && myTurn() && S.legal.victims) {

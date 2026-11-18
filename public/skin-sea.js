@@ -119,7 +119,7 @@ const SEA = (() => {
     </g>`;
   }
 
-  // razbojnik: ajkula, iznad broja na polju (x, y dolaze kao kod obicnog razbojnika)
+  // lopov: ajkula, iznad broja na polju (x, y dolaze kao kod obicnog lopova)
   function robber(x, y) {
     return `<g transform="translate(${x - 27} ${y - 24}) scale(1.45)">
       <defs><linearGradient id="shk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f6f88"/><stop offset=".55" stop-color="#7f9db3"/><stop offset=".56" stop-color="#eef5f8"/><stop offset="1" stop-color="#d6e3ea"/></linearGradient></defs>

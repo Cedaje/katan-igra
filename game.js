@@ -10,7 +10,7 @@ const COST = {
 };
 const COLORS = ['#e05a47', '#3b82c4', '#f2b134', '#4caf6a', '#9b5fc0', '#26b5b0', '#e07ab8', '#8a5a3c'];
 const DEV_NAMES = { vitez: 'Vitez', bod: 'Bod pobede', putevi: 'Graditelji puteva', obilje: 'Obilje', monopol: 'Monopol' };
-const RES_NAMES = { drvo: 'drvo', glina: 'glina', vuna: 'vuna', zito: 'žito', kamen: 'kamen' };
+const RES_NAMES = { drvo: 'drvo', glina: 'glina', vuna: 'ovca', zito: 'žito', kamen: 'kamen' };
 
 function shuffle(a) {
   for (let i = a.length - 1; i > 0; i--) {
@@ -50,36 +50,45 @@ const LAYOUTS = {
   },
 };
 const MAP_MAX = { base: 4, ext6: 6, ext8: 8 };
-const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false, hideBank: false, resCards: 19, devCards: 25, friendlyRobber: false, fairDice: false };
+const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false, hideBank: false, resCards: 19, devCards: 25, friendlyRobber: false, fairDice: false, sameRes: true, sameNum: true };
 
-function buildBoard(layoutName = 'base') {
+// Rasporedi stvari tako da nema "losih" suseda: nasumicno, pa popravljanje zamenama.
+function arrange(items, nbrs, bad) {
+  const arr = shuffle([...items]);
+  const conflicts = () => { let c = 0; for (let i = 0; i < arr.length; i++) for (const j of nbrs[i]) if (j > i && bad(arr[i], arr[j])) c++; return c; };
+  let cur = conflicts();
+  for (let it = 0; it < 30000 && cur > 0; it++) {
+    const hot = []; for (let i = 0; i < arr.length; i++) if (nbrs[i].some((j) => bad(arr[i], arr[j]))) hot.push(i);
+    const i = hot[Math.floor(Math.random() * hot.length)], j = Math.floor(Math.random() * arr.length);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    const next = conflicts();
+    if (next <= cur || Math.random() < 0.02) cur = next; else [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// opts.sameRes / opts.sameNum: da li se ista polja / isti brojevi smeju dodirivati (podrazumevano da)
+function buildBoard(layoutName = 'base', opts = {}) {
   const L = LAYOUTS[layoutName];
   const centers = [];
   L.rows.forEach((count, i) => {
     for (let c = 0; c < count; c++) centers.push([Math.sqrt(3) * (c - (count - 1) / 2), 1.5 * (i - (L.rows.length - 1) / 2)]);
   });
-  const terrains = shuffle(Object.entries(L.terrain).flatMap(([t, n]) => Array(n).fill(t)));
+  const near = (a, b) => Math.abs(Math.hypot(a[0] - b[0], a[1] - b[1]) - Math.sqrt(3)) < 0.01;
+  const nb = centers.map((c, i) => centers.map((d, j) => j).filter((j) => j !== i && near(c, centers[j])));
+  const tList = Object.entries(L.terrain).flatMap(([t, n]) => Array(n).fill(t));
+  const terrains = opts.sameRes === false ? arrange(tList, nb, (a, b) => a === b && a !== 'pustinja') : shuffle(tList);
   const hexes = centers.map(([x, y], id) => ({
     id, x, y, terrain: terrains[id], res: TERRAIN_RES[terrains[id]], num: null,
   }));
-  const isNeighbor = (a, b) => Math.abs(Math.hypot(a.x - b.x, a.y - b.y) - Math.sqrt(3)) < 0.01;
 
-  // Brojevi: 6 i 8 ne smeju biti jedan pored drugog
+  // Brojevi: 6 i 8 nikad jedan pored drugog; po zelji ni isti brojevi
   const producing = hexes.filter((h) => h.terrain !== 'pustinja');
-  const hotNums = L.numbers.filter((n) => n === 6 || n === 8);
-  const coldNums = L.numbers.filter((n) => n !== 6 && n !== 8);
-  for (let tries = 0; tries < 5000; tries++) {
-    const order = shuffle([...producing]);
-    const hot = [];
-    for (const h of order) {
-      if (hot.length === hotNums.length) break;
-      if (!hot.some((o) => isNeighbor(o, h))) hot.push(h);
-    }
-    if (hot.length < hotNums.length) continue;
-    const hn = shuffle([...hotNums]), cn = shuffle([...coldNums]);
-    for (const h of producing) h.num = hot.includes(h) ? hn.pop() : cn.pop();
-    break;
-  }
+  const pIdx = new Map(producing.map((h, i) => [h.id, i]));
+  const pnb = producing.map((h) => nb[h.id].filter((j) => pIdx.has(j)).map((j) => pIdx.get(j)));
+  const isHot = (n) => n === 6 || n === 8;
+  const nums = arrange(L.numbers, pnb, (a, b) => (isHot(a) && isHot(b)) || (opts.sameNum === false && a === b));
+  producing.forEach((h, i) => { h.num = nums[i]; });
 
   const vertices = [], vIndex = new Map();
   const edges = [], eIndex = new Map();
@@ -173,7 +182,7 @@ class Game {
     this.sub = null;
     this.deadline = null;
     this.timerKey = null;
-    this.board = buildBoard(this.settings.map);
+    this.board = buildBoard(this.settings.map, this.settings);
     this.buildings = {}; // vertexId -> { pid, type: 'settlement'|'city' }
     this.roads = {}; // edgeId -> pid
     this.bank = { drvo: 19, glina: 19, vuna: 19, zito: 19, kamen: 19 };
@@ -223,6 +232,8 @@ class Game {
     if (s.hideBank !== undefined) st.hideBank = !!s.hideBank;
     if (s.friendlyRobber !== undefined) st.friendlyRobber = !!s.friendlyRobber;
     if (s.fairDice !== undefined) st.fairDice = !!s.fairDice;
+    if (s.sameRes !== undefined) st.sameRes = !!s.sameRes;
+    if (s.sameNum !== undefined) st.sameNum = !!s.sameNum;
     if (s.resCards !== undefined) st.resCards = num(s.resCards, 10, 50);
     if (s.devCards !== undefined) st.devCards = num(s.devCards, 10, 80);
   }
@@ -234,7 +245,7 @@ class Game {
       if (this.players.some((p) => p.id !== pl.id && p.color === color)) fail('Tu boju već ima drugi igrač.');
       pl.color = color;
     }
-    if (avatar !== undefined) pl.avatar = Math.max(0, Math.min(15, Math.floor(Number(avatar)) || 0));
+    if (avatar !== undefined) pl.avatar = Math.max(0, Math.min(63, Math.floor(Number(avatar)) || 0));
   }
 
   updateSettings(pl, s) {
@@ -243,7 +254,7 @@ class Game {
     if (s.map && MAP_MAX[s.map] < this.players.length) fail('U sobi ima previše igrača za ovu mapu.');
     const oldMap = this.settings.map;
     this.applySettings(s);
-    if (this.settings.map !== oldMap) this.board = buildBoard(this.settings.map);
+    if (this.settings.map !== oldMap) this.board = buildBoard(this.settings.map, this.settings);
   }
 
   removePlayer(by, pid) {
@@ -470,7 +481,7 @@ class Game {
 
   // ---------- akcije ----------
   action(pid, type, data = {}) {
-    try { return this.doAction(pid, type, data); } finally { this.touchTimer(); }
+    try { return this.doAction(pid, type, data); } finally { if (this.phase === 'ended' && !this.endedAt) this.endedAt = Date.now(); this.touchTimer(); }
   }
 
   doAction(pid, type, data = {}) {
@@ -526,7 +537,7 @@ class Game {
     shuffle(this.players);
     const n = this.players.length;
     const layout = this.settings.map;
-    this.board = buildBoard(layout);
+    this.board = buildBoard(layout, this.settings);
     this.devDeck = makeDevDeck(layout, this.settings.devCards);
     const bankSize = this.settings.resCards;
     this.bank = Object.fromEntries(RES.map((r) => [r, bankSize]));
@@ -534,6 +545,7 @@ class Game {
     this.setupStep = 0;
     this.turn = this.setupOrder[0];
     this.phase = 'setup';
+    this.startedAt = Date.now();
     this.sub = 'settlement';
     this.addLog(`Igra je počela! Redosled: ${this.players.map((p) => p.name).join(', ')}.`);
     this.addLog(`${this.current().name} postavlja prvo selo.`);
@@ -691,19 +703,19 @@ class Game {
   }
 
   moveRobber(pl, hex) {
-    if (this.sub !== 'robber') fail('Sada ne pomeraš razbojnika.');
+    if (this.sub !== 'robber') fail('Sada ne pomeraš lopova.');
     if (!this.board.hexes[hex]) fail('Pogrešno polje.');
-    if (hex === this.board.robber) fail('Razbojnik mora na drugo polje.');
-    if (!this.robberHexes(pl.id).includes(hex)) fail('Prijateljski razbojnik: ne možeš na polje igrača sa 2 poena ili manje.');
+    if (hex === this.board.robber) fail('Lopov mora na drugo polje.');
+    if (!this.robberHexes(pl.id).includes(hex)) fail('Prijateljski lopov: ne možeš na polje igrača sa 2 poena ili manje.');
     this.board.robber = hex;
-    this.addLog(`🦹 ${pl.name} je pomerio razbojnika.`);
+    this.addLog(`🦹 ${pl.name} je pomerio lopova.`);
     const victims = this.robberVictims(pl.id);
     if (victims.length === 0) this.sub = this.afterRobber;
     else if (victims.length === 1) this.doSteal(pl, victims[0]);
     else this.sub = 'steal';
   }
 
-  // Polja na koja razbojnik sme. Uz "prijateljskog razbojnika" ne sme kod igraca sa 2 poena ili manje.
+  // Polja na koja lopov sme. Uz "prijateljskog lopova" ne sme kod igraca sa 2 poena ili manje.
   robberHexes(pid) {
     const all = this.board.hexes.map((h) => h.id).filter((h) => h !== this.board.robber);
     if (!this.settings.friendlyRobber) return all;
@@ -899,7 +911,7 @@ class Game {
     const key = `${this.phase}|${this.turnNum}|${this.turn}|${this.sub}|${this.setupStep}`;
     if (key === this.timerKey) return;
     this.timerKey = key;
-    // bacanje kockica, razbojnik i odbacivanje imaju krace vreme
+    // bacanje kockica, lopov i odbacivanje imaju krace vreme
     const short = ['roll', 'robber', 'steal', 'discard'].includes(this.sub);
     const secs = short ? Math.min(30, this.settings.timer) : this.settings.timer;
     this.deadline = Date.now() + secs * 1000;
@@ -938,6 +950,8 @@ class Game {
       settings: this.settings,
       deadline: this.deadline,
       now: Date.now(),
+      startedAt: this.startedAt || null,
+      endedAt: this.endedAt || (this.phase === 'ended' ? Date.now() : null),
       turn: this.current()?.id,
       turnNum: this.turnNum,
       dice: this.dice,
