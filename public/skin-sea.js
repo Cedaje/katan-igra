@@ -106,13 +106,16 @@ const SEA = (() => {
     if (type === 'settlement') {
       return `<g transform="translate(${x} ${y + 9}) scale(1.35)">${scallop(0, 0, 1.25, col, '#061a2e')}<path d="M-6 -9 Q-3 -13 0 -14" stroke="${l}" stroke-width="1.2" fill="none" stroke-linecap="round"/></g>`;
     }
+    // grad: veliki biser u boji igraca, u otvorenoj skoljci
     return `<g transform="translate(${x} ${y})">
-      <ellipse cx="0" cy="15" rx="17" ry="4" fill="#00000040"/>
-      <circle cx="-1" cy="0" r="16" fill="${col}" stroke="#061a2e" stroke-width="2"/>
-      <path d="M11 0 A12 12 0 0 0 -13 0 A9 9 0 0 0 5 0 A6.75 6.75 0 0 0 -8.5 0 A5 5 0 0 0 1.5 0 A3.75 3.75 0 0 0 -6 0" fill="none" stroke="${d}" stroke-width="2"/>
-      <path d="M13 -8 Q22 0 13 10 Q11 2 13 -8 Z" fill="${l}" stroke="#061a2e" stroke-width="1.6"/>
-      <circle cx="16" cy="9" r="3" fill="#fbf6ee" stroke="#c9bfae" stroke-width=".8"/><circle cx="15" cy="8" r="1" fill="#fff"/>
-      <path d="M-11 -9 Q-6 -14 0 -15" stroke="${l}" stroke-width="2" fill="none" stroke-linecap="round" opacity=".8"/>
+      <ellipse cx="0" cy="16" rx="19" ry="4.5" fill="#00000045"/>
+      <path d="M-19 4 Q-20 -14 0 -19 Q20 -14 19 4 Q10 -2 0 -2 Q-10 -2 -19 4 Z" fill="#e9e1d3" stroke="#061a2e" stroke-width="1.6"/>
+      <path d="M-14 0 Q-12 -11 0 -14 M14 0 Q12 -11 0 -14 M-6 -2 Q-4 -10 0 -14 M6 -2 Q4 -10 0 -14" stroke="#bdb2a0" stroke-width=".9" fill="none"/>
+      <path d="M-20 4 Q-10 18 0 17 Q10 18 20 4 Q10 9 0 9 Q-10 9 -20 4 Z" fill="#d8cfbe" stroke="#061a2e" stroke-width="1.6"/>
+      <circle cx="0" cy="2" r="11.5" fill="${col}" stroke="#061a2e" stroke-width="1.8"/>
+      <circle cx="2.5" cy="4.5" r="8.5" fill="${d}" opacity=".45"/>
+      <circle cx="-3.5" cy="-2.5" r="4" fill="#fff" opacity=".7"/><circle cx="-4.5" cy="-3.5" r="1.8" fill="#fff"/>
+      <circle cx="5" cy="8" r="2.5" fill="${l}" opacity=".5"/>
     </g>`;
   }
 
