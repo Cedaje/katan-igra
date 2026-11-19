@@ -365,6 +365,20 @@ class BattleshipGame {
       chat: this.chat.slice(-60),
     };
   }
+
+  // gledalac: obe table, ali samo gadjanja i potopljeni brodovi (kao sto ih vide igraci); na kraju se otkrije sve
+  // "moja" strana je prvi igrac, "protivnik" drugi
+  spectatorView() {
+    const [a, b] = this.players;
+    const v = this.viewFor(a ? a.id : null);
+    const showAll = this.phase === 'ended';
+    const visible = (pl) => (pl?.ships || []).filter((s) => showAll || s.hits >= s.len).map(({ x, y, len, dir, hits }) => ({ x, y, len, dir, sunk: hits >= len }));
+    return {
+      ...v, me: null, left: a ? a.id : null, right: b ? b.id : null,
+      myShips: visible(a), myShots: a?.shots || {}, myRadars: a?.radars || [],
+      foeShips: visible(b), foeShots: b?.shots || {}, foeRadars: b?.radars || [],
+    };
+  }
 }
 
 module.exports = { BattleshipGame };

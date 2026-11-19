@@ -75,6 +75,7 @@ function toast(msg) {
   clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), 3200);
 }
 function act(type, data = {}) {
+  if (S && S.spectator && type !== 'leave') return; // gledalac ne igra
   socket.emit('action', { type, data }, (r) => { if (r && !r.ok) { toast(r.error); SFX.play('error'); } });
 }
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -429,13 +430,16 @@ socket.on('rooms', (rooms) => { allRooms = rooms; renderRooms(); });
 function renderRooms() {
   const rows = $('roomRows');
   for (const k of Object.keys(KIND_INFO)) {
-    const n = allRooms.filter((r) => (r.kind || 'ostrvo') === k && r.players < r.settings.maxPlayers).length;
+    const n = allRooms.filter((r) => (r.kind || 'ostrvo') === k && !r.live && r.players < r.settings.maxPlayers).length;
     document.querySelectorAll(`[data-open="${k}"]`).forEach((el) => { el.textContent = n ? `🟢 ${n} ${n === 1 ? 'otvorena soba' : n < 5 ? 'otvorene sobe' : 'otvorenih soba'}` : ''; });
   }
   const rooms = allRooms.filter((r) => (r.kind || 'ostrvo') === curKind);
   if (!rooms.length) { rows.innerHTML = '<div class="rt-empty">Trenutno nema otvorenih soba. Napravi svoju i pozovi prijatelje!</div>'; return; }
+  // prvo sobe koje cekaju igrace, pa igre koje traju (mogu da se gledaju)
+  rooms.sort((a, b) => !!a.live - !!b.live);
   rows.innerHTML = rooms.map((r) => {
     const h = r.host || { name: r.names[0] || '?', color: '#888' };
+    if (r.live) return liveRow(r, h);
     const full = r.players >= r.settings.maxPlayers;
     if (r.kind === 'brodovi') {
       return `<div class="rt-row ${full ? 'full' : 'open'}" data-room="${r.code}" title="Igrači: ${esc(r.names.join(', '))}">
@@ -451,7 +455,30 @@ function renderRooms() {
     <span class="rt-join">${full ? '' : 'Uđi ›'}</span></div>`;
   }).join('');
 }
-$('roomRows').addEventListener('click', (e) => { const r = e.target.closest('[data-room]'); if (r) join(r.dataset.room); });
+// igra koja vec traje: moze samo da se gleda
+function liveRow(r, h) {
+  const mode = r.kind === 'brodovi' ? `${r.settings.size || 10}×${r.settings.size || 10}` : MAP_NAME[r.settings.map];
+  return `<div class="rt-row live" data-watch="${r.code}" title="Igra je u toku. Klikni da gledaš. Igrači: ${esc(r.names.join(', '))}">
+    <span class="rt-host"><span class="rt-av" style="--pc:${h.color || '#888'}">${avatarOf(h)}</span><span class="rt-hn"><b>${esc(h.name)}</b><small><i class="rt-dot"></i>Igra u toku</small></span></span>
+    <span>${esc(r.names.join(', '))}</span><span>${mode || ''}</span>
+    <span>${r.watchers ? `👀 ${r.watchers}` : ''}</span><span class="seats">${seatIcons(r.players, r.players)}</span>
+    <span class="rt-join">👀 Gledaj ›</span></div>`;
+}
+$('roomRows').addEventListener('click', (e) => {
+  const w = e.target.closest('[data-watch]'); if (w) return watch(w.dataset.watch);
+  const r = e.target.closest('[data-room]'); if (r) join(r.dataset.room);
+});
+// gledanje igre: bez mesta za stolom, vidi se samo ono sto je javno
+let watching = null; // kod sobe koju gledas
+function watch(code, quiet) {
+  const name = $('nameInput').value.trim() || localStorage.getItem('ot_name') || 'Gost';
+  socket.emit('spectate', { code, name, token: token() }, (r) => {
+    if (!r || !r.ok) { watching = null; if (!quiet) toast((r && r.error) || 'Ne može da se gleda.'); if (S || BS.code()) { S = null; BS.reset(); render(); } return; }
+    watching = r.code;
+    const url = new URL(location.href); url.search = '?gledaj=' + r.code;
+    history.replaceState(null, '', url);
+  });
+}
 
 function enter(code) {
   setSavedRoom(code);
@@ -479,8 +506,10 @@ function savedRoom() { try { return localStorage.getItem('ot_room') || ''; } cat
 function setSavedRoom(code) { try { if (code) localStorage.setItem('ot_room', code); else localStorage.removeItem('ot_room'); } catch (_) { /* */ } }
 // Povratak u igru: posle prekida interneta ili osvezavanja stranice igrac se vraca na svoje mesto
 socket.on('disconnect', () => { if (S) $('netBar').classList.remove('hidden'); });
+const watchInvite = (new URLSearchParams(location.search).get('gledaj') || '').toUpperCase();
 socket.on('connect', () => {
   $('netBar').classList.add('hidden');
+  if (watching || (watchInvite && !S && !BS.code())) return watch(watching || watchInvite, !watching);
   const code = (S && S.code) || BS.code() || inviteCode || savedRoom();
   if (!code) return;
   socket.emit('join', { code, token: token(), rejoinOnly: true }, (r) => {
@@ -491,7 +520,7 @@ socket.on('connect', () => {
     else { $('nameInput').focus(); toast(`Upiši ime i klikni sobu ${code} ili „Uđi u sobu“.`); }
   });
 });
-socket.on('kicked', (o) => { setSavedRoom(''); S = null; BS.reset(); modalExtra = null; showPage('rooms'); renderModal(); history.replaceState(null, '', '/'); SFX.play('kick'); toast((o && o.msg) || 'Izbačen si iz sobe.'); });
+socket.on('kicked', (o) => { watching = null; setSavedRoom(''); S = null; BS.reset(); modalExtra = null; showPage('rooms'); renderModal(); history.replaceState(null, '', '/'); SFX.play('kick'); toast((o && o.msg) || 'Izbačen si iz sobe.'); });
 // obavestenje od administratora: traka iznad liste soba (moze da se sakrije dok ne stigne novo)
 let annAt = 0;
 socket.on('announce', (a) => {
@@ -557,6 +586,7 @@ function playEventSounds(prev, next) {
 const DICE_ANIM_MS = 900;
 let rollHold = null; // { state, prev } dok traje animacija
 socket.on('state', (state) => {
+  if (!state.spectator) watching = null;
   if (state.kind && state.kind !== 'ostrvo') { // druga igra (Potapanje brodova) ima svoj ekran
     if (S) { S = null; modalExtra = null; }
     if (KIND_INFO[state.kind] && curKind !== state.kind) setKind(state.kind);
@@ -709,7 +739,7 @@ $('lobby').addEventListener('click', (e) => {
 });
 $('copyBtn').onclick = () => { $('inviteLink').select(); navigator.clipboard?.writeText($('inviteLink').value); toast('Link je kopiran. Pošalji ga prijateljima.'); };
 $('startBtn').onclick = () => act('start');
-function doLeave() { setSavedRoom(''); act('leave'); S = null; modalExtra = null; picker = null; tradeOpen = false; history.replaceState(null, '', '/'); showPage('rooms'); renderModal(); socket.emit('rooms'); }
+function doLeave() { if (S && S.spectator) watching = null; else setSavedRoom(''); act('leave'); S = null; modalExtra = null; picker = null; tradeOpen = false; history.replaceState(null, '', '/'); showPage('rooms'); renderModal(); socket.emit('rooms'); }
 $('leaveBtn').onclick = doLeave;
 
 // ---------- tabla ----------
@@ -1113,6 +1143,7 @@ $('dice').onclick = () => { if (myTurn() && S.sub === 'roll') act('roll'); };
 const RES_TIP = { drvo: 'iz šume', glina: 'iz gliništa', vuna: 'sa pašnjaka', zito: 'sa polja', kamen: 'iz planine' };
 const rcard = (r, n, extra = '') => `<div class="rcard ${extra}" data-r="${r}" style="background-color:${RES_INFO[r].color};--c:${RES_INFO[r].color}" title="${RES_INFO[r].name} (${RES_TIP[r]})${extra.includes('click') ? ' – klikni za trgovinu' : ''}">${SKA() ? `<i class="art">${SKA().cardSVG(r)}</i><b class="lbl">${RES_INFO[r].name}</b>` : RES_INFO[r].ico}${n !== null ? `<span class="cnt">${n}</span>` : ''}</div>`;
 function renderHand() {
+  if (S.spectator) { $('hand').innerHTML = '<span class="spec-note">👀 Gledaš ovu igru. Karte igrača se ne vide.</span>'; return; }
   let h = RES.filter((r) => S.hand[r] > 0).map((r) => rcard(r, S.hand[r] - (tradeOpen ? tradeGive[r] || 0 : 0), tradeOpen ? 'click' : '')).join('');
   if (!h) h = '<span style="color:var(--muted)">Nemaš karte sirovina.</span>';
   else if (myTurn() && S.sub === 'main') h = h.replace(/class="rcard /g, 'class="rcard click ');
@@ -1159,6 +1190,7 @@ function renderStatus() {
   const st = $('status');
   st.className = 'status' + (click ? ' click' : '');
   st.title = S.helperOf && S.phase === 'play' ? `Pomoćni potez: bez kockica. Trgovina sa bankom, lukama i samo sa glavnim igračem (${pById(S.helperOf).name}). Može da se gradi i igraju razvojne karte.` : '';
+  if (S.spectator) txt = '👀 ' + txt;
   st.innerHTML = `<div class="avatar" style="background:${cur.color};width:32px;height:32px;font-size:16px;border-width:2px">${avatarOf(cur)}</div><span>${esc(txt)}</span>`;
 }
 $('status').onclick = () => { if (S && myTurn() && S.sub === 'roll') act('roll'); };
@@ -1181,6 +1213,7 @@ setInterval(() => {
 
 function renderActions() {
   const m = me();
+  if (S.spectator) { $('actions').innerHTML = `<button class="act" data-a="stopwatch" title="Prestani da gledaš i vrati se na sobe">🚪<small>Izađi</small></button>`; return; }
   const main = myTurn() && S.sub === 'main' && S.phase === 'play';
   const L = S.legal || {};
   // dugme je ukljuceno samo ako imas sirovine I postoji mesto na tabli
@@ -1230,7 +1263,7 @@ function renderVote() {
   bar.classList.remove('hidden');
   bar.innerHTML = `<span>🗳️ <b>${esc(by.name)}</b> predlaže da se izbaci <b style="color:${t.color}">${esc(t.name)}</b></span>
     <span class="vcount">✔ ${v.yes.length} · ✕ ${v.no.length} od ${v.voters} · <span id="voteLeft">${left}s</span></span>
-    ${v.target === S.me ? '<span>Ti ne glasaš.</span>' : `<button class="ob ${voted === 'da' ? '' : 'gray'}" data-vote="1">Da, izbaci</button><button class="ob ${voted === 'ne' ? 'red' : 'gray'}" data-vote="0">Ne</button>`}`;
+    ${S.spectator ? '' : v.target === S.me ? '<span>Ti ne glasaš.</span>' : `<button class="ob ${voted === 'da' ? '' : 'gray'}" data-vote="1">Da, izbaci</button><button class="ob ${voted === 'ne' ? 'red' : 'gray'}" data-vote="0">Ne</button>`}`;
 }
 $('voteBar').addEventListener('click', (e) => { const b = e.target.closest('[data-vote]'); if (b) act('vote', { yes: b.dataset.vote === '1' }); });
 $('players').addEventListener('click', (e) => {
@@ -1244,6 +1277,7 @@ $('players').addEventListener('click', (e) => {
 $('actions').addEventListener('click', (ev) => {
   const b = ev.target.closest('button'); if (!b || b.disabled) return;
   const a = b.dataset.a;
+  if (a === 'stopwatch') return doLeave();
   if (a === 'end') act('endTurn');
   else if (a === 'dev') act('buyDev');
   else if (a === 'trade') { tradeOpen = !tradeOpen; counterMode = tradeOpen && !myTurn(); mode = null; tradeGive = {}; tradeGet = {}; render(); }
@@ -1254,7 +1288,7 @@ $('actions').addEventListener('click', (ev) => {
 function playerPanel(p, big = false) {
   return `<div class="pp ${p.id === S.turn ? 'turn' : ''} ${big ? 'big' : ''}" data-pid="${p.id}" style="--pc:${p.color}">
     <div class="who"><div class="avatar ${frameCls(p)}" style="background:${p.color}">${avatarOf(p)}</div><span class="vpb" title="Poeni">${p.vp}</span></div>
-    <div><div class="pname"><i class="pdot"></i>${esc(p.name)}${p.title ? `<small class="ptitle">${TITLES[p.title]}</small>` : ''} ${S.helperOf && p.id === S.helperOf ? '<span class="pair-tag" title="Glavni igrač ovog kruga: jedini sa kim pomoćni igrač sme da trguje">glavni</span>' : S.helperOf && p.id === S.turn ? '<span class="pair-tag help" title="Igra pomoćni potez: bez kockica, trguje samo sa glavnim igračem">pomoćni</span>' : ''}${p.kicked ? '<span class="off">izbačen</span>' : p.quit ? '<span class="off">napustio</span>' : p.connected ? '' : '<span class="off">van mreže</span>'}${!big && !p.kicked && !S.vote && (S.phase === 'play' || S.phase === 'setup') && !me().quit ? `<button class="vk" data-votekick="${p.id}" title="Glasanje za izbacivanje">🥾</button>` : ''}</div>
+    <div><div class="pname"><i class="pdot"></i>${esc(p.name)}${p.title ? `<small class="ptitle">${TITLES[p.title]}</small>` : ''} ${S.helperOf && p.id === S.helperOf ? '<span class="pair-tag" title="Glavni igrač ovog kruga: jedini sa kim pomoćni igrač sme da trguje">glavni</span>' : S.helperOf && p.id === S.turn ? '<span class="pair-tag help" title="Igra pomoćni potez: bez kockica, trguje samo sa glavnim igračem">pomoćni</span>' : ''}${p.kicked ? '<span class="off">izbačen</span>' : p.quit ? '<span class="off">napustio</span>' : p.connected ? '' : '<span class="off">van mreže</span>'}${!big && !p.kicked && !S.vote && (S.phase === 'play' || S.phase === 'setup') && !S.spectator && !me().quit ? `<button class="vk" data-votekick="${p.id}" title="Glasanje za izbacivanje">🥾</button>` : ''}</div>
     <div class="stats">
       <span class="st" title="Karte sirovina"><span class="i">🂠</span>${p.cards}</span>
       <span class="st" title="Razvojne karte"><span class="i">🃏</span>${p.devCards}</span>
@@ -1264,9 +1298,12 @@ function playerPanel(p, big = false) {
 }
 function renderPlayers() {
   const others = S.players.filter((p) => p.id !== S.me);
+  const w = S.watchers || [];
   $('players').classList.toggle('compact', S.players.length > 4);
-  $('players').innerHTML = others.map((p) => playerPanel(p)).join('');
-  $('mePanel').innerHTML = playerPanel(me(), true);
+  $('players').innerHTML = others.map((p) => playerPanel(p)).join('') +
+    (w.length ? `<div class="watchers" title="Gledaju: ${esc(w.join(', '))}">👀 Gleda: ${w.length}</div>` : '');
+  $('mePanel').innerHTML = S.spectator ? '' : playerPanel(me(), true);
+  $('mePanel').classList.toggle('hidden', !!S.spectator);
 }
 function renderBank() {
   const hidden = !S.bank;
@@ -1278,11 +1315,11 @@ function renderBank() {
 const miniCards = (o) => `<span class="mini">${Object.entries(o).map(([r, n]) => rcard(r, n)).join('')}</span>`;
 // ostali igraci mogu da predloze razmenu igracu na potezu u bilo kom trenutku njegovog poteza
 // u pomocnom potezu (Parovi igraca) predlog moze da posalje samo glavni igrac
-function canPropose() { return !!S && S.phase === 'play' && S.turn !== S.me && !me()?.quit && !pById(S.turn)?.quit && (!S.helperOf || S.helperOf === S.me); }
+function canPropose() { return !!S && !S.spectator && S.phase === 'play' && S.turn !== S.me && !me()?.quit && !pById(S.turn)?.quit && (!S.helperOf || S.helperOf === S.me); }
 function renderOffers() {
   const t = S.trade;
   const box = $('offers');
-  if (!t || S.phase !== 'play' || (S.helperOf && t.from !== S.me && S.helperOf !== S.me)) { box.classList.add('hidden'); return; }
+  if (!t || S.spectator || S.phase !== 'play' || t.from !== S.turn || (S.helperOf && t.from !== S.me && S.helperOf !== S.me)) { box.classList.add('hidden'); return; }
   const from = pById(t.from);
   let h = t.open ? '<div class="offer"><div class="offer-row"><b>📨 Predlozi za razmenu</b></div>' : `<div class="offer"><div class="offer-row"><b>${esc(from.name)}</b> daje ${miniCards(t.give)} za ${miniCards(t.get)}</div>`;
   if (t.open && t.from !== S.me) {
@@ -1430,6 +1467,7 @@ function renderLog() {
 function renderChat() {
   const html = S.chat.map((c) => `<div class="nt"><b style="color:${c.color};text-shadow:0 0 1px #0008">${esc(c.name)}:</b> ${esc(c.text)}</div>`).join('') || '<div style="opacity:.6">Još nema poruka.</div>';
   for (const el of [$('chat'), $('lobbyChat')]) { el.innerHTML = html; el.scrollTop = el.scrollHeight; }
+  document.querySelectorAll('[data-chat]').forEach((f) => f.classList.toggle('hidden', !!S.spectator)); // gledalac samo cita
   if (chatOpen || S.phase === 'lobby') seenChat = S.chat.length;
   const unread = S.chat.length - seenChat;
   $('chatBadge').textContent = unread > 0 ? unread : '';
@@ -1458,6 +1496,7 @@ function chatCommand(cmd) {
   toast('Komande: /izlaz (napusti igru), /kraj (osnivač prekida igru za sve)');
 }
 function showExitMenu() {
+  if (S.spectator) return doLeave();
   const host = S.host === S.me && S.phase !== 'ended';
   modalExtra = () => `<h3>🚪 Izlaz</h3><p>Ako napustiš igru, tvoje figure ostaju na tabli, a igra će umesto tebe završavati poteze. Možeš da se vratiš preko linka sobe.</p>
     <div class="row" style="flex-wrap:wrap"><button class="ob red" data-exit>Napusti igru</button>${host ? '<button class="ob red" data-endgame>Prekini igru za sve</button>' : ''}<button class="ob gray" data-close>Otkaži</button></div>

@@ -91,4 +91,24 @@ for (let i = 0; i < 50; i++) assert(Array.isArray(R.validFleet(R.randomFleet('kl
   assert.strictEqual(g.phase, 'place');
   assert.strictEqual(g.round, 2);
 }
+// gledalac: vidi gadjanja po obe table, ali samo potopljene brodove dok traje bitka; na kraju sve
+{
+  const g = new BattleshipGame('SP', {});
+  const a = g.addPlayer('A', 'tokenA12345'), b = g.addPlayer('B', 'tokenB12345');
+  g.action(a.id, 'start');
+  for (const p of [a, b]) g.action(p.id, 'place', { ships: R.randomFleet(g.settings.fleet, g.settings.touch, g.n) });
+  let v = g.spectatorView();
+  assert.strictEqual(v.me, null);
+  assert.strictEqual(v.left, a.id); assert.strictEqual(v.right, b.id);
+  assert.strictEqual(v.myShips.length, 0, 'gledalac ne vidi brodove pre potapanja');
+  assert.strictEqual(v.foeShips.length, 0);
+  const t = g.p(g.turn), foe = g.other(t.id);
+  g.action(t.id, 'shoot', { x: 0, y: 0 });
+  v = g.spectatorView();
+  assert.ok((foe.id === a.id ? v.myShots : v.foeShots)['0,0'], 'gledalac vidi gadjanje');
+  assert.ok([...v.myShips, ...v.foeShips].every((s) => s.sunk), 'gledalac vidi samo potopljene brodove');
+  g.action(a.id, 'leave');
+  v = g.spectatorView();
+  assert.strictEqual(v.foeShips.length, b.ships.length, 'na kraju se otkriju svi brodovi');
+}
 console.log('Potapanje brodova: 70 bitaka odigrano, pravila OK');
