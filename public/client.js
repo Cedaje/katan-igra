@@ -153,7 +153,8 @@ setInterval(() => { if (S) fetch('/health').catch(() => {}); }, 4 * 60 * 1000);
 // ---------- prijem stanja ----------
 // ---------- zvukovi prema dogadjajima iz dnevnika ----------
 let seenLog = null, seenChatN = null;
-function playEventSounds(prev) {
+function playEventSounds(prev, next) {
+  if (next) { const cur = S; S = next; try { return playEventSounds(prev); } finally { S = cur; } }
   const keys = S.log.map((l) => `${l.t}|${l.text}`);
   if (seenLog === null || !prev || prev.code !== S.code) { seenLog = new Set(keys); seenChatN = S.chat.length; return; }
   const fresh = S.log.filter((l, i) => !seenLog.has(keys[i]));
@@ -192,16 +193,38 @@ function playEventSounds(prev) {
   if (S.phase === 'setup' && prev.turn !== S.turn && S.turn === S.me) SFX.play('myTurn');
 }
 
+// Kad padnu kockice: dok se kockice kotrljaju prikazuje se staro stanje (bez hajlajta i novih karata),
+// a tek kad se zaustave prikazuje se rezultat i karte lete sa polja do igraca.
+const DICE_ANIM_MS = 900;
+let rollHold = null; // { state, prev } dok traje animacija
 socket.on('state', (state) => {
+  if (rollHold) { rollHold.state = state; return; }
   const prev = S;
+  const newRoll = prev && prev.code === state.code && state.dice && state.phase === 'play' && prev.phase === 'play'
+    && `${state.turnNum}-${state.dice}` !== `${prev.turnNum}-${prev.dice}` && state.log.some((l) => l.text.startsWith('🎲') && !(seenLog && seenLog.has(`${l.t}|${l.text}`)));
+  if (newRoll) {
+    playEventSounds(prev, state);
+    rollHold = { state, prev };
+    S = { ...prev, dice: state.dice, turnNum: state.turnNum, now: state.now, deadline: state.deadline, rolling: true };
+    render();
+    setTimeout(() => {
+      const st = rollHold.state; rollHold = null;
+      applyState(st, prev, true);
+      flyCards(prev);
+    }, DICE_ANIM_MS);
+    return;
+  }
+  applyState(state, prev, false);
+});
+function applyState(state, prev, soundsDone) {
   S = state;
-  playEventSounds(prev);
+  if (!soundsDone) playEventSounds(prev);
   clockOffset = S.now - Date.now();
   if (S.sub !== 'main' || S.turn !== S.me) { mode = null; }
   if (!canPropose()) counterMode = false;
   if (!(S.turn === S.me && S.sub === 'main') && !counterMode) tradeOpen = false;
   render();
-});
+}
 
 const me = () => S.players.find((p) => p.id === S.me);
 const pById = (id) => S.players.find((p) => p.id === id);
@@ -470,7 +493,7 @@ function renderBoard() {
   const showSett = L.settlements && (S.sub === 'settlement' || mode === 'settlement' || (!mode && !tradeOpen && can.settlement));
   if (showSett) for (const vid of L.settlements) h += `<circle class="spot" data-v="${vid}" data-kind="settlement" cx="${V[vid].x * SC}" cy="${V[vid].y * SC}" r="10"/>`;
   const sum = S.dice ? S.dice[0] + S.dice[1] : 0;
-  if (sum && sum !== 7 && S.phase === 'play' && S.sub !== 'roll') for (const hx of B.hexes) {
+  if (sum && sum !== 7 && S.phase === 'play' && S.sub !== 'roll' && !S.rolling) for (const hx of B.hexes) {
     if (hx.num === sum) h += `<polygon class="hex-hit ${hx.id === B.robber ? 'blocked' : ''}" points="${hexPoints(hx, V, 0.96)}"/>`;
   }
   if (L.robber && S.sub === 'robber') for (const hid of L.robber) h += `<polygon class="hex-target" data-hex="${hid}" points="${hexPoints(B.hexes[hid], V, 0.96)}"/>`;
@@ -563,6 +586,46 @@ document.addEventListener('keydown', (e) => {
 const PIP_POS = { 1: [[50, 50]], 2: [[28, 28], [72, 72]], 3: [[26, 26], [50, 50], [74, 74]], 4: [[28, 28], [72, 28], [28, 72], [72, 72]], 5: [[26, 26], [74, 26], [50, 50], [26, 74], [74, 74]], 6: [[28, 24], [72, 24], [28, 50], [72, 50], [28, 76], [72, 76]] };
 let diceRolling = false;
 const dieHTML = (n, cls = '', style = '') => `<div class="die ${cls}" style="${style}">${n ? PIP_POS[n].map(([x, y]) => `<i style="left:${x}%;top:${y}%"></i>`).join('') : ''}</div>`;
+// karte lete sa polja koje je dalo sirovinu do ruke (tvoje) ili do panela igraca
+function flyCards(prev) {
+  if (!S || !S.dice || S.phase !== 'play') return;
+  const sum = S.dice[0] + S.dice[1]; if (sum === 7) return;
+  const B = S.board, svg = $('board'), ctm = svg.getScreenCTM(); if (!ctm) return;
+  const gotMore = (pid) => { const a = prev.players.find((p) => p.id === pid), b = pById(pid); return a && b && b.cards > a.cards; };
+  const flights = [];
+  for (const hx of B.hexes) {
+    if (hx.num !== sum || hx.id === B.robber || hx.terrain === 'pustinja') continue;
+    const res = Object.entries({ suma: 'drvo', gliniste: 'glina', pasnjak: 'vuna', polje: 'zito', planina: 'kamen' }).find(([t]) => t === hx.terrain)?.[1];
+    for (const c of hx.corners) {
+      const b = S.buildings[c]; if (!b || !gotMore(b.pid)) continue;
+      for (let k = 0; k < (b.type === 'city' ? 2 : 1); k++) flights.push({ hx, res, pid: b.pid });
+    }
+  }
+  flights.forEach((f, i) => setTimeout(() => {
+    const p = svg.createSVGPoint(); p.x = f.hx.x * SC; p.y = f.hx.y * SC;
+    const from = p.matrixTransform(ctm);
+    let target = f.pid === S.me ? (document.querySelector(`#hand .rcard[data-r="${f.res}"]`) || $('hand')) : document.querySelector(`.pp[data-pid="${f.pid}"] .avatar`);
+    if (!target || !target.offsetParent) target = document.querySelector(`.pp[data-pid="${f.pid}"]`) || $('hand');
+    const r = target.getBoundingClientRect(), to = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    const el = document.createElement('div');
+    el.className = 'fly-card';
+    el.innerHTML = rcard(f.res, null);
+    el.style.left = from.x + 'px'; el.style.top = from.y + 'px';
+    document.body.appendChild(el);
+    const dx = to.x - from.x, dy = to.y - from.y;
+    const anim = el.animate([
+      { transform: 'translate(-50%,-50%) scale(.3)', opacity: 0 },
+      { transform: 'translate(-50%,-80%) scale(1.15)', opacity: 1, offset: 0.2 },
+      { transform: `translate(calc(-50% + ${dx * 0.5}px), calc(-50% + ${dy * 0.5 - 60}px)) scale(1)`, opacity: 1, offset: 0.6 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${f.pid === S.me ? 0.9 : 0.45})`, opacity: 0.2 },
+    ], { duration: 900, easing: 'cubic-bezier(.4,0,.2,1)' });
+    anim.onfinish = () => {
+      el.remove();
+      target.classList.remove('got'); void target.offsetWidth; target.classList.add('got');
+    };
+  }, i * 140));
+}
+
 function renderDice() {
   const d = S.dice;
   const key = d ? `${S.turnNum}-${d}` : '';
@@ -734,7 +797,7 @@ $('actions').addEventListener('click', (ev) => {
 
 // ---------- igraci i banka ----------
 function playerPanel(p, big = false) {
-  return `<div class="pp ${p.id === S.turn ? 'turn' : ''} ${big ? 'big' : ''}" style="--pc:${p.color}">
+  return `<div class="pp ${p.id === S.turn ? 'turn' : ''} ${big ? 'big' : ''}" data-pid="${p.id}" style="--pc:${p.color}">
     <div class="who"><div class="avatar" style="background:${p.color}">${avatarOf(p)}</div><span class="vpb" title="Poeni">${p.vp}</span></div>
     <div><div class="pname"><i class="pdot"></i>${esc(p.name)} ${p.kicked ? '<span class="off">izbačen</span>' : p.quit ? '<span class="off">napustio</span>' : p.connected ? '' : '<span class="off">van mreže</span>'}${!big && !p.kicked && !S.vote && (S.phase === 'play' || S.phase === 'setup') && !me().quit ? `<button class="vk" data-votekick="${p.id}" title="Glasanje za izbacivanje">🥾</button>` : ''}</div>
     <div class="stats">

@@ -213,7 +213,7 @@ input { font: inherit; }
 .tbig.close { font-size: 30px; font-weight: 800; }
 .hand.invisible { visibility: hidden; }
 .rate { position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); font-size: 11px; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--ink); font-weight: 800; }
-.hex-hit { animation-delay: .85s !important; animation-fill-mode: backwards !important; fill: #fff3a8; fill-opacity: .1; stroke: #ffe066; stroke-width: 6; stroke-linejoin: round; pointer-events: none; filter: drop-shadow(0 0 6px #ffe066); animation: hit 1.2s ease-in-out 3; }
+.hex-hit { fill: #fff3a8; fill-opacity: .1; stroke: #ffe066; stroke-width: 6; stroke-linejoin: round; pointer-events: none; filter: drop-shadow(0 0 6px #ffe066); animation: hit 1.2s ease-in-out 3; }
 .hex-hit.blocked { stroke: #888; filter: none; }
 @keyframes hit { 0%, 100% { stroke-opacity: 1; fill-opacity: .1; } 50% { stroke-opacity: .5; fill-opacity: .25; } }
 
@@ -543,3 +543,8 @@ body.skin-tamne #game { background: radial-gradient(ellipse at 45% 25%, #1b3342 
 .skin-tamne .chat-form input { background: #2c353d; color: var(--ink); border-color: var(--line); }
 .skin-tamne .name-pill input { background: #2c353d; color: var(--ink); }
 .skin-tamne .modal-x { color: var(--ink); }
+/* karte koje lete sa polja do igraca */
+.fly-card { position: fixed; z-index: 60; pointer-events: none; transform: translate(-50%, -50%); filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); }
+.fly-card .rcard { width: 46px; height: 64px; font-size: 24px; }
+.got { animation: got .45s ease-out; }
+@keyframes got { 0% { transform: scale(1); } 40% { transform: scale(1.18); box-shadow: 0 0 0 4px var(--hilite); } 100% { transform: scale(1); } }
