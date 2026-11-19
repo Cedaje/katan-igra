@@ -177,16 +177,17 @@ function buildBoard(layoutName = 'base', opts = {}) {
   const portTypes = shuffle([...L.ports]);
   const np = portTypes.length;
   let chosen = null;
-  for (let tries = 0; tries < 2000 && !chosen; tries++) {
-    const idx = shuffle([...coast.keys()]).slice(0, np).sort((a, b) => a - b);
-    const used = new Set();
-    let ok = true;
-    for (const i of idx) {
+  // nasumicno redom: uzmi ivicu ako ne dodiruje vec izabranu luku (mnogo brze nalazi raspored od biranja nasumicnog skupa)
+  for (let tries = 0; tries < 3000 && !chosen; tries++) {
+    const used = new Set(), idx = [];
+    for (const i of shuffle([...coast.keys()])) {
       const e = coast[i].e;
-      if (used.has(e.a) || used.has(e.b)) { ok = false; break; }
+      if (used.has(e.a) || used.has(e.b)) continue;
       for (const v of [e.a, e.b]) { used.add(v); for (const w of vertices[v].adj) used.add(w); }
+      idx.push(i);
+      if (idx.length === np) break;
     }
-    if (ok) chosen = idx;
+    if (idx.length === np) chosen = idx.sort((a, b) => a - b);
   }
   if (!chosen) chosen = portTypes.map((_, i) => Math.floor((i * coast.length) / np));
   const ports = [];

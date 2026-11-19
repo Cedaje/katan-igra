@@ -733,3 +733,9 @@ body.dark-ui #game { background: radial-gradient(ellipse at 45% 25%, #1b3342 0%,
 .logout-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(0,0,0,.15); }
 .logout-row .ob { white-space: nowrap; flex: none; }
 .logout-row small { opacity: .75; font-size: 12px; }
+.announce { display: flex; align-items: center; gap: 10px; background: #fff4cf; color: #4a3510; border: 2px solid #e7b94a; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.announce .ann-ico { font-size: 20px; }
+.announce #annText { flex: 1; white-space: pre-wrap; }
+.announce button { background: none; border: 0; font-size: 16px; cursor: pointer; color: inherit; opacity: .6; }
+.set-note.warn { color: #ffb4a6; font-weight: 600; }
+#nameInput:disabled, #setName:disabled { opacity: .7; cursor: not-allowed; }

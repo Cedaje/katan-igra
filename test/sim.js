@@ -71,7 +71,7 @@ for (let i = 0; i < GAMES; i++) {
   const lay = LAYOUTS[g.board.layout];
   assert.equal(g.board.hexes.length, lay.cells ? lay.cells.length : lay.rows.reduce((a, b) => a + b, 0));
   if (g.board.layout === 'base') { assert.equal(g.board.vertices.length, 54); assert.equal(g.board.edges.length, 72); }
-  assert.equal(g.board.vertices.filter((v) => v.port).length, lay.ports.length * 2, 'luke dele teme');
+  assert.equal(g.board.vertices.filter((v) => v.port).length, lay.ports.length * 2, 'luke dele teme ' + g.board.layout + ' ' + i);
   assert.ok(g.board.hexes.every((h) => h.terrain === 'pustinja' || h.num), 'polje bez broja');
   for (const a of g.board.hexes) for (const b of g.board.hexes) if (a !== b && [6, 8].includes(a.num) && [6, 8].includes(b.num)) assert.ok(Math.hypot(a.x - b.x, a.y - b.y) > 1.8, '6/8 susedi');
   let steps = 0;

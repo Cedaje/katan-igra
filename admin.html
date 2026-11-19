@@ -7,75 +7,221 @@
 <title>Admin – Ostrvo Trgovaca</title>
 <style>
   body { margin: 0; font: 15px/1.4 system-ui, sans-serif; background: #f3ead6; color: #3b2a17; }
-  main { max-width: 820px; margin: 0 auto; padding: 24px 16px; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
   h1 { margin: 0 0 4px; font-size: 22px; }
+  h3 { margin: 0 0 8px; font-size: 15px; }
   .note { color: #7a6448; margin: 0 0 18px; font-size: 13px; }
+  .small { color: #7a6448; font-size: 12px; margin: 4px 0 0; }
   .card { background: #fffaf0; border: 1px solid #d9c6a2; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
-  input { font: inherit; padding: 8px 10px; border: 1px solid #c9b38c; border-radius: 8px; background: #fff; min-width: 0; }
+  input, textarea { font: inherit; padding: 8px 10px; border: 1px solid #c9b38c; border-radius: 8px; background: #fff; min-width: 0; box-sizing: border-box; }
+  textarea { width: 100%; resize: vertical; min-height: 64px; }
   button { font: inherit; padding: 8px 12px; border: 0; border-radius: 8px; background: #2f7d5b; color: #fff; cursor: pointer; }
-  button.gray { background: #8a7656; } button.red { background: #b0473a; }
-  button:disabled { opacity: .5; cursor: default; }
+  button.gray { background: #8a7656; } button.red { background: #b0473a; } button.light { background: #eadcc0; color: #3b2a17; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .row input { flex: 1; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .tabs button { background: #eadcc0; color: #3b2a17; } .tabs button.on { background: #3b2a17; color: #fff; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eadcc0; vertical-align: middle; }
   th { font-size: 12px; color: #7a6448; font-weight: 600; }
   code { font-size: 15px; font-weight: 700; letter-spacing: 1px; background: #f3ead6; padding: 2px 6px; border-radius: 6px; }
-  .tag { font-size: 12px; background: #f7d46b; padding: 2px 6px; border-radius: 6px; margin-left: 4px; }
+  .tag { font-size: 12px; background: #f7d46b; padding: 2px 6px; border-radius: 6px; margin-left: 4px; white-space: nowrap; }
+  .tag.ban { background: #f2b3a8; } .tag.lock { background: #cfe3f7; }
   .acts { display: flex; gap: 4px; flex-wrap: wrap; } .acts button { padding: 5px 8px; font-size: 12px; }
-  #msg { min-height: 20px; font-size: 14px; margin: 6px 0 0; } #msg.err { color: #b0473a; }
-  .hidden { display: none; }
-  @media (max-width: 600px) { .hide-sm { display: none; } }
+  .detail td { background: #fbf3e2; padding: 12px; }
+  .dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .dgrid .card { margin: 0; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+  .stats label { font-size: 12px; color: #7a6448; display: flex; flex-direction: column; gap: 2px; }
+  .stats input { padding: 5px 7px; }
+  .achs { display: grid; grid-template-columns: 1fr; gap: 4px; max-height: 300px; overflow: auto; }
+  .ach { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
+  .ach.ok { background: #e2f1e6; } .ach span { flex: 1; } .ach small { color: #7a6448; }
+  .ach button { padding: 3px 8px; font-size: 12px; }
+  .room { border: 1px solid #eadcc0; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  .room .pl { display: inline-flex; align-items: center; gap: 6px; background: #f3ead6; border-radius: 8px; padding: 3px 4px 3px 8px; margin: 4px 4px 0 0; font-size: 13px; }
+  .room .pl button { padding: 2px 7px; font-size: 12px; }
+  .room .pl.off { opacity: .55; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #aaa; display: inline-block; } .dot.on { background: #2f9e5e; }
+  #msg { min-height: 20px; font-size: 14px; margin: 6px 0 0; position: sticky; bottom: 0; background: #f3ead6; padding: 6px 0; } #msg.err { color: #b0473a; }
+  .hidden { display: none !important; }
+  @media (max-width: 700px) { .hide-sm { display: none; } .dgrid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>🔧 Admin – profili igrača</h1>
-  <p class="note">Samo za vlasnika igre. Ovde nalaziš kod profila igrača koji je izgubio kod, praviš mu novi kod ili otključavaš sve ukrase.</p>
+  <h1>🔧 Admin – Ostrvo Trgovaca</h1>
+  <p class="note">Samo za vlasnika igre.</p>
 
   <div class="card" id="login">
     <div class="row"><input id="pass" type="password" placeholder="Admin lozinka" autocomplete="current-password"><button id="go">Uđi</button></div>
   </div>
 
   <div id="panel" class="hidden">
-    <div class="card">
-      <div class="row"><input id="q" placeholder="Ime igrača ili deo koda (prazno = poslednji aktivni)"><button id="search">Traži</button></div>
-    </div>
-    <div class="card"><table><thead><tr><th>Ime</th><th>Kod profila</th><th class="hide-sm">Partije / pobede</th><th class="hide-sm">Poslednji put</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="tabs"><button data-tab="players" class="on">👤 Igrači</button><button data-tab="rooms">🏝️ Sobe</button><button data-tab="ann">📢 Obaveštenje</button></div>
+
+    <section id="t-players">
+      <div class="card">
+        <div class="row"><input id="q" placeholder="Ime igrača ili deo koda (prazno = poslednji aktivni)"><button id="search">Traži</button></div>
+      </div>
+      <div class="card"><table><thead><tr><th>Ime</th><th>Kod profila</th><th class="hide-sm">Partije / pobede</th><th class="hide-sm">Poslednji put</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+    </section>
+
+    <section id="t-rooms" class="hidden">
+      <div class="card"><div class="row"><h3 style="flex:1;margin:0">Sve sobe na serveru</h3><button class="gray" id="roomsReload">Osveži</button></div>
+        <p class="small">Sive su igrači koji nisu trenutno povezani ili su napustili igru.</p>
+        <div id="roomList" style="margin-top:10px"></div></div>
+    </section>
+
+    <section id="t-ann" class="hidden">
+      <div class="card"><h3>Obaveštenje za sve igrače</h3>
+        <p class="small">Prikazuje se iznad liste soba na početnom ekranu, a igrači koji su u igri ga dobiju kao poruku.</p>
+        <textarea id="annText" maxlength="300" placeholder="Npr. Večeras u 20h turnir! Server se restartuje u 22h."></textarea>
+        <div class="row" style="margin-top:8px"><button id="annSend">Objavi</button><button class="gray" id="annClear">Ukloni obaveštenje</button></div>
+        <p class="small" id="annNow"></p>
+      </div>
+    </section>
   </div>
   <p id="msg"></p>
 </main>
+<script src="/achievements.js"></script>
 <script>
   const $ = (id) => document.getElementById(id);
+  const ACH = window.ACHIEVEMENTS.ACH;
+  const STAT_NAMES = { games: 'Partije', wins: 'Pobede', points: 'Ukupno poena', bestPoints: 'Najviše poena', bestRoad: 'Najduži put', knights: 'Vitezovi', cities: 'Gradovi', gained: 'Sirovine od kockica', trades: 'Razmene', stolen: 'Ukradene karte', bank: 'Razmene sa bankom', streak: 'Trenutni niz pobeda', bestStreak: 'Najduži niz pobeda' };
   let PASS = sessionStorage.getItem('ot_admin') || '';
+  let open = null; // kod igraca cija su podesavanja otvorena
+  const rowsByCode = {};
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function msg(t, err) { $('msg').textContent = t || ''; $('msg').className = err ? 'err' : ''; }
   async function api(body) {
     const r = await fetch('/admin/api', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin': PASS }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({ error: 'Greška na serveru.' }));
-    if (!r.ok) throw Object.assign(new Error(j.error || 'Greška'), { status: r.status });
+    if (!r.ok) {
+      if (r.status === 401 || r.status === 403 || r.status === 429) { $('panel').classList.add('hidden'); $('login').classList.remove('hidden'); sessionStorage.removeItem('ot_admin'); }
+      throw new Error(j.error || 'Greška');
+    }
     return j;
   }
   const when = (t) => t ? new Date(t).toLocaleString('sr-RS', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–';
+
+  // ---------- igraci ----------
   function rowHTML(r) {
-    return `<tr data-code="${r.code}"><td><b>${esc(r.name)}</b>${r.all ? '<span class="tag">sve otključano</span>' : ''}</td><td><code>${r.code}</code></td>
+    rowsByCode[r.code] = r;
+    const tags = (r.all ? '<span class="tag">sve otključano</span>' : '') + (r.banned ? '<span class="tag ban">blokiran</span>' : '') + (r.forcedName ? '<span class="tag lock">ime zaključano</span>' : '');
+    return `<tr data-code="${r.code}"><td><b>${esc(r.name)}</b> ${tags}</td><td><code>${r.code}</code></td>
       <td class="hide-sm">${r.games} / ${r.wins}</td><td class="hide-sm">${when(r.updated)}</td>
-      <td><div class="acts"><button class="gray" data-copy>Kopiraj kod</button>
-      ${r.all ? '<button class="gray" data-what="lock">Vrati zaključano</button>' : '<button data-what="unlockAll">Otključaj sve</button>'}
-      <button class="red" data-what="newCode" title="Stari kod prestaje da radi">Novi kod</button>
-      <button class="red" data-what="delete" title="Briše profil, statistiku i mesto u tabeli najboljih. Ne može da se vrati.">🗑 Obriši nalog</button></div></td></tr>`;
+      <td><div class="acts"><button class="gray" data-copy>Kopiraj kod</button><button data-more>${open === r.code ? 'Zatvori ▴' : 'Uredi ▾'}</button></div></td></tr>
+      ${open === r.code ? detailHTML(r) : ''}`;
   }
+  function detailHTML(r) {
+    const grant = new Set(r.grant);
+    const done = (a) => (r.stats[a.stat] || 0) >= a.need;
+    return `<tr class="detail" data-code="${r.code}"><td colspan="5"><div class="dgrid">
+      <div class="card"><h3>✏️ Ime</h3>
+        <div class="row"><input data-f="name" maxlength="16" value="${esc(r.forcedName || r.name)}"><button data-what="rename">Sačuvaj</button></div>
+        <p class="small">${r.forcedName ? 'Igrač ne može sam da promeni ovo ime. ' : ''}<a href="#" data-what="unrename">${r.forcedName ? 'Dozvoli mu da opet bira ime' : ''}</a></p>
+        <h3 style="margin-top:14px">⛔ Blokada</h3>
+        ${r.banned ? '<button class="gray" data-what="unban">Odblokiraj</button>' : '<button class="red" data-what="ban" title="Ne može da pravi niti da ulazi u sobe; izbacuje se iz soba u kojima je">Blokiraj igrača</button>'}
+        <p class="small">Blokiran igrač ne može da pravi sobe ni da ulazi u njih. Ako napravi potpuno novi profil (odjava), blokada ga ne prati.</p>
+        <h3 style="margin-top:14px">🔑 Nalog</h3>
+        <div class="acts">${r.all ? '<button class="gray" data-what="lock">Vrati zaključano</button>' : '<button data-what="unlockAll">Otključaj sve ukrase</button>'}
+          <button class="red" data-what="newCode" title="Stari kod prestaje da radi">Novi kod</button>
+          <button class="red" data-what="delete" title="Briše profil, statistiku i mesto u tabeli najboljih. Ne može da se vrati.">🗑 Obriši nalog</button></div>
+      </div>
+      <div class="card"><h3>📊 Statistika</h3>
+        <div class="stats">${Object.keys(STAT_NAMES).map((k) => `<label>${STAT_NAMES[k]}<input type="number" min="0" data-stat="${k}" value="${r.stats[k] || 0}"></label>`).join('')}</div>
+        <div class="row" style="margin-top:8px"><button data-what="setStats">Sačuvaj statistiku</button><button class="red" data-what="resetStats">Resetuj na nulu</button></div>
+      </div>
+      <div class="card" style="grid-column:1/-1"><h3>🎖️ Dostignuća <small style="font-weight:400;color:#7a6448">(dodeljeno dostignuće otključava i njegov okvir ili titulu)</small></h3>
+        <div class="achs">${ACH.map((a) => {
+          const byStat = done(a), g = grant.has(a.id);
+          return `<div class="ach ${byStat || g ? 'ok' : ''}">${a.ico}<span><b>${esc(a.name)}</b> <small>${esc(a.desc)}</small></span>
+            ${byStat ? '<small>zasluženo igrom</small>' : g ? `<button class="gray" data-revoke="${a.id}">Oduzmi</button>` : `<button data-grant="${a.id}">Dodeli</button>`}</div>`;
+        }).join('')}</div>
+        <p class="small">Dostignuće koje je igrač zaslužio igrom može da se oduzme samo smanjivanjem statistike.</p>
+      </div>
+    </div></td></tr>`;
+  }
+  function drawRows(rows) {
+    $('rows').innerHTML = rows.length ? rows.map(rowHTML).join('') : '<tr><td colspan="5">Nema profila koji odgovaraju.</td></tr>';
+  }
+  let lastRows = [];
   async function search() {
     try {
       const { rows } = await api({ op: 'search', q: $('q').value });
-      $('rows').innerHTML = rows.length ? rows.map(rowHTML).join('') : '<tr><td colspan="5">Nema profila koji odgovaraju.</td></tr>';
+      lastRows = rows; drawRows(rows);
       msg(rows.length ? `Nađeno: ${rows.length}` : '');
       return true;
-    } catch (e) {
-      if (e.status === 401 || e.status === 403 || e.status === 429) { $('panel').classList.add('hidden'); $('login').classList.remove('hidden'); sessionStorage.removeItem('ot_admin'); }
-      msg(e.message, true); return false;
-    }
+    } catch (e) { msg(e.message, true); return false; }
   }
+  function replaceRow(row) { lastRows = lastRows.map((r) => (r.code === row.code ? row : r)); drawRows(lastRows); }
+  async function update(code, what, val, okMsg) {
+    try {
+      const { row } = await api({ op: 'update', code, what, val });
+      if (row.deleted) { lastRows = lastRows.filter((r) => r.code !== code); open = null; drawRows(lastRows); msg('Nalog ' + row.name + ' (' + row.code + ') je obrisan.'); return; }
+      if (what === 'newCode') { lastRows = lastRows.map((r) => (r.code === code ? row : r)); open = row.code; drawRows(lastRows); } else replaceRow(row);
+      msg(typeof okMsg === 'function' ? okMsg(row) : okMsg);
+    } catch (err) { msg(err.message, true); }
+  }
+  const OK = {
+    rename: (r) => 'Ime je promenjeno u ' + r.name + '. Igrač ga vidi kad osveži stranicu.', unrename: (r) => r.name + ' opet može sam da bira ime.',
+    ban: (r) => r.name + ' je blokiran.', unban: (r) => r.name + ' je odblokiran.',
+    unlockAll: (r) => 'Otključano sve za ' + r.name + '.', lock: (r) => 'Ukrasi su opet zaključani za ' + r.name + '.',
+    newCode: (r) => 'Novi kod za ' + r.name + ': ' + r.code + ' (stari više ne radi).',
+    setStats: (r) => 'Statistika za ' + r.name + ' je sačuvana.', resetStats: (r) => 'Statistika za ' + r.name + ' je vraćena na nulu.',
+  };
+  $('rows').onclick = async (e) => {
+    const b = e.target.closest('button, a'); if (!b) return;
+    e.preventDefault();
+    const tr = b.closest('tr'), code = tr.dataset.code;
+    if (b.hasAttribute('data-copy')) { navigator.clipboard?.writeText(code); msg('Kod ' + code + ' je kopiran.'); return; }
+    if (b.hasAttribute('data-more')) { open = open === code ? null : code; drawRows(lastRows); return; }
+    if (b.dataset.grant) return update(code, 'grant', b.dataset.grant, 'Dostignuće je dodeljeno.');
+    if (b.dataset.revoke) return update(code, 'revoke', b.dataset.revoke, 'Dostignuće je oduzeto.');
+    let what = b.dataset.what; if (!what) return;
+    if (['newCode', 'delete', 'resetStats', 'ban'].includes(what) && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Sigurno? Klikni opet'; return; }
+    let val;
+    if (what === 'rename') val = tr.querySelector('[data-f="name"]').value;
+    if (what === 'unrename') { what = 'rename'; val = ''; return update(code, what, val, OK.unrename); }
+    if (what === 'setStats') { val = {}; tr.querySelectorAll('[data-stat]').forEach((i) => { val[i.dataset.stat] = i.value; }); }
+    update(code, what, val, OK[what]);
+  };
+
+  // ---------- sobe ----------
+  const PHASE = { lobby: 'čeka igrače', setup: 'postavljanje', main: 'igra u toku', ended: 'završena' };
+  function drawRooms(rooms) {
+    $('roomList').innerHTML = rooms.length ? rooms.map((g) => `<div class="room" data-code="${g.code}">
+      <div class="row"><b style="flex:1">Soba ${g.code} <small style="font-weight:400;color:#7a6448">· ${PHASE[g.phase] || g.phase} · ${esc(g.map || '')} · ${when(g.last)}</small></b>
+      <button class="red" data-close>Zatvori sobu</button></div>
+      <div>${g.players.map((p) => `<span class="pl ${p.connected && !p.out ? '' : 'off'}"><i class="dot ${p.connected ? 'on' : ''}"></i>${esc(p.name)}${p.out ? '' : ` <button class="red" data-kick="${p.id}" title="Izbaci igrača iz sobe">Izbaci</button>`}</span>`).join('')}</div>
+    </div>`).join('') : '<p class="small">Trenutno nema soba.</p>';
+  }
+  async function loadRooms() { try { drawRooms((await api({ op: 'rooms' })).rooms); } catch (e) { msg(e.message, true); } }
+  $('roomsReload').onclick = loadRooms;
+  $('roomList').onclick = async (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    const code = b.closest('.room').dataset.code;
+    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Sigurno?'; return; }
+    try {
+      const r = b.hasAttribute('data-close') ? await api({ op: 'close', code }) : await api({ op: 'kick', code, pid: b.dataset.kick });
+      drawRooms(r.rooms); msg(b.hasAttribute('data-close') ? 'Soba ' + code + ' je zatvorena.' : 'Igrač je izbačen.');
+    } catch (err) { msg(err.message, true); loadRooms(); }
+  };
+
+  // ---------- obavestenje ----------
+  function showAnn(a) { $('annNow').textContent = a ? 'Sada je objavljeno (' + when(a.at) + '): „' + a.text + '“' : 'Trenutno nema obaveštenja.'; }
+  $('annSend').onclick = async () => { try { const { announce } = await api({ op: 'announce', val: $('annText').value }); showAnn(announce); msg(announce ? 'Obaveštenje je objavljeno.' : 'Obaveštenje je uklonjeno.'); } catch (e) { msg(e.message, true); } };
+  $('annClear').onclick = async () => { try { await api({ op: 'announce', val: '' }); $('annText').value = ''; showAnn(null); msg('Obaveštenje je uklonjeno.'); } catch (e) { msg(e.message, true); } };
+
+  // ---------- tabovi i ulaz ----------
+  document.querySelector('.tabs').onclick = async (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b));
+    for (const t of ['players', 'rooms', 'ann']) $('t-' + t).classList.toggle('hidden', t !== b.dataset.tab);
+    if (b.dataset.tab === 'rooms') loadRooms();
+    if (b.dataset.tab === 'ann') { try { const { announce } = await api({ op: 'getAnnounce' }); showAnn(announce); if (announce) $('annText').value = announce.text; } catch (err) { msg(err.message, true); } }
+  };
   async function login() {
     PASS = $('pass').value || PASS;
     if (await search()) { sessionStorage.setItem('ot_admin', PASS); $('login').classList.add('hidden'); $('panel').classList.remove('hidden'); }
@@ -84,19 +230,6 @@
   $('pass').onkeydown = (e) => { if (e.key === 'Enter') login(); };
   $('search').onclick = search;
   $('q').onkeydown = (e) => { if (e.key === 'Enter') search(); };
-  $('rows').onclick = async (e) => {
-    const b = e.target.closest('button'); if (!b) return;
-    const tr = b.closest('tr'), code = tr.dataset.code;
-    if (b.hasAttribute('data-copy')) { navigator.clipboard?.writeText(code); msg('Kod ' + code + ' je kopiran.'); return; }
-    const what = b.dataset.what;
-    if ((what === 'newCode' || what === 'delete') && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Sigurno? Klikni opet'; return; }
-    try {
-      const { row } = await api({ op: 'update', code, what });
-      if (row.deleted) { tr.remove(); msg('Nalog ' + row.name + ' (' + row.code + ') je obrisan.'); return; }
-      tr.outerHTML = rowHTML(row);
-      msg({ unlockAll: 'Otključano sve za ' + row.name + '. Neka osveži stranicu igre.', lock: 'Ukrasi su ponovo zaključani za ' + row.name + '.', newCode: 'Novi kod za ' + row.name + ': ' + row.code + ' (stari više ne radi).' }[what]);
-    } catch (err) { msg(err.message, true); }
-  };
   if (PASS) login();
 </script>
 </body>

@@ -44,7 +44,7 @@ function get(token) {
 
 function publicView(token) {
   const p = get(token);
-  return p ? { code: p.code, stats: p.stats, prefs: p.prefs, all: !!p.unlockAll } : null;
+  return p ? { code: p.code, stats: p.stats, prefs: p.prefs, all: !!p.unlockAll, grant: p.grant || [], forcedName: p.forcedName || null, banned: !!p.banned } : null;
 }
 
 // licna podesavanja (ime, boja, lik, okvir...) da se prenesu na drugi uredjaj
@@ -53,6 +53,7 @@ function savePrefs(token, prefs) {
   const json = JSON.stringify(prefs);
   if (json.length > 2000) return;
   p.prefs = JSON.parse(json); p.updated = Date.now(); dirty = true;
+  if (p.forcedName) p.prefs.name = p.forcedName; // ime koje je postavio admin ostaje
 }
 
 // Nalog vlasnika igre: u kodu je samo otisak (hash) njegovog koda, ne i sam kod.
@@ -104,7 +105,7 @@ function recordGame(game) {
 // ukrasi koje igrac jos nije otkljucao se ne prihvataju
 function filterLook(token, data) {
   const p = get(token); if (!p || !data) return data;
-  const u = unlocked(p.stats, p.unlockAll), out = { ...data };
+  const u = unlocked(p.stats, p.unlockAll, p.grant), out = { ...data };
   if (out.frame !== undefined && !u.frames.has(out.frame)) delete out.frame;
   if (out.title !== undefined && !u.titles.has(Number(out.title))) delete out.title;
   return out;
@@ -112,7 +113,7 @@ function filterLook(token, data) {
 
 // tabela najboljih: samo igraci sa bar jednom odigranom partijom
 function leaderboard(myToken) {
-  const rows = Object.entries(profiles).filter(([, p]) => p.stats && p.stats.games > 0).map(([t, p]) => {
+  const rows = Object.entries(profiles).filter(([, p]) => p.stats && p.stats.games > 0 && !p.banned).map(([t, p]) => {
     const s = { ...emptyStats(), ...p.stats }, pr = p.prefs || {};
     return {
       me: t === myToken, name: String(pr.name || 'Igrač').slice(0, 16), color: pr.color || null, avatar: pr.avatar ?? null,
@@ -127,7 +128,9 @@ function leaderboard(myToken) {
 
 // ---- admin (samo za vlasnika igre, preko /admin strane sa lozinkom) ----
 const adminRow = (t, p) => ({ code: p.code, name: String((p.prefs && p.prefs.name) || '(bez imena)').slice(0, 16), avatar: p.prefs?.avatar ?? null,
-  games: p.stats?.games || 0, wins: p.stats?.wins || 0, updated: p.updated || 0, all: !!p.unlockAll });
+  games: p.stats?.games || 0, wins: p.stats?.wins || 0, updated: p.updated || 0, all: !!p.unlockAll,
+  banned: !!p.banned, forcedName: p.forcedName || null, grant: p.grant || [], stats: { ...emptyStats(), ...p.stats } });
+const { ACH } = require('./public/achievements');
 function adminSearch(q) {
   q = String(q || '').trim().toLowerCase();
   const qc = q.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -136,9 +139,28 @@ function adminSearch(q) {
     .sort((a, b) => (b[1].updated || 0) - (a[1].updated || 0))
     .slice(0, 50).map(([t, p]) => adminRow(t, p));
 }
-function adminUpdate(code, what) {
+function adminUpdate(code, what, val) {
   const t = claim(code); if (!t) return null;
   const p = profiles[t];
+  if (what === 'rename') {
+    const n = String(val || '').trim().slice(0, 16);
+    if (n) { p.forcedName = n; p.prefs = { ...p.prefs, name: n }; } else delete p.forcedName; // prazno = igrac opet bira ime sam
+  } else if (what === 'ban') p.banned = true;
+  else if (what === 'unban') delete p.banned;
+  else if (what === 'resetStats') p.stats = emptyStats();
+  else if (what === 'setStats') {
+    if (!val || typeof val !== 'object') return null;
+    const s = { ...emptyStats(), ...p.stats };
+    for (const k of Object.keys(emptyStats())) if (val[k] !== undefined) s[k] = Math.max(0, Math.min(1e9, Math.floor(Number(val[k]) || 0)));
+    if (s.wins > s.games) s.games = s.wins;
+    p.stats = s;
+  } else if (what === 'grant' || what === 'revoke') {
+    if (!ACH.some((a) => a.id === val)) return null;
+    const g = new Set(p.grant || []);
+    if (what === 'grant') g.add(val); else g.delete(val);
+    p.grant = [...g];
+  }
+  if (['rename', 'ban', 'unban', 'resetStats', 'setStats', 'grant', 'revoke'].includes(what)) { p.updated = Date.now(); dirty = true; return adminRow(t, p); }
   if (what === 'delete') { const row = adminRow(t, p); delete profiles[t]; dirty = true; return { ...row, deleted: true }; }
   if (what === 'unlockAll') p.unlockAll = true;
   else if (what === 'lock') delete p.unlockAll;
@@ -148,4 +170,27 @@ function adminUpdate(code, what) {
   return adminRow(t, p);
 }
 
-module.exports = { adminSearch, adminUpdate, filterLook, leaderboard, publicView, savePrefs, claim, recordGame, save };
+// ime iz profila ako ga je admin zakljucao; blokirani igraci ne mogu u sobe
+// (i zapamti ime kojim je igrac usao u sobu, da admin moze da ga nadje po imenu)
+function nameFor(token, name) {
+  const p = get(token); if (!p) return name;
+  if (p.forcedName) return p.forcedName;
+  const n = String(name || '').trim().slice(0, 16);
+  if (n && p.prefs.name !== n) { p.prefs = { ...p.prefs, name: n }; p.updated = Date.now(); dirty = true; }
+  return name;
+}
+const isBanned = (token) => !!(validToken(token) && profiles[token]?.banned);
+
+// obavestenje za sve igrace na pocetnom ekranu
+const ANN_FILE = path.join(path.dirname(FILE), 'announce.json');
+let announce = null;
+try { announce = JSON.parse(fs.readFileSync(ANN_FILE, 'utf8')); } catch (_) { announce = null; }
+function setAnnounce(text) {
+  text = String(text || '').trim().slice(0, 300);
+  announce = text ? { text, at: Date.now() } : null;
+  try { fs.mkdirSync(path.dirname(ANN_FILE), { recursive: true }); fs.writeFileSync(ANN_FILE, JSON.stringify(announce)); } catch (e) { console.error('obavestenje nije sacuvano', e.message); }
+  return announce;
+}
+const getAnnounce = () => announce;
+
+module.exports = { nameFor, isBanned, setAnnounce, getAnnounce, adminSearch, adminUpdate, filterLook, leaderboard, publicView, savePrefs, claim, recordGame, save };

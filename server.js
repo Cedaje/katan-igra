@@ -34,9 +34,22 @@ app.post('/admin/api', express.json({ limit: '2kb' }), (req, res) => {
   if (ok === 'off') return res.status(403).json({ error: 'Admin strana nije uključena. Na serveru dodaj promenljivu ADMIN_PASSWORD (bar 6 znakova).' });
   if (ok === 'wait') return res.status(429).json({ error: 'Previše pogrešnih lozinki. Probaj ponovo za 10 minuta.' });
   if (ok === 'bad') return res.status(401).json({ error: 'Pogrešna lozinka.' });
-  const { op, q, code, what } = req.body || {};
+  const { op, q, code, what, val, pid } = req.body || {};
   if (op === 'search') return res.json({ rows: PROFILES.adminSearch(q) });
-  if (op === 'update') { const row = PROFILES.adminUpdate(code, what); return row ? res.json({ row }) : res.status(404).json({ error: 'Profil nije nađen.' }); }
+  if (op === 'update') {
+    const row = PROFILES.adminUpdate(code, what, val);
+    if (row && what === 'ban') kickToken(PROFILES.claim(code));
+    return row ? res.json({ row }) : res.status(404).json({ error: 'Profil nije nađen.' });
+  }
+  if (op === 'rooms') return res.json({ rooms: adminRooms() });
+  if (op === 'kick' || op === 'close') {
+    const game = games.get(String(code || ''));
+    if (!game) return res.status(404).json({ error: 'Soba više ne postoji.' });
+    if (op === 'kick') adminKick(game, Number(pid)); else adminClose(game);
+    return res.json({ rooms: adminRooms() });
+  }
+  if (op === 'announce') { const a = PROFILES.setAnnounce(val); io.emit('announce', a); return res.json({ announce: a }); }
+  if (op === 'getAnnounce') return res.json({ announce: PROFILES.getAnnounce() });
   res.status(400).json({ error: 'Nepoznata komanda.' });
 });
 
@@ -112,6 +125,32 @@ setInterval(() => {
   }
 }, 500);
 
+// ---- admin: sobe ----
+function adminRooms() {
+  return [...games.values()].sort((a, b) => b.lastActivity - a.lastActivity).map((g) => ({
+    code: g.code, phase: g.phase, map: g.settings.map, last: g.lastActivity,
+    players: g.players.map((p) => ({ id: p.id, name: p.name, connected: !!p.connected, out: !!(p.quit || p.kicked) })),
+  }));
+}
+function adminKick(game, pid) {
+  const pl = game.p(pid); if (!pl) return;
+  if (game.phase === 'lobby') { game.players = game.players.filter((p) => p.id !== pid); game.addLog(`${pl.name} je izbačen iz sobe.`); }
+  else if (!pl.kicked) { pl.kicked = true; game.addLog(`🥾 ${pl.name} je izbačen iz igre.`); if (!pl.quit) game.quit(pl); }
+  for (const s of roomSockets(game.code)) if (s.data.pid === pid) { s.emit('kicked'); s.leave(game.code); s.data = {}; }
+  if (!game.players.length || game.players.every((p) => p.quit)) games.delete(game.code); else broadcast(game);
+  sendRooms();
+}
+function adminClose(game) {
+  for (const s of roomSockets(game.code)) { s.emit('kicked', { msg: 'Sobu je zatvorio administrator.' }); s.leave(game.code); s.data = {}; }
+  games.delete(game.code); dirty = true;
+  sendRooms();
+}
+// blokiran igrac izlazi iz svih soba u kojima je
+function kickToken(token) {
+  if (!token) return;
+  for (const g of [...games.values()]) { const pl = g.players.find((p) => p.token === token); if (pl) adminKick(g, pl.id); }
+}
+
 // Posalji izbacene igrace nazad na listu soba
 function kickOut(game) {
   for (const s of roomSockets(game.code)) {
@@ -130,10 +169,12 @@ function leaveRoom(socket) {
   sendRooms();
 }
 
+const BANNED = 'Tvoj nalog je blokirao administrator igre.';
 io.on('connection', (socket) => {
   socket.data = {};
   const reply = (cb, payload) => typeof cb === 'function' && cb(payload);
   sendRooms(socket);
+  if (PROFILES.getAnnounce()) socket.emit('announce', PROFILES.getAnnounce());
 
   socket.on('rooms', () => sendRooms(socket));
 
@@ -149,6 +190,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('create', ({ name, token, settings } = {}, cb) => {
+    if (PROFILES.isBanned(token)) return reply(cb, { ok: false, error: BANNED });
+    name = PROFILES.nameFor(token, name);
     const code = newCode();
     const game = new Game(code, settings || {});
     games.set(code, game);
@@ -164,6 +207,8 @@ io.on('connection', (socket) => {
     code = String(code || '').toUpperCase().trim();
     const game = games.get(code);
     if (!game) return reply(cb, { ok: false, error: 'Soba ne postoji. Proveri kod.' });
+    if (PROFILES.isBanned(token)) return reply(cb, { ok: false, error: BANNED });
+    name = PROFILES.nameFor(token, name);
     let pl = token && game.players.find((p) => p.token === token);
     if (!pl && rejoinOnly) return reply(cb, { ok: false });
     if (pl && pl.kicked) return reply(cb, { ok: false, error: 'Izbačen si iz ove igre glasanjem.' });

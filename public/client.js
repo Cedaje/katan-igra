@@ -126,15 +126,21 @@ function setPref(k, v) { PREFS[k] = v; try { localStorage.setItem('ot_prefs', JS
 let profile = null;
 function syncProfile(cb) {
   const prefs = { ...PREFS, name: localStorage.getItem('ot_name') || '' };
-  socket.emit('profile', { token: token(), prefs }, (r) => { if (r && r.ok) { profile = r.profile; if (PREFS.frame !== 'nema' || PREFS.title) checkLocked(); if (cb) cb(); } });
+  socket.emit('profile', { token: token(), prefs }, (r) => { if (r && r.ok) { profile = r.profile; applyForcedName(); if (PREFS.frame !== 'nema' || PREFS.title) checkLocked(); if (cb) cb(); } });
 }
 function checkLocked() {
   if (!profile) return;
-  const U = ACHIEVEMENTS.unlocked(profile.stats, profile.all);
+  const U = ACHIEVEMENTS.unlocked(profile.stats, profile.all, profile.grant);
   if (!U.frames.has(PREFS.frame)) setPref('frame', 'nema');
   if (!U.titles.has(Number(PREFS.title))) setPref('title', 0);
 }
-socket.on('connect', () => socket.emit('profile', { token: token() }, (r) => { if (r && r.ok) { profile = r.profile; checkLocked(); } }));
+// ime koje je postavio administrator ima prednost
+function applyForcedName() {
+  if (profile) { $('nameInput').disabled = !!profile.forcedName; $('nameInput').title = profile.forcedName ? 'Ime je postavio administrator igre.' : ''; }
+  if (!profile || !profile.forcedName || localStorage.getItem('ot_name') === profile.forcedName) return;
+  localStorage.setItem('ot_name', profile.forcedName); $('nameInput').value = profile.forcedName;
+}
+socket.on('connect', () => socket.emit('profile', { token: token() }, (r) => { if (r && r.ok) { profile = r.profile; applyForcedName(); checkLocked(); } }));
 function applyPrefs() {
   document.body.classList.toggle('fs-small', PREFS.font === 'small');
   document.body.classList.toggle('fs-large', PREFS.font === 'large');
@@ -170,7 +176,7 @@ function renderProfile() {
   const col = PREFS.color || COLOR_ORDER[0];
   const av = AVATARS[PREFS.avatar ?? 0];
   const st = profile?.stats;
-  const U = ACHIEVEMENTS.unlocked(st || {}, profile?.all);
+  const U = ACHIEVEMENTS.unlocked(st || {}, profile?.all, profile?.grant);
   // sta otkljucava zakljucani okvir ili titulu
   const lockOf = (key, v) => {
     if (key === 'frame' && !U.frames.has(v)) return ACHIEVEMENTS.ACH.find((a) => a.frame === v);
@@ -181,7 +187,7 @@ function renderProfile() {
     const lock = lockOf(key, v);
     return `<button class="${cur === v ? 'sel' : ''} ${lock ? 'locked' : ''}" data-look-k="${key}" data-look-v="${v}" ${lock ? `title="🔒 Otključava se dostignućem „${lock.name}“: ${lock.desc}"` : ''}>${fmt ? fmt(v) : ''}<span>${l}</span>${lock ? '<i>🔒</i>' : ''}</button>`;
   }).join('')}</div>`;
-  const achDone = ACHIEVEMENTS.ACH.filter((a) => ACHIEVEMENTS.done(a, st)).length;
+  const achDone = ACHIEVEMENTS.ACH.filter((a) => ACHIEVEMENTS.done(a, st, profile?.grant)).length;
   const pct = st && st.games ? Math.round((st.wins / st.games) * 100) : 0;
   const hrs = st ? Math.round(st.playMs / 360000) / 10 : 0;
   $('profBody').innerHTML = `
@@ -194,7 +200,7 @@ function renderProfile() {
     </div>
     <div class="set-card ach-card"><h3>🎖️ Dostignuća <small>${achDone} / ${ACHIEVEMENTS.ACH.length}</small></h3>
       <div class="ach-list">${ACHIEVEMENTS.ACH.map((a) => {
-        const v = Math.min(a.need, (st && st[a.stat]) || 0), ok = v >= a.need;
+        const ok = ACHIEVEMENTS.done(a, st, profile?.grant), v = ok ? a.need : Math.min(a.need, (st && st[a.stat]) || 0);
         const prize = a.frame ? `okvir: ${FRAMES.find((f) => f[0] === a.frame)[1]}` : `titula: ${TITLES[a.title]}`;
         return `<div class="ach ${ok ? 'ok' : ''}" title="${a.desc}. Nagrada – ${prize}"><span class="ach-ico">${ok ? a.ico : '🔒'}</span><span class="ach-txt"><b>${a.name}</b><small>${a.desc}</small><i class="ach-bar"><i style="width:${(v / a.need) * 100}%"></i></i></span><span class="ach-n">${v}/${a.need}</span></div>`;
       }).join('')}</div>
@@ -203,11 +209,13 @@ function renderProfile() {
       <p class="set-note">Upiši ovaj kod na drugom računaru ili telefonu i tamo ćeš imati isti profil i statistiku. Ne deli ga sa drugima.</p>
       <div class="code-box"><code>${profile ? profile.code : '…'}</code><button class="ob" data-copycode title="Kopiraj kod profila">Kopiraj</button></div>
       <div class="code-box"><input id="claimCode" maxlength="9" placeholder="XXXX-XXXX"><button class="ob gray" data-claim title="Prebaci se na profil sa drugog uređaja">Učitaj profil</button></div>
+      ${profile?.banned ? '<p class="set-note warn">⛔ Ovaj nalog je blokiran i ne može da ulazi u sobe.</p>' : ''}
       ${profile?.all ? '<p class="set-note">👑 Na ovom profilu su svi okviri i titule otključani.</p>' : ''}
       <div class="logout-row"><button class="ob red" data-logout title="Napusti ovaj profil na ovom uređaju i počni novi">🚪 Odjavi se</button><small>Pre odjave zapiši kod, jer bez njega ne možeš da se vratiš na ovaj profil.</small></div>
     </div>
     <div class="set-card"><h3>✏️ Ime</h3>
-      <div class="set-row"><input id="setName" maxlength="16" placeholder="Upiši ime" value="${esc(nm)}"></div>
+      <div class="set-row"><input id="setName" maxlength="16" placeholder="Upiši ime" value="${esc(nm)}" ${profile?.forcedName ? 'disabled' : ''}></div>
+      ${profile?.forcedName ? '<p class="set-note">🔒 Ime je postavio administrator igre.</p>' : ''}
     </div>
     <div class="set-card"><h3>🎨 Omiljena boja</h3><p class="set-note">Dobijaš je kad uđeš u sobu, ako je niko drugi već nema.</p>
       <div class="set-colors">${COLOR_ORDER.map((c) => `<button class="swatch ${PREFS.color === c ? 'sel' : ''}" data-pcolor="${c}" style="background:${c}" title="Izaberi ovu boju"></button>`).join('')}<button class="swatch none ${PREFS.color ? '' : 'sel'}" data-pcolor="" title="Bez omiljene boje (dobijaš slobodnu)">✕</button></div>
@@ -382,7 +390,18 @@ socket.on('connect', () => {
     else { $('nameInput').focus(); toast(`Upiši ime i klikni sobu ${code} ili „Uđi u sobu“.`); }
   });
 });
-socket.on('kicked', () => { setSavedRoom(''); S = null; modalExtra = null; showPage('rooms'); renderModal(); history.replaceState(null, '', '/'); SFX.play('kick'); toast('Izbačen si iz sobe.'); });
+socket.on('kicked', (o) => { setSavedRoom(''); S = null; modalExtra = null; showPage('rooms'); renderModal(); history.replaceState(null, '', '/'); SFX.play('kick'); toast((o && o.msg) || 'Izbačen si iz sobe.'); });
+// obavestenje od administratora: traka iznad liste soba (moze da se sakrije dok ne stigne novo)
+let annAt = 0;
+socket.on('announce', (a) => {
+  const box = $('announce');
+  if (!a || !a.text) { box.classList.add('hidden'); return; }
+  annAt = a.at; $('annText').textContent = a.text;
+  let seen = 0; try { seen = Number(localStorage.getItem('ot_ann_seen')) || 0; } catch (_) { /* */ }
+  box.classList.toggle('hidden', seen === a.at);
+  if (S && seen !== a.at) toast('📢 ' + a.text);
+});
+$('annClose').addEventListener('click', () => { $('announce').classList.add('hidden'); try { localStorage.setItem('ot_ann_seen', String(annAt)); } catch (_) { /* */ } });
 
 // dok si u sobi, server se drzi budnim (besplatni hosting zaspi posle 15 minuta tisine)
 setInterval(() => { if (S) fetch('/health').catch(() => {}); }, 4 * 60 * 1000);

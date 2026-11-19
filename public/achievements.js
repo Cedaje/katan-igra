@@ -21,11 +21,12 @@
     { id: 'pobede15', ico: '🥇', name: 'Šampion', desc: 'Pobedi u 15 partija', stat: 'wins', need: 15, frame: 'zlato' },
     { id: 'pobede25', ico: '👑', name: 'Legenda ostrva', desc: 'Pobedi u 25 partija', stat: 'wins', need: 25, title: 12 },
   ];
-  const done = (a, stats) => ((stats && stats[a.stat]) || 0) >= a.need;
+  // grant = lista dostignuca koje je admin rucno dodelio
+  const done = (a, stats, grant) => ((stats && stats[a.stat]) || 0) >= a.need || !!(grant && grant.includes(a.id));
   // all = nalog kome je admin otkljucao sve ukrase
-  function unlocked(stats, all) {
+  function unlocked(stats, all, grant) {
     const frames = new Set(['nema']), titles = new Set([0]);
-    for (const a of ACH) if (all || done(a, stats)) { if (a.frame) frames.add(a.frame); if (a.title !== undefined) titles.add(a.title); }
+    for (const a of ACH) if (all || done(a, stats, grant)) { if (a.frame) frames.add(a.frame); if (a.title !== undefined) titles.add(a.title); }
     return { frames, titles };
   }
   const API = { ACH, done, unlocked };
