@@ -219,6 +219,8 @@ function renderSettings() {
       ${sw('turn', o.turn, 'Zvuk kad si na potezu', 'Zvono kad dođe tvoj red i otkucaji kad ističe vreme')}
       ${sw('alerts', o.alerts, 'Obaveštenja', 'Ponude za razmenu, glasanje, pobeda i poraz')}
       ${sw('chat', o.chat, 'Poruke u ćaskanju', 'Kratak zvuk kad neko napiše poruku')}
+      ${sw('music', o.music, 'Muzika u pozadini', 'Tiha muzika: vesela seoska uz Osnovni i Kućice, mirna podvodna uz Podvodni svet')}
+      <div class="set-row" title="Jačina muzike u pozadini"><span>Jačina muzike</span><input type="range" id="setMusVol" min="0" max="100" step="5" value="${o.musicVol}"><b id="setMusVolV">${o.musicVol}%</b></div>
       <button class="ob" data-sndtest title="Pusti probni zvuk">▶ Probaj zvuk</button>
     </div>
     <div class="set-card"><h3>🌍 Jezik</h3>
@@ -237,6 +239,7 @@ function renderSettings() {
 }
 $('setBody').addEventListener('input', (e) => {
   if (e.target.id === 'setVol') { SFX.set('volume', Number(e.target.value)); $('setVolV').textContent = e.target.value + '%'; }
+  if (e.target.id === 'setMusVol') { SFX.set('musicVol', Number(e.target.value)); $('setMusVolV').textContent = e.target.value + '%'; }
 });
 $('setBody').addEventListener('change', (e) => { if (e.target.id === 'setVol') SFX.play('settlement'); });
 $('setBody').addEventListener('click', (e) => {
@@ -345,7 +348,7 @@ function playEventSounds(prev, next) {
     else if (t.startsWith('🛠️')) SFX.play('devPlay');
     else if (t.startsWith('🦹')) SFX.play('robber');
     else if (t.includes('je ukrao kartu')) setTimeout(() => SFX.play('steal'), 250);
-    else if (t.startsWith('🤝')) SFX.play('offer');
+    else if (t.startsWith('🤝')) SFX.play(t.includes('Pomoćni potez') ? 'turn' : myName && t.startsWith('🤝 ' + myName + ' ') ? 'offer' : 'bell');
     else if (t.startsWith('✅')) SFX.play('tradeDone');
     else if (t.startsWith('🏦')) SFX.play('bank');
     else if (t.startsWith('🛣️') || t.startsWith('🛡️')) setTimeout(() => SFX.play('achieve'), 300);
@@ -358,6 +361,8 @@ function playEventSounds(prev, next) {
     else if (myName && t.startsWith(myName + ' dobija')) gains += (t.match(/\d+/g) || []).reduce((a, n) => a + Number(n), 0) || t.split(',').length;
   }
   if (gains) setTimeout(() => SFX.play('gain', gains), delay);
+  // upozorenje: moras da odbacis karte
+  if (S.sub === 'discard' && S.pendingDiscard?.[S.me] && !(prev.sub === 'discard' && prev.pendingDiscard?.[S.me])) setTimeout(() => SFX.play('warn'), DICE_MS + 200);
   // postavljanje: kad je red na tebe
   if (S.phase === 'setup' && prev.turn !== S.turn && S.turn === S.me) SFX.play('myTurn');
 }
@@ -535,6 +540,7 @@ const BASE_RES = JSON.parse(JSON.stringify(RES_INFO)), BASE_TERRAIN = JSON.parse
 const DARK = { ...ART, BOARD: { ring1: '#0e2230', ring2: '#4a4231', hexStroke: '#5b5547', token: '#efe6cf', tokenInk: '#1d1a14', hot: '#d8433a', side: -0.6 } };
 const SKA = () => (skin === 'kucice' ? ART : skin === 'tamne' ? DARK : skin === 'podvodni' ? SEA : null);
 function applySkin() {
+  SFX.setTheme(skin === 'podvodni' ? 'sea' : 'village');
   for (const k of Object.keys(SKINS)) document.body.classList.toggle('skin-' + k, k === skin);
   document.body.classList.toggle('dark-ui', skin === 'tamne' || skin === 'tamni');
   for (const r of RES) Object.assign(RES_INFO[r], BASE_RES[r], skin === 'podvodni' ? SEA.RES[r] : {});
@@ -864,6 +870,7 @@ function flyCards(prev) {
     const r = target.getBoundingClientRect(), to = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     const el = document.createElement('div');
     el.className = 'fly-card';
+    if (i < 8) SFX.play('card', 0);
     el.innerHTML = rcard(f.res, null);
     el.style.left = from.x + 'px'; el.style.top = from.y + 'px';
     document.body.appendChild(el);

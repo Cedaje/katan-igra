@@ -271,6 +271,7 @@ const I18N = (() => {
     '▶ Probaj zvuk': '▶ Test sound',
     'Pusti zvuk pobede': 'Play the win sound',
     'Nepoznata reakcija.': 'Unknown reaction.',
+    'Muzika u pozadini': 'Background music', 'Tiha muzika: vesela seoska uz Osnovni i Kućice, mirna podvodna uz Podvodni svet': 'Quiet music: cheerful village tunes for Base and Little houses, calm underwater music for Underwater world', 'Jačina muzike': 'Music volume', 'Jačina muzike u pozadini': 'Background music volume',
     Proslava: 'Celebration', 'Zvuk pobede': 'Win sound',
     'Igra je počela!': 'The game has started!', put: 'road', selo: 'settlement', grad: 'city', 'Igrači (': 'Players (', 'Izbaci ovog igrača iz sobe': 'Remove this player from the room',
   };
