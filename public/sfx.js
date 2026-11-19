@@ -124,9 +124,19 @@ const SFX = (() => {
     click() { tone(900, 0.03, { vol: 0.06 }); },
     // Potapanje brodova
     shot() { noise(0.12, { vol: 0.2, freq: 900, to: 300, q: 0.8 }); },
-    splash() { noise(0.5, { vol: 0.28, freq: 1800, to: 500, q: 0.6, at: 0.12 }); tone(420, 0.18, { vol: 0.05, to: 200, at: 0.12, type: 'triangle' }); },
-    boom() { tone(90, 0.5, { type: 'sawtooth', vol: 0.16, to: 45, at: 0.1 }); noise(0.45, { vol: 0.4, freq: 600, to: 120, q: 0.7, at: 0.1 }); },
-    sunk() { tone(80, 0.8, { type: 'sawtooth', vol: 0.16, to: 35, at: 0.1 }); noise(0.9, { vol: 0.42, freq: 500, to: 80, q: 0.7, at: 0.1 }); [0.7, 0.85, 1.0].forEach((at, i) => tone(300 - i * 60, 0.25, { vol: 0.07, at, type: 'triangle', to: 150 - i * 30 })); },
+    cannon() { tone(70, 0.35, { type: 'sine', vol: 0.4, to: 38 }); noise(0.25, { vol: 0.45, freq: 1400, to: 200, q: 0.6 }); noise(0.6, { vol: 0.12, freq: 300, q: 0.5, at: 0.05 }); },
+    splash() { noise(0.14, { vol: 0.3, freq: 2600, q: 0.7, at: 0.32, type: 'highpass' }); noise(0.6, { vol: 0.3, freq: 1600, to: 400, q: 0.6, at: 0.36 }); [0.5, 0.62, 0.71].forEach((at, i) => tone(700 + i * 260, 0.07, { vol: 0.05, at, to: 1300 + i * 200, type: 'sine' })); },
+    boom() { tone(95, 0.6, { type: 'sawtooth', vol: 0.18, to: 40, at: 0.3 }); noise(0.55, { vol: 0.5, freq: 700, to: 110, q: 0.7, at: 0.3 }); noise(0.9, { vol: 0.12, freq: 2500, q: 0.4, at: 0.45, type: 'highpass' }); },
+    sunk() { tone(85, 0.9, { type: 'sawtooth', vol: 0.18, to: 32, at: 0.3 }); noise(1.0, { vol: 0.45, freq: 500, to: 70, q: 0.7, at: 0.3 }); tone(160, 1.4, { type: 'triangle', vol: 0.08, to: 60, at: 0.9 }); for (let i = 0; i < 7; i++) tone(500 + ((i * 137) % 400), 0.06, { vol: 0.05, at: 1.1 + i * 0.12, to: 900 + ((i * 211) % 500) }); },
+    bombFall() { tone(1400, 0.7, { type: 'sine', vol: 0.07, to: 300 }); [0.75, 0.9, 1.02].forEach((at) => { tone(80, 0.5, { type: 'sawtooth', vol: 0.15, to: 35, at }); noise(0.45, { vol: 0.4, freq: 600, to: 100, q: 0.7, at }); }); },
+    sonar() { [0, 0.55].forEach((at, i) => { tone(1180, 0.5, { vol: i ? 0.06 : 0.14, at }); tone(1180 * 1.5, 0.3, { vol: i ? 0.02 : 0.04, at }); }); },
+    horn() { tone(146, 1.0, { type: 'sawtooth', vol: 0.09 }); tone(220, 1.0, { type: 'sawtooth', vol: 0.06 }); tone(146, 0.5, { type: 'sawtooth', vol: 0.08, at: 1.15 }); },
+    ready() { tone(660, 0.12, { vol: 0.12, type: 'triangle' }); tone(990, 0.2, { vol: 0.12, type: 'triangle', at: 0.1 }); },
+    anchor() { for (let i = 0; i < 6; i++) tone(300 + (i % 2) * 40, 0.05, { type: 'square', vol: 0.04, at: i * 0.07 }); tone(110, 0.3, { vol: 0.2, at: 0.45, to: 70 }); },
+    place() { tone(180, 0.12, { vol: 0.25, to: 120 }); noise(0.08, { vol: 0.18, freq: 800, q: 1 }); },
+    pickup() { tone(260, 0.1, { vol: 0.15, to: 420, type: 'triangle' }); },
+    rotate() { noise(0.12, { vol: 0.15, freq: 1800, to: 3200, q: 2 }); },
+    shuffle() { for (let i = 0; i < 5; i++) { tone(160 + i * 15, 0.08, { vol: 0.15, at: i * 0.07, to: 110 }); } },
   };
 
   // ---------- muzika u pozadini (pravi se u browseru, bez fajlova) ----------

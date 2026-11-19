@@ -126,7 +126,8 @@ function broadcast(game) {
 // Tajmer poteza
 setInterval(() => {
   for (const g of games.values()) {
-    if (g.emptySince || g.kind) continue; // niko nije tu: igra je pauzirana (brodovi nemaju tajmer)
+    if (g.emptySince) continue; // niko nije tu: igra je pauzirana
+    if (g.kind) { try { if (g.tick && g.tick()) broadcast(g); } catch (e) { console.error('timer', e); } continue; } // druge igre imaju svoj tajmer
     if (g.vote && Date.now() > g.vote.until && g.resolveVote()) broadcast(g);
     try { if (timeoutTick(g)) broadcast(g); } catch (e) { console.error('timer', e); }
   }

@@ -107,7 +107,9 @@ document.addEventListener('click', (e) => {
   }
 });
 
+let curPage = null;
 function showPage(page) {
+  curPage = page;
   $('shell').classList.toggle('hidden', page === 'game' || page === 'bsgame');
   $('game').classList.toggle('hidden', page !== 'game');
   $('bsgame').classList.toggle('hidden', page !== 'bsgame');
@@ -122,6 +124,21 @@ function showPage(page) {
   $('profile').classList.toggle('hidden', page !== 'profile');
   $('top').classList.toggle('hidden', page !== 'top');
   document.querySelectorAll('.rail-btn[data-nav]').forEach((b) => b.classList.toggle('active', b.dataset.nav === (['settings', 'profile', 'top', 'hub'].includes(page) ? page : 'rooms')));
+  applyThemeScope();
+}
+// Izgled (skin) i tamni rezim vaze samo za Ostrvo Trgovaca: sobe, lobi i igra. Ostale strane i igre imaju osnovni izgled.
+function catanScope() { return curPage === 'game' || curPage === 'lobby' || (curPage === 'rooms' && curKind === 'ostrvo'); }
+let themeKey = null;
+function applyThemeScope() {
+  if (typeof skin === 'undefined') return;
+  const on = catanScope(), dark = skin === 'tamne' || skin === 'tamni';
+  const key = `${on}|${skin}`;
+  if (key === themeKey) return;
+  themeKey = key;
+  for (const k of Object.keys(SKINS)) document.body.classList.toggle('skin-' + k, on && k === skin);
+  document.body.classList.toggle('dark-ui', on && dark);
+  SFX.setTheme(on && skin === 'podvodni' ? 'sea' : 'village');
+  $('skinNav').classList.toggle('hidden', !on || curPage === 'game');
 }
 
 // ---------- izbor igre (sve igre dele isti profil) ----------
@@ -142,7 +159,7 @@ function applyKind() {
   const K = KIND_INFO[curKind], bs = curKind === 'brodovi';
   $('kindName').textContent = `${K.ico} ${K.name}`;
   $('roomsNavIco').textContent = K.nav;
-  $('rtHead').innerHTML = bs ? '<span>Soba</span><span>Flota</span><span>Pogodak</span><span>Dodir</span><span>Igrači</span><span></span>'
+  $('rtHead').innerHTML = bs ? '<span>Soba</span><span>Flota</span><span>Tabla</span><span>Tajmer</span><span>Igrači</span><span></span>'
     : '<span>Soba</span><span>Mod</span><span>Mapa</span><span>Tajmer</span><span>Igrači</span><span></span>';
   $('promoArtO').classList.toggle('hidden', bs);
   $('promoArtB').classList.toggle('hidden', !bs);
@@ -150,6 +167,7 @@ function applyKind() {
   $('promoP').textContent = bs ? 'Napravi sobu, pošalji link prijatelju i odigrajte pomorsku bitku u browseru. Za 2 igrača.'
     : 'Napravi sobu, pošalji link prijateljima i igrajte zajedno u browseru. Od 2 do 8 igrača.';
   renderRooms();
+  applyThemeScope();
 }
 $('hub').addEventListener('click', (e) => {
   const c = e.target.closest('[data-kind]'); if (!c) return;
@@ -371,9 +389,8 @@ function renderSettings() {
       ${seg('lang', I18N.lang, [['sr', '🇷🇸 Srpski'], ['en', '🇬🇧 English']])}
       <p class="set-note">Menja se samo kod tebe. Ostali igrači vide igru na svom jeziku.</p>
     </div>
-    <div class="set-card"><h3>🎨 Izgled</h3>
-      <div class="set-row"><span>Izgled igre</span><button class="ob" data-setskin title="Izaberi kako izgledaju polja, figure i karte">${fam ? fam.name : ''} ›</button></div>
-      ${sw('dark', darkPref, 'Tamni režim', 'Tamne boje za Osnovni i Kućice izgled')}
+    <div class="set-card"><h3>🔤 Prikaz</h3>
+      <p class="set-note">Izgled table i tamni režim za Ostrvo Trgovaca biraš unutar te igre (🎨 Izgled).</p>
       <div class="set-row"><span>Veličina slova</span>${seg('font', PREFS.font, [['small', 'Mala'], ['normal', 'Srednja'], ['large', 'Velika']])}</div>
     </div>
     <div class="set-card"><h3>🎮 Igra</h3>
@@ -423,8 +440,8 @@ function renderRooms() {
     if (r.kind === 'brodovi') {
       return `<div class="rt-row ${full ? 'full' : 'open'}" data-room="${r.code}" title="Igrači: ${esc(r.names.join(', '))}">
     <span class="rt-host"><span class="rt-av" style="--pc:${h.color || '#888'}">${avatarOf(h)}</span><span class="rt-hn"><b>${esc(h.name)}</b><small><i class="rt-dot"></i>${full ? 'Popunjena' : 'Otvorena'}</small></span></span>
-    <span>${r.settings.fleet === 'velika' ? 'Velika' : 'Klasična'}</span><span>${r.settings.again ? 'gađa opet' : 'menja se'}</span>
-    <span>${r.settings.touch ? 'dozvoljen' : 'ne'}</span><span class="seats">${seatIcons(r.players, r.settings.maxPlayers)}</span>
+    <span>${r.settings.fleet === 'velika' ? 'Velika' : 'Klasična'}${r.settings.salvo ? ' · salva' : ''}${r.settings.special ? ' · 📡💣' : ''}</span><span>${r.settings.size || 10}×${r.settings.size || 10}</span>
+    <span>${r.settings.timer ? r.settings.timer + 's' : 'bez'}</span><span class="seats">${seatIcons(r.players, r.settings.maxPlayers)}</span>
     <span class="rt-join">${full ? '' : 'Uđi ›'}</span></div>`;
     }
     return `<div class="rt-row ${full ? 'full' : 'open'}" data-room="${r.code}" title="Igrači: ${esc(r.names.join(', '))}">
@@ -715,9 +732,7 @@ const BASE_RES = JSON.parse(JSON.stringify(RES_INFO)), BASE_TERRAIN = JSON.parse
 const DARK = { ...ART, BOARD: { ring1: '#0e2230', ring2: '#4a4231', hexStroke: '#5b5547', token: '#efe6cf', tokenInk: '#1d1a14', hot: '#d8433a', side: -0.6 } };
 const SKA = () => (skin === 'kucice' ? ART : skin === 'tamne' ? DARK : skin === 'podvodni' ? SEA : null);
 function applySkin() {
-  SFX.setTheme(skin === 'podvodni' ? 'sea' : 'village');
-  for (const k of Object.keys(SKINS)) document.body.classList.toggle('skin-' + k, k === skin);
-  document.body.classList.toggle('dark-ui', skin === 'tamne' || skin === 'tamni');
+  themeKey = null; applyThemeScope();
   for (const r of RES) Object.assign(RES_INFO[r], BASE_RES[r], skin === 'podvodni' ? SEA.RES[r] : {});
   for (const t of Object.keys(TERRAIN)) Object.assign(TERRAIN[t], BASE_TERRAIN[t], skin === 'podvodni' ? SEA.TERRAIN[t] : {});
   if (skin === 'tamne' || skin === 'tamni') for (const t of Object.keys(TERRAIN)) { TERRAIN[t].a = shade(BASE_TERRAIN[t].a, -0.32); TERRAIN[t].b = shade(BASE_TERRAIN[t].b, -0.42); }
