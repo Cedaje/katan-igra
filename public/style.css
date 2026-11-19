@@ -561,3 +561,4 @@ body.dark-ui #game { background: radial-gradient(ellipse at 45% 25%, #1b3342 0%,
 .mode-tg.on i { background: #f2b84b; }
 .mode-tg.on i::after { left: 18px; }
 .skin-opt { color: #2a241c; } .skin-fam.is-dark .skin-opt { background: #2c353d; color: #ebe5d8; }
+.skin-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; } .skin-head h3 { margin: 0; } .mode-tg span { font-weight: 700; font-size: 13px; }
