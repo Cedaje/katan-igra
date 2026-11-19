@@ -22,9 +22,10 @@
     { id: 'pobede25', ico: '👑', name: 'Legenda ostrva', desc: 'Pobedi u 25 partija', stat: 'wins', need: 25, title: 12 },
   ];
   const done = (a, stats) => ((stats && stats[a.stat]) || 0) >= a.need;
-  function unlocked(stats) {
+  // all = nalog kome je admin otkljucao sve ukrase
+  function unlocked(stats, all) {
     const frames = new Set(['nema']), titles = new Set([0]);
-    for (const a of ACH) if (done(a, stats)) { if (a.frame) frames.add(a.frame); if (a.title !== undefined) titles.add(a.title); }
+    for (const a of ACH) if (all || done(a, stats)) { if (a.frame) frames.add(a.frame); if (a.title !== undefined) titles.add(a.title); }
     return { frames, titles };
   }
   const API = { ACH, done, unlocked };

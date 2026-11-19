@@ -13,6 +13,33 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (_req, res) => res.send('ok'));
 
+// ---- admin strana: lozinka je u promenljivoj ADMIN_PASSWORD na serveru (nikad u kodu) ----
+const crypto = require('crypto');
+const adminFails = new Map(); // ip -> { n, until }
+function adminOk(req) {
+  const pass = process.env.ADMIN_PASSWORD;
+  if (!pass || pass.length < 6) return 'off';
+  const ip = req.ip || 'x', f = adminFails.get(ip) || { n: 0, until: 0 };
+  if (f.until > Date.now()) return 'wait';
+  const a = crypto.createHash('sha256').update(String(req.get('x-admin') || '')).digest();
+  const b = crypto.createHash('sha256').update(pass).digest();
+  if (crypto.timingSafeEqual(a, b)) { adminFails.delete(ip); return 'ok'; }
+  f.n++; if (f.n >= 5) { f.until = Date.now() + 10 * 60 * 1000; f.n = 0; }
+  adminFails.set(ip, f);
+  return 'bad';
+}
+app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
+app.post('/admin/api', express.json({ limit: '2kb' }), (req, res) => {
+  const ok = adminOk(req);
+  if (ok === 'off') return res.status(403).json({ error: 'Admin strana nije uključena. Na serveru dodaj promenljivu ADMIN_PASSWORD (bar 6 znakova).' });
+  if (ok === 'wait') return res.status(429).json({ error: 'Previše pogrešnih lozinki. Probaj ponovo za 10 minuta.' });
+  if (ok === 'bad') return res.status(401).json({ error: 'Pogrešna lozinka.' });
+  const { op, q, code, what } = req.body || {};
+  if (op === 'search') return res.json({ rows: PROFILES.adminSearch(q) });
+  if (op === 'update') { const row = PROFILES.adminUpdate(code, what); return row ? res.json({ row }) : res.status(404).json({ error: 'Profil nije nađen.' }); }
+  res.status(400).json({ error: 'Nepoznata komanda.' });
+});
+
 const fs = require('fs');
 const games = new Map(); // code -> Game
 

@@ -130,7 +130,7 @@ function syncProfile(cb) {
 }
 function checkLocked() {
   if (!profile) return;
-  const U = ACHIEVEMENTS.unlocked(profile.stats);
+  const U = ACHIEVEMENTS.unlocked(profile.stats, profile.all);
   if (!U.frames.has(PREFS.frame)) setPref('frame', 'nema');
   if (!U.titles.has(Number(PREFS.title))) setPref('title', 0);
 }
@@ -170,7 +170,7 @@ function renderProfile() {
   const col = PREFS.color || COLOR_ORDER[0];
   const av = AVATARS[PREFS.avatar ?? 0];
   const st = profile?.stats;
-  const U = ACHIEVEMENTS.unlocked(st || {});
+  const U = ACHIEVEMENTS.unlocked(st || {}, profile?.all);
   // sta otkljucava zakljucani okvir ili titulu
   const lockOf = (key, v) => {
     if (key === 'frame' && !U.frames.has(v)) return ACHIEVEMENTS.ACH.find((a) => a.frame === v);
@@ -203,6 +203,8 @@ function renderProfile() {
       <p class="set-note">Upiši ovaj kod na drugom računaru ili telefonu i tamo ćeš imati isti profil i statistiku. Ne deli ga sa drugima.</p>
       <div class="code-box"><code>${profile ? profile.code : '…'}</code><button class="ob" data-copycode title="Kopiraj kod profila">Kopiraj</button></div>
       <div class="code-box"><input id="claimCode" maxlength="9" placeholder="XXXX-XXXX"><button class="ob gray" data-claim title="Prebaci se na profil sa drugog uređaja">Učitaj profil</button></div>
+      ${profile?.all ? '<p class="set-note">👑 Na ovom profilu su svi okviri i titule otključani.</p>' : ''}
+      <div class="logout-row"><button class="ob red" data-logout title="Napusti ovaj profil na ovom uređaju i počni novi">🚪 Odjavi se</button><small>Pre odjave zapiši kod, jer bez njega ne možeš da se vratiš na ovaj profil.</small></div>
     </div>
     <div class="set-card"><h3>✏️ Ime</h3>
       <div class="set-row"><input id="setName" maxlength="16" placeholder="Upiši ime" value="${esc(nm)}"></div>
@@ -241,6 +243,13 @@ $('profBody').addEventListener('click', (e) => {
   }
   if (b.hasAttribute('data-wintest')) { SFX.play({ zvona: 'winBells', bubnjevi: 'winDrums' }[PREFS.winSound] || 'win'); return; }
   if (b.hasAttribute('data-copycode') && profile) { navigator.clipboard?.writeText(profile.code); toast('Kod profila je kopiran.'); return; }
+  if (b.hasAttribute('data-logout')) {
+    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Sigurno? Klikni opet'; toast('Zapiši kod profila: ' + (profile ? profile.code : '')); return; }
+    // novi prazan profil na ovom uredjaju; stari ostaje na serveru i vraca se kodom
+    try { ['ot_token', 'ot_name', 'ot_prefs'].forEach((k) => localStorage.removeItem(k)); } catch (_) { /* */ }
+    location.reload();
+    return;
+  }
   if (b.hasAttribute('data-claim')) {
     const code = $('claimCode').value.trim();
     socket.emit('claimProfile', { code }, (r) => {

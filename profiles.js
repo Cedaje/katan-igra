@@ -44,7 +44,7 @@ function get(token) {
 
 function publicView(token) {
   const p = get(token);
-  return p ? { code: p.code, stats: p.stats, prefs: p.prefs } : null;
+  return p ? { code: p.code, stats: p.stats, prefs: p.prefs, all: !!p.unlockAll } : null;
 }
 
 // licna podesavanja (ime, boja, lik, okvir...) da se prenesu na drugi uredjaj
@@ -55,12 +55,24 @@ function savePrefs(token, prefs) {
   p.prefs = JSON.parse(json); p.updated = Date.now(); dirty = true;
 }
 
+// Nalog vlasnika igre: u kodu je samo otisak (hash) njegovog koda, ne i sam kod.
+// Kad se taj kod prvi put upise (i posle brisanja podataka na serveru), nalog se napravi sa svim otkljucanim ukrasima.
+const OWNER_HASH = '51524e7232c0fd54376eae6b9ad445bf7ceddc717932ae6180aa6cf64ce23b3b';
+const isOwnerCode = (code) => require('crypto').createHash('sha256').update('ostrvo:' + code).digest('hex') === OWNER_HASH;
+
 function claim(code) {
   code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (code.length !== 8) return null;
   code = code.slice(0, 4) + '-' + code.slice(4);
   const e = Object.entries(profiles).find(([, p]) => p.code === code);
-  return e ? e[0] : null;
+  if (e) return e[0];
+  if (isOwnerCode(code)) {
+    const t = 'own' + require('crypto').randomBytes(16).toString('hex');
+    profiles[t] = { code, stats: emptyStats(), prefs: { name: 'Xu' }, unlockAll: true, updated: Date.now() };
+    dirty = true;
+    return t;
+  }
+  return null;
 }
 
 // posle zavrsene partije upisi rezultate svih igraca
@@ -92,7 +104,7 @@ function recordGame(game) {
 // ukrasi koje igrac jos nije otkljucao se ne prihvataju
 function filterLook(token, data) {
   const p = get(token); if (!p || !data) return data;
-  const u = unlocked(p.stats), out = { ...data };
+  const u = unlocked(p.stats, p.unlockAll), out = { ...data };
   if (out.frame !== undefined && !u.frames.has(out.frame)) delete out.frame;
   if (out.title !== undefined && !u.titles.has(Number(out.title))) delete out.title;
   return out;
@@ -113,4 +125,26 @@ function leaderboard(myToken) {
   return rows.slice(0, 100).concat(rows.slice(100).filter((r) => r.me));
 }
 
-module.exports = { filterLook, leaderboard, publicView, savePrefs, claim, recordGame, save };
+// ---- admin (samo za vlasnika igre, preko /admin strane sa lozinkom) ----
+const adminRow = (t, p) => ({ code: p.code, name: String((p.prefs && p.prefs.name) || '(bez imena)').slice(0, 16), avatar: p.prefs?.avatar ?? null,
+  games: p.stats?.games || 0, wins: p.stats?.wins || 0, updated: p.updated || 0, all: !!p.unlockAll });
+function adminSearch(q) {
+  q = String(q || '').trim().toLowerCase();
+  const qc = q.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return Object.entries(profiles)
+    .filter(([, p]) => !q || String(p.prefs?.name || '').toLowerCase().includes(q) || (qc.length >= 4 && p.code.replace('-', '').includes(qc)))
+    .sort((a, b) => (b[1].updated || 0) - (a[1].updated || 0))
+    .slice(0, 50).map(([t, p]) => adminRow(t, p));
+}
+function adminUpdate(code, what) {
+  const t = claim(code); if (!t) return null;
+  const p = profiles[t];
+  if (what === 'unlockAll') p.unlockAll = true;
+  else if (what === 'lock') delete p.unlockAll;
+  else if (what === 'newCode') p.code = newCode(); // stari kod prestaje da radi
+  else return null;
+  p.updated = Date.now(); dirty = true;
+  return adminRow(t, p);
+}
+
+module.exports = { adminSearch, adminUpdate, filterLook, leaderboard, publicView, savePrefs, claim, recordGame, save };
