@@ -1,24 +1,35 @@
 // Profili igraca bez logina: svaki browser ima tajni token, a statistika se cuva na serveru pod tim tokenom.
 // Kratak "kod profila" sluzi da se isti profil otvori na drugom uredjaju.
-const fs = require('fs');
+// Podaci se cuvaju preko store.js: u bazi (DATABASE_URL) ili u lokalnom fajlu.
 const path = require('path');
+const STORE = require('./store');
 
 const FILE = process.env.PROFILE_FILE || path.join(__dirname, 'data', 'profiles.json');
-let profiles = {}; // token -> { code, stats, prefs, updated }
+const ANN_FILE = path.join(path.dirname(FILE), 'announce.json');
+let profiles = STORE.useDb() ? {} : (STORE.loadFile(FILE) || {}); // token -> { code, stats, prefs, updated }
+let announce = STORE.useDb() ? null : (STORE.loadFile(ANN_FILE) || null);
 let dirty = false;
 
-try { profiles = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (_) { profiles = {}; }
+// sa bazom: ucitaj sve pre pokretanja servera (lokalni fajl, ako postoji, prebaci u praznu bazu)
+async function init() {
+  if (!STORE.useDb()) return;
+  const fromDb = await STORE.load('profiles');
+  if (fromDb && typeof fromDb === 'object') profiles = fromDb;
+  else {
+    profiles = STORE.loadFile(FILE) || {};
+    if (Object.keys(profiles).length) { console.log(`Prebacujem ${Object.keys(profiles).length} profila iz fajla u bazu.`); dirty = true; save(); }
+  }
+  const a = await STORE.load('announce');
+  announce = a === undefined ? (STORE.loadFile(ANN_FILE) || null) : a;
+  console.log(`Učitano ${Object.keys(profiles).length} profila iz baze.`);
+}
 
 function save() {
-  if (!dirty) return;
+  if (!dirty) return Promise.resolve();
   dirty = false;
-  try {
-    fs.mkdirSync(path.dirname(FILE), { recursive: true });
-    fs.writeFileSync(FILE + '.tmp', JSON.stringify(profiles));
-    fs.renameSync(FILE + '.tmp', FILE);
-  } catch (e) { console.error('profili nisu sacuvani', e.message); }
+  return STORE.save('profiles', FILE, profiles);
 }
-setInterval(save, 5000).unref();
+setInterval(save, 3000).unref();
 
 const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // bez slova koja lice na brojeve
 function newCode() {
@@ -182,15 +193,12 @@ function nameFor(token, name) {
 const isBanned = (token) => !!(validToken(token) && profiles[token]?.banned);
 
 // obavestenje za sve igrace na pocetnom ekranu
-const ANN_FILE = path.join(path.dirname(FILE), 'announce.json');
-let announce = null;
-try { announce = JSON.parse(fs.readFileSync(ANN_FILE, 'utf8')); } catch (_) { announce = null; }
 function setAnnounce(text) {
   text = String(text || '').trim().slice(0, 300);
   announce = text ? { text, at: Date.now() } : null;
-  try { fs.mkdirSync(path.dirname(ANN_FILE), { recursive: true }); fs.writeFileSync(ANN_FILE, JSON.stringify(announce)); } catch (e) { console.error('obavestenje nije sacuvano', e.message); }
+  STORE.save('announce', ANN_FILE, announce);
   return announce;
 }
 const getAnnounce = () => announce;
 
-module.exports = { nameFor, isBanned, setAnnounce, getAnnounce, adminSearch, adminUpdate, filterLook, leaderboard, publicView, savePrefs, claim, recordGame, save };
+module.exports = { nameFor, isBanned, setAnnounce, getAnnounce, adminSearch, adminUpdate, filterLook, leaderboard, publicView, savePrefs, claim, recordGame, save, init };
