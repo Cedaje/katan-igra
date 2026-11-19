@@ -2,7 +2,14 @@
 const SFX = (() => {
   let ctx = null, master = null;
   let muted = false;
-  try { muted = localStorage.getItem('ot_muted') === '1'; } catch (_) { /* nema storage */ }
+  // podesavanja zvuka: jacina (0-100) i grupe zvukova koje mogu posebno da se iskljuce
+  const opts = { volume: 70, fx: true, turn: true, alerts: true, chat: true };
+  try {
+    muted = localStorage.getItem('ot_muted') === '1';
+    Object.assign(opts, JSON.parse(localStorage.getItem('ot_sound') || '{}'));
+  } catch (_) { /* nema storage */ }
+  const GROUP = { myTurn: 'turn', tick: 'turn', turn: 'alerts', vote: 'alerts', offer: 'alerts', win: 'alerts', lose: 'alerts', chat: 'chat' };
+  const gainFor = () => 0.8 * (opts.volume / 100);
 
   function ensure() {
     if (!ctx) {
@@ -10,7 +17,7 @@ const SFX = (() => {
       if (!AC) return null;
       ctx = new AC();
       master = ctx.createGain();
-      master.gain.value = 0.55;
+      master.gain.value = gainFor();
       master.connect(ctx.destination);
     }
     if (ctx.state === 'suspended') ctx.resume();
@@ -91,7 +98,17 @@ const SFX = (() => {
   };
 
   return {
-    play(name, ...args) { try { if (!muted && sounds[name]) sounds[name](...args); } catch (_) { /* zvuk nije bitan */ } },
+    play(name, ...args) {
+      if (muted || !opts[GROUP[name] || 'fx'] || !opts.volume) return;
+      try { if (sounds[name]) sounds[name](...args); } catch (_) { /* zvuk nije bitan */ }
+    },
+    get opts() { return { ...opts }; },
+    set(k, v) {
+      opts[k] = v;
+      try { localStorage.setItem('ot_sound', JSON.stringify(opts)); } catch (_) { /* */ }
+      if (master) master.gain.value = gainFor();
+    },
+    setMuted(v) { if (muted !== !!v) this.toggle(); },
     get muted() { return muted; },
     toggle() { muted = !muted; try { localStorage.setItem('ot_muted', muted ? '1' : '0'); } catch (_) { /* */ } if (!muted) { ensure(); sounds.click(); } return muted; },
   };

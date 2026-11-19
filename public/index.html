@@ -14,6 +14,8 @@
       <button class="rail-btn active" data-nav="rooms"><span>🏝️</span>Sobe</button>
       <button class="rail-btn" data-nav="rules"><span>📖</span>Pravila</button>
       <button class="rail-btn" id="skinNav" title="Izgled igre (skin): izaberi kako izgledaju polja, putevi, sela, gradovi, lopov i karte. Menja se samo kod tebe."><span>🎨</span>Izgled</button>
+      <button class="rail-btn" data-nav="profile" title="Tvoje ime, boja i avatar"><span>👤</span>Profil</button>
+      <button class="rail-btn" data-nav="settings" title="Ime, jezik, zvuk, izgled i ostala podešavanja"><span>⚙️</span>Podešavanja</button>
     </nav>
     <div class="shell-main">
       <header class="top">
@@ -42,6 +44,22 @@
           <p>Napravi sobu, pošalji link prijateljima i igrajte zajedno u browseru. Od 2 do 8 igrača.</p>
           <button class="btn ghost" data-nav="rules">Kako se igra?</button>
         </aside>
+      </section>
+
+      <!-- Profil -->
+      <section id="profile" class="page hidden">
+        <div class="set-wrap">
+          <div class="set-title"><h2>👤 Profil</h2><button class="x" data-nav="rooms" title="Nazad na sobe">✕</button></div>
+          <div class="set-grid prof-grid" id="profBody"></div>
+        </div>
+      </section>
+
+      <!-- Podesavanja -->
+      <section id="settings" class="page hidden">
+        <div class="set-wrap">
+          <div class="set-title"><h2>⚙️ Podešavanja</h2><button class="x" data-nav="rooms" title="Nazad na sobe">✕</button></div>
+          <div class="set-grid" id="setBody"></div>
+        </div>
       </section>
 
       <!-- Lobi -->
@@ -131,6 +149,7 @@
   <div id="tip" class="tip hidden"></div>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="i18n.js"></script>
   <script src="sfx.js"></script>
   <script src="skin-art.js"></script>
   <script src="skin-sea.js"></script>

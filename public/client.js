@@ -83,6 +83,11 @@ document.addEventListener('click', (e) => {
   if (n.dataset.nav === 'rules') showRules();
   if (n.dataset.nav === 'home') { if (S && S.phase === 'lobby') doLeave(); else showPage('rooms'); }
   if (n.dataset.nav === 'rooms' && S && S.phase === 'lobby') toast('Prvo izađi iz sobe (✕ gore desno).');
+  else if (n.dataset.nav === 'rooms' && !S) showPage('rooms');
+  if (n.dataset.nav === 'settings' || n.dataset.nav === 'profile') {
+    if (S && S.phase === 'lobby') toast('Prvo izađi iz sobe (✕ gore desno).');
+    else if (!S) { if (n.dataset.nav === 'profile') renderProfile(); else renderSettings(); showPage(n.dataset.nav); }
+  }
 });
 
 function showPage(page) {
@@ -90,7 +95,98 @@ function showPage(page) {
   $('game').classList.toggle('hidden', page !== 'game');
   $('rooms').classList.toggle('hidden', page !== 'rooms');
   $('lobby').classList.toggle('hidden', page !== 'lobby');
+  $('settings').classList.toggle('hidden', page !== 'settings');
+  $('profile').classList.toggle('hidden', page !== 'profile');
+  document.querySelectorAll('.rail-btn[data-nav]').forEach((b) => b.classList.toggle('active', b.dataset.nav === (['settings', 'profile'].includes(page) ? page : 'rooms')));
 }
+
+// ---------- licna podesavanja (cuvaju se samo u ovom browseru) ----------
+const PREFS = { anim: 'normal', confirmBuild: false, font: 'normal', color: null, avatar: null };
+try { Object.assign(PREFS, JSON.parse(localStorage.getItem('ot_prefs') || '{}')); } catch (_) { /* */ }
+function setPref(k, v) { PREFS[k] = v; try { localStorage.setItem('ot_prefs', JSON.stringify(PREFS)); } catch (_) { /* */ } applyPrefs(); }
+function applyPrefs() {
+  document.body.classList.toggle('fs-small', PREFS.font === 'small');
+  document.body.classList.toggle('fs-large', PREFS.font === 'large');
+  document.body.classList.toggle('anim-off', PREFS.anim === 'off');
+}
+// trajanje animacije prema podesavanju: normalno, brzo ili bez animacija
+const animMs = (ms) => (PREFS.anim === 'off' ? 0 : PREFS.anim === 'fast' ? Math.round(ms * 0.45) : ms);
+applyPrefs();
+
+function renderProfile() {
+  const nm = $('nameInput').value.trim();
+  const col = PREFS.color || COLOR_ORDER[0];
+  const av = AVATARS[PREFS.avatar ?? 0];
+  $('profBody').innerHTML = `
+    <div class="set-card prof-card"><div class="prof-av" style="--pc:${col}">${av}</div><b class="prof-name" style="color:${col}">${esc(nm) || '…'}</b><small>Ovako te vide ostali igrači u sobi.</small></div>
+    <div class="set-card"><h3>✏️ Ime</h3>
+      <div class="set-row"><input id="setName" maxlength="16" placeholder="Upiši ime" value="${esc(nm)}"></div>
+    </div>
+    <div class="set-card"><h3>🎨 Omiljena boja</h3><p class="set-note">Dobijaš je kad uđeš u sobu, ako je niko drugi već nema.</p>
+      <div class="set-colors">${COLOR_ORDER.map((c) => `<button class="swatch ${PREFS.color === c ? 'sel' : ''}" data-pcolor="${c}" style="background:${c}" title="Izaberi ovu boju"></button>`).join('')}<button class="swatch none ${PREFS.color ? '' : 'sel'}" data-pcolor="" title="Bez omiljene boje (dobijaš slobodnu)">✕</button></div>
+    </div>
+    <div class="set-card"><h3>🦊 Omiljeni lik</h3>
+      <div class="set-avatars">${AVATARS.map((a, i) => `<button class="av ${PREFS.avatar === i ? 'sel' : ''}" data-pav="${i}" title="Izaberi ovog lika">${a}</button>`).join('')}</div>
+    </div>`;
+}
+$('profBody').addEventListener('input', (e) => {
+  if (e.target.id === 'setName') { $('nameInput').value = e.target.value; localStorage.setItem('ot_name', e.target.value.trim()); document.querySelector('.prof-name').textContent = e.target.value.trim() || '…'; }
+});
+$('profBody').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.pcolor !== undefined) setPref('color', b.dataset.pcolor || null);
+  if (b.dataset.pav !== undefined) setPref('avatar', PREFS.avatar === Number(b.dataset.pav) ? null : Number(b.dataset.pav));
+  renderProfile();
+});
+
+function renderSettings() {
+  const o = SFX.opts;
+  const sw = (key, on, label, tip) => `<div class="set-row" title="${tip}"><span>${label}</span><button class="sw ${on ? 'on' : ''}" data-sw="${key}"><i></i></button></div>`;
+  const seg = (key, cur, list) => `<div class="seg2">${list.map(([v, l]) => `<button class="${cur === v ? 'on' : ''}" data-seg="${key}" data-v="${v}">${l}</button>`).join('')}</div>`;
+  const fam = SKIN_FAMS.find((f) => f.light === skin || f.dark === skin);
+  $('setBody').innerHTML = `
+    <div class="set-card"><h3>🔊 Zvuk</h3>
+      ${sw('sound', !SFX.muted, 'Zvuk uključen', 'Uključi ili isključi sve zvukove')}
+      <div class="set-row" title="Jačina svih zvukova"><span>Jačina</span><input type="range" id="setVol" min="0" max="100" step="5" value="${o.volume}"><b id="setVolV">${o.volume}%</b></div>
+      ${sw('fx', o.fx, 'Efekti igre', 'Kockice, gradnja, karte, trgovina, lopov…')}
+      ${sw('turn', o.turn, 'Zvuk kad si na potezu', 'Zvono kad dođe tvoj red i otkucaji kad ističe vreme')}
+      ${sw('alerts', o.alerts, 'Obaveštenja', 'Ponude za razmenu, glasanje, pobeda i poraz')}
+      ${sw('chat', o.chat, 'Poruke u ćaskanju', 'Kratak zvuk kad neko napiše poruku')}
+      <button class="ob" data-sndtest title="Pusti probni zvuk">▶ Probaj zvuk</button>
+    </div>
+    <div class="set-card"><h3>🌍 Jezik</h3>
+      ${seg('lang', I18N.lang, [['sr', '🇷🇸 Srpski'], ['en', '🇬🇧 English']])}
+      <p class="set-note">Menja se samo kod tebe. Ostali igrači vide igru na svom jeziku.</p>
+    </div>
+    <div class="set-card"><h3>🎨 Izgled</h3>
+      <div class="set-row"><span>Izgled igre</span><button class="ob" data-setskin title="Izaberi kako izgledaju polja, figure i karte">${fam ? fam.name : ''} ›</button></div>
+      ${sw('dark', darkPref, 'Tamni režim', 'Tamne boje za Osnovni i Kućice izgled')}
+      <div class="set-row"><span>Veličina slova</span>${seg('font', PREFS.font, [['small', 'Mala'], ['normal', 'Srednja'], ['large', 'Velika']])}</div>
+    </div>
+    <div class="set-card"><h3>🎮 Igra</h3>
+      <div class="set-row" title="Kockice koje se kotrljaju i karte koje lete do igrača"><span>Animacije</span>${seg('anim', PREFS.anim, [['normal', 'Normalno'], ['fast', 'Brzo'], ['off', 'Isključeno']])}</div>
+      ${sw('confirmBuild', PREFS.confirmBuild, 'Potvrda pre gradnje', 'Pre nego što se sagradi put, selo ili grad pita te da potvrdiš, da ne sagradiš nešto slučajno')}
+    </div>`;
+}
+$('setBody').addEventListener('input', (e) => {
+  if (e.target.id === 'setVol') { SFX.set('volume', Number(e.target.value)); $('setVolV').textContent = e.target.value + '%'; }
+});
+$('setBody').addEventListener('change', (e) => { if (e.target.id === 'setVol') SFX.play('settlement'); });
+$('setBody').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.sw) {
+    const k = b.dataset.sw;
+    if (k === 'sound') SFX.setMuted(!SFX.muted);
+    else if (k === 'dark') { darkPref = !darkPref; try { localStorage.setItem('ot_dark', darkPref ? '1' : '0'); } catch (_) { /* */ } const f = SKIN_FAMS.find((x) => x.dark && (x.light === skin || x.dark === skin)); if (f) setSkin(darkPref ? f.dark : f.light); }
+    else if (k === 'confirmBuild') setPref(k, !PREFS[k]);
+    else SFX.set(k, !SFX.opts[k]);
+  }
+  if (b.dataset.seg === 'lang') I18N.setLang(b.dataset.v);
+  else if (b.dataset.seg) setPref(b.dataset.seg, b.dataset.v);
+  if (b.hasAttribute('data-sndtest')) { SFX.play('myTurn'); setTimeout(() => SFX.play('city'), 600); }
+  if (b.hasAttribute('data-setskin')) return showSkinPicker();
+  renderSettings();
+});
 
 // ---------- lista soba ----------
 function seatIcons(n, max) {
@@ -168,7 +264,7 @@ function playEventSounds(prev, next) {
   if (S.chat.length > seenChatN && S.chat[S.chat.length - 1].pid !== S.me) SFX.play('chat');
   seenChatN = S.chat.length;
   const myName = me()?.name;
-  const DICE_MS = 900; // zvuk posle kockica ceka da se kockice zaustave
+  const DICE_MS = animMs(900); // zvuk posle kockica ceka da se kockice zaustave
   let gains = 0, delay = 0;
   for (const l of fresh) {
     const t = l.text;
@@ -208,7 +304,7 @@ socket.on('state', (state) => {
   const prev = S;
   const newRoll = prev && prev.code === state.code && state.dice && state.phase === 'play' && prev.phase === 'play'
     && `${state.turnNum}-${state.dice}` !== `${prev.turnNum}-${prev.dice}` && state.log.some((l) => l.text.startsWith('🎲') && !(seenLog && seenLog.has(`${l.t}|${l.text}`)));
-  if (newRoll) {
+  if (newRoll && animMs(DICE_ANIM_MS)) {
     playEventSounds(prev, state);
     rollHold = { state, prev };
     S = { ...prev, dice: state.dice, turnNum: state.turnNum, now: state.now, deadline: state.deadline, rolling: true };
@@ -217,7 +313,7 @@ socket.on('state', (state) => {
       const st = rollHold.state; rollHold = null;
       applyState(st, prev, true);
       flyCards(prev);
-    }, DICE_ANIM_MS);
+    }, animMs(DICE_ANIM_MS));
     return;
   }
   applyState(state, prev, false);
@@ -246,8 +342,17 @@ function render() {
 }
 
 // ---------- lobi ----------
+let lookSentFor = null;
 function renderLobby() {
   const host = S.host === S.me;
+  // omiljena boja i avatar iz podesavanja: postavi ih jednom kad udjes u sobu
+  if (lookSentFor !== S.code && me()) {
+    lookSentFor = S.code;
+    const m = me(), data = {};
+    if (PREFS.color && m.color !== PREFS.color && !S.players.some((p) => p.id !== S.me && p.color === PREFS.color)) data.color = PREFS.color;
+    if (PREFS.avatar !== null && PREFS.avatar !== undefined && m.avatar !== PREFS.avatar) data.avatar = PREFS.avatar;
+    if (Object.keys(data).length) act('look', data);
+  }
   const st = S.settings;
   $('lobbyCode').textContent = S.code;
   $('lpCount').textContent = `${S.players.length}/${st.maxPlayers}`;
@@ -604,11 +709,20 @@ $('zoomIn').onclick = () => zoomAt(1.25);
 $('zoomOut').onclick = () => zoomAt(1 / 1.25);
 $('zoomReset').onclick = () => { view.z = 1; view.x = 0; view.y = 0; applyView(); };
 
+let pendingBuild = null;
+// uz podesavanje "Potvrda pre gradnje" prvo se pita igrac
+function build(what, fn) {
+  if (!PREFS.confirmBuild) return fn();
+  pendingBuild = fn;
+  const label = { road: '🛤️ put', settlement: '🏠 selo', city: '🏰 grad' }[what];
+  modalExtra = () => `<h3>Sagradi ${label} ovde?</h3><div class="row"><button class="ob" data-bconfirm>✔ Sagradi</button><button class="ob gray" data-close>Otkaži</button></div>`;
+  renderModal();
+}
 $('board').addEventListener('click', (ev) => {
   const t = ev.target;
-  if (t.dataset.e !== undefined) { act('placeRoad', { e: t.dataset.e }); if (S.sub === 'main') mode = null; }
-  else if (t.dataset.kind === 'settlement') { act('placeSettlement', { v: t.dataset.v }); mode = null; }
-  else if (t.dataset.kind === 'city') { act('placeCity', { v: t.dataset.v }); mode = null; }
+  if (t.dataset.e !== undefined) build('road', () => { act('placeRoad', { e: t.dataset.e }); if (S.sub === 'main') mode = null; render(); });
+  else if (t.dataset.kind === 'settlement') build('settlement', () => { act('placeSettlement', { v: t.dataset.v }); mode = null; render(); });
+  else if (t.dataset.kind === 'city') build('city', () => { act('placeCity', { v: t.dataset.v }); mode = null; render(); });
   else if (t.dataset.hex !== undefined) act('moveRobber', { hex: t.dataset.hex });
 });
 // Precice na tastaturi
@@ -632,7 +746,7 @@ let diceRolling = false;
 const dieHTML = (n, cls = '', style = '') => `<div class="die ${cls}" style="${style}">${n ? PIP_POS[n].map(([x, y]) => `<i style="left:${x}%;top:${y}%"></i>`).join('') : ''}</div>`;
 // karte lete sa polja koje je dalo sirovinu do ruke (tvoje) ili do panela igraca
 function flyCards(prev) {
-  if (!S || !S.dice || S.phase !== 'play') return;
+  if (!S || !S.dice || S.phase !== 'play' || !animMs(900)) return;
   const sum = S.dice[0] + S.dice[1]; if (sum === 7) return;
   const B = S.board, svg = $('board'), ctm = svg.getScreenCTM(); if (!ctm) return;
   const gotMore = (pid) => { const a = prev.players.find((p) => p.id === pid), b = pById(pid); return a && b && b.cards > a.cards; };
@@ -662,12 +776,12 @@ function flyCards(prev) {
       { transform: 'translate(-50%,-80%) scale(1.15)', opacity: 1, offset: 0.2 },
       { transform: `translate(calc(-50% + ${dx * 0.5}px), calc(-50% + ${dy * 0.5 - 60}px)) scale(1)`, opacity: 1, offset: 0.6 },
       { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${f.pid === S.me ? 0.9 : 0.45})`, opacity: 0.2 },
-    ], { duration: 900, easing: 'cubic-bezier(.4,0,.2,1)' });
+    ], { duration: animMs(900), easing: 'cubic-bezier(.4,0,.2,1)' });
     anim.onfinish = () => {
       el.remove();
       target.classList.remove('got'); void target.offsetWidth; target.classList.add('got');
     };
-  }, i * 140));
+  }, i * animMs(140)));
 }
 
 function renderDice() {
@@ -681,7 +795,7 @@ function renderDice() {
     const start = performance.now();
     const step = () => {
       const t = performance.now() - start;
-      if (t < 850) {
+      if (t < animMs(850)) {
         const r = () => 1 + Math.floor(Math.random() * 6);
         $('dice').innerHTML = [0, 1].map((i) => dieHTML(r(), 'tumble', `transform: translate(${(Math.random() - 0.5) * 30}px, ${-Math.abs(Math.sin(t / 110 + i)) * 40}px) rotate(${Math.random() * 360}deg) scale(${0.85 + Math.random() * 0.2})`)).join('');
         setTimeout(step, 70);
@@ -999,7 +1113,7 @@ function colorNames(text) {
 function renderLog() {
   const log = $('log');
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-  log.innerHTML = S.log.map((l) => `<div class="${l.text.startsWith('➡️') ? 'grp' : ''}">${colorNames(skinWords(l.text))}</div>`).join('');
+  log.innerHTML = S.log.map((l) => `<div class="nt ${l.text.startsWith('➡️') ? 'grp' : ''}">${colorNames(I18N.tr(skinWords(l.text)))}</div>`).join('');
   if (atBottom) log.scrollTop = log.scrollHeight;
   if (S.lastSteal && S.lastSteal.t > lastToastSteal) {
     lastToastSteal = S.lastSteal.t;
@@ -1008,7 +1122,7 @@ function renderLog() {
   }
 }
 function renderChat() {
-  const html = S.chat.map((c) => `<div><b style="color:${c.color};text-shadow:0 0 1px #0008">${esc(c.name)}:</b> ${esc(c.text)}</div>`).join('') || '<div style="opacity:.6">Još nema poruka.</div>';
+  const html = S.chat.map((c) => `<div class="nt"><b style="color:${c.color};text-shadow:0 0 1px #0008">${esc(c.name)}:</b> ${esc(c.text)}</div>`).join('') || '<div style="opacity:.6">Još nema poruka.</div>';
   for (const el of [$('chat'), $('lobbyChat')]) { el.innerHTML = html; el.scrollTop = el.scrollHeight; }
   if (chatOpen || S.phase === 'lobby') seenChat = S.chat.length;
   const unread = S.chat.length - seenChat;
@@ -1160,14 +1274,15 @@ $('modalCard').addEventListener('click', (ev) => {
     darkPref = !darkPref; try { localStorage.setItem('ot_dark', darkPref ? '1' : '0'); } catch (_) { /* */ }
     const f = SKIN_FAMS.find((x) => x.dark && (x.light === skin || x.dark === skin));
     if (f) setSkin(darkPref ? f.dark : f.light);
-    $('modalCard').innerHTML = ''; renderModal(); if (S && S.phase !== 'lobby') render(); return;
+    $('modalCard').innerHTML = ''; renderModal(); if (S && S.phase !== 'lobby') render(); if (!S) renderSettings(); return;
   }
-  if (b.dataset.skin) { setSkin(b.dataset.skin); $('modalCard').innerHTML = ''; renderModal(); if (S && S.phase !== 'lobby') render(); return; }
+  if (b.dataset.skin) { setSkin(b.dataset.skin); $('modalCard').innerHTML = ''; renderModal(); if (S && S.phase !== 'lobby') render(); if (!S) renderSettings(); return; }
   if (b.dataset.color) { act('look', { color: b.dataset.color }); return; }
   if (b.dataset.avatar) { act('look', { avatar: Number(b.dataset.avatar) }); return; }
   if (b.hasAttribute('data-backrooms')) { setSavedRoom(''); location.href = '/'; return; }
   if (b.hasAttribute('data-exit')) { modalExtra = null; $('modalCard').innerHTML = ''; return doLeave(); }
   if (b.hasAttribute('data-endgame')) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); return act('endGame'); }
+  if (b.hasAttribute('data-bconfirm')) { const f = pendingBuild; pendingBuild = null; modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); if (f) f(); return; }
   if (b.hasAttribute('data-close')) { modalExtra = null; $('modalCard').innerHTML = ''; return renderModal(); }
   if (b.hasAttribute('data-joincode')) { const c = $('codeInput').value.trim(); modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); join(c); }
 });

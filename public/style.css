@@ -586,3 +586,53 @@ body.dark-ui #game { background: radial-gradient(ellipse at 45% 25%, #1b3342 0%,
 /* Parovi igraca: oznake glavni / pomocni */
 .pair-tag { display: inline-block; margin-left: 4px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; background: #2f7d4a; color: #fff; vertical-align: middle; }
 .pair-tag.help { background: #3b82c4; }
+
+/* ---------- podesavanja ---------- */
+#settings { padding: 0 28px 28px; overflow-y: auto; }
+.set-wrap { max-width: 1060px; margin: 0 auto; color: #fff; }
+.set-title { display: flex; align-items: center; justify-content: space-between; }
+.set-title h2 { margin: 6px 0 14px; }
+.set-title .x { background: none; border: 0; color: #fff; font-size: 22px; }
+.set-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+.set-card { background: rgba(0,0,0,.2); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.set-card h3 { margin: 0 0 2px; font-size: 18px; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; }
+.set-row > span { font-weight: 600; }
+.set-row input:not([type]) , .set-row input[type="text"] { flex: 1; max-width: 220px; padding: 8px 10px; border-radius: 8px; border: 0; font: inherit; }
+.set-row input[type="range"] { flex: 1; accent-color: #4cd678; }
+.set-sub { font-weight: 600; margin-top: 4px; } .set-sub small { font-weight: 400; opacity: .7; }
+.set-note { margin: 0; font-size: 13px; color: #cfe3ea; }
+.set-colors, .set-avatars { display: flex; flex-wrap: wrap; gap: 6px; }
+.set-colors .swatch { width: 32px; height: 32px; }
+.set-colors .swatch.sel { box-shadow: 0 0 0 3px #4cd678; }
+.swatch.none { background: rgba(255,255,255,.15); color: #fff; font-weight: 700; }
+.set-avatars { max-height: 150px; overflow-y: auto; }
+.set-avatars .av { width: 36px; height: 36px; font-size: 20px; }
+.set-avatars .av.sel { border-color: #4cd678; box-shadow: 0 0 0 2px #4cd678; }
+.sw { flex: none; width: 46px; height: 26px; border-radius: 13px; border: 0; background: rgba(255,255,255,.25); position: relative; transition: background .15s; }
+.sw i { position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .15s; }
+.sw.on { background: #4cd678; } .sw.on i { left: 23px; }
+.seg2 { display: inline-flex; background: rgba(255,255,255,.12); border-radius: 9px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg2 button { border: 0; background: none; color: #fff; padding: 6px 10px; border-radius: 7px; font-weight: 600; }
+.seg2 button.on { background: #fff; color: #10394a; }
+.set-card > .ob { align-self: flex-start; }
+/* velicina slova */
+.fs-large .shell-main, .fs-large .g-log, .fs-large .chat-list, .fs-large .modal-card, .fs-large .tip, .fs-large .toast, .fs-large .status { zoom: 1.15; }
+.fs-small .shell-main, .fs-small .g-log, .fs-small .chat-list, .fs-small .modal-card, .fs-small .tip, .fs-small .toast, .fs-small .status { zoom: .9; }
+/* animacije iskljucene */
+.anim-off .die.land, .anim-off .got, .anim-off .hex-hit { animation: none !important; }
+/* engleski: natpis posle imena u listi soba */
+.lang-en .rt-hn b::after { content: ' · room'; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  #settings { padding: 0 12px 16px; }
+  .set-grid { grid-template-columns: 1fr; gap: 12px; }
+  .set-row { flex-wrap: wrap; }
+}
+#profile { padding: 0 28px 28px; overflow-y: auto; }
+.prof-card { align-items: center; text-align: center; grid-row: span 2; }
+.prof-av { width: 110px; height: 110px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: 64px; box-shadow: 0 0 0 6px var(--pc); margin: 10px 0 6px; }
+.prof-name { font-size: 26px; text-shadow: 0 1px 2px #0008; }
+.prof-card small { color: #cfe3ea; }
+.prof-grid .set-avatars { max-height: none; }
+.set-row #setName { max-width: none; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) { #profile { padding: 0 12px 16px; } .prof-card { grid-row: auto; } }

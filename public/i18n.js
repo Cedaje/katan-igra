@@ -1,0 +1,320 @@
+// Prevod igre na engleski. Igra je napisana na srpskom; kad je izabran engleski,
+// svaki tekst na stranici (i opisi kad predjes misem) prevodi se preko ovog recnika.
+const I18N = (() => {
+  let lang = 'sr';
+  try { lang = localStorage.getItem('ot_lang') || 'sr'; } catch (_) { /* */ }
+
+  // sirovine (i nazivi iz podvodnog izgleda) unutar recenica
+  const RW = {
+    drvo: 'wood', glina: 'brick', ovca: 'sheep', vuna: 'sheep', 'žito': 'wheat', kamen: 'ore',
+    alge: 'seaweed', korali: 'coral', meduze: 'jellyfish', 'školjke': 'shells', kristali: 'crystals',
+  };
+  const res = (s) => s.replace(/(?<!\p{L})(drvo|glina|ovca|vuna|žito|kamen|alge|korali|meduze|školjke|kristali)(?!\p{L})/giu, (w) => {
+    const t = RW[w.toLowerCase()];
+    return w[0] === w[0].toUpperCase() && w[0] !== w[0].toLowerCase() ? t[0].toUpperCase() + t.slice(1) : t;
+  });
+
+  const EXACT = {
+    // meni i pocetna
+    Ostrvo: 'Merchant', Trgovaca: 'Isle', Sobe: 'Rooms', Pravila: 'Rules', Izgled: 'Looks', 'Podešavanja': 'Settings', Profil: 'Profile',
+    'Tvoje ime': 'Your name', 'Upiši ime': 'Enter name', 'Otvorene sobe': 'Open rooms', Soba: 'Room', Mod: 'Mode', Mapa: 'Map', Tajmer: 'Timer',
+    'Igrači': 'Players', 'Napravi sobu': 'Create room', 'Uđi u sobu': 'Join room', 'Kako se igra?': 'How to play?',
+    'Gradi. Trguj. Pobedi.': 'Build. Trade. Win.',
+    'Napravi sobu, pošalji link prijateljima i igrajte zajedno u browseru. Od 2 do 8 igrača.': 'Create a room, send the link to your friends and play together in the browser. 2 to 8 players.',
+    'Trenutno nema otvorenih soba. Napravi svoju i pozovi prijatelje!': 'No open rooms right now. Create one and invite your friends!',
+    Otvorena: 'Open', Popunjena: 'Full', 'Uđi ›': 'Join ›', Osnovni: 'Base', 'Prošireni': 'Extended', bez: 'none',
+    'Nazad na početnu stranu (Sobe)': 'Back to the start page (Rooms)',
+    'Izgled igre (skin): izaberi kako izgledaju polja, putevi, sela, gradovi, lopov i karte. Menja se samo kod tebe.': 'Game look (skin): choose how tiles, roads, settlements, cities, the thief and cards look. Changes only for you.',
+    'Napravi novu sobu i pozovi prijatelje linkom': 'Create a new room and invite friends with a link',
+    'Uđi u sobu preko koda od 4 slova': 'Join a room with a 4-letter code',
+    'Ime, jezik, zvuk, izgled i ostala podešavanja': 'Language, sound, looks and other settings',
+    'Tvoje ime, boja i avatar': 'Your name, color and avatar',
+    'Nazad na sobe': 'Back to rooms',
+    'Upiši kod sobe koji ti je prijatelj poslao (4 slova).': 'Enter the room code your friend sent you (4 letters).',
+    'Uđi': 'Join', 'Otkaži': 'Cancel', KOD: 'CODE',
+    'Prvo upiši svoje ime (gore levo).': 'First enter your name (top left).',
+    'Prvo izađi iz sobe (✕ gore desno).': 'Leave the room first (✕ top right).',
+    'Partija više ne postoji.': 'This game no longer exists.',
+    'Izbačen si iz sobe.': 'You were removed from the room.',
+    'Link je kopiran. Pošalji ga prijateljima.': 'Link copied. Send it to your friends.',
+    '📡 Veza sa serverom je prekinuta. Povezujem se ponovo… Tvoje mesto u igri je sačuvano.': '📡 Connection to the server was lost. Reconnecting… Your seat in the game is saved.',
+    // lobi
+    'Pozovi prijatelje': 'Invite friends', Kopiraj: 'Copy', 'Napredna podešavanja': 'Advanced settings', 'Pokreni igru': 'Start game',
+    'Čeka se da osnivač pokrene igru…': 'Waiting for the host to start the game…', 'Ćaskanje': 'Chat', 'Pošalji poruku': 'Send a message',
+    'Izađi iz sobe i vrati se na listu soba': 'Leave the room and go back to the room list',
+    'Kopiraj link i pošalji ga prijateljima': 'Copy the link and send it to your friends',
+    'Pokreni partiju sa igračima koji su u sobi (najmanje 2)': 'Start the game with the players in the room (at least 2)',
+    'Čeka se igrač…': 'Waiting for a player…', '👑 osnivač': '👑 host', spreman: 'ready', 'van mreže': 'offline', '(ti)': '(you)',
+    'Klikni da izabereš svoju boju i avatara': 'Click to choose your color and avatar',
+    Osnovna: 'Base', 'Proširenje': 'Expansion', 'Veliko proširenje': 'Large expansion', '2–4 igrača': '2–4 players', '5–6 igrača': '5–6 players', '7–8 igrača': '7–8 players',
+    'Proširenje 5–6': 'Expansion 5–6', 'Proširenje 7–8': 'Expansion 7–8',
+    'Privatna igra': 'Private game', 'ne vidi se u listi': 'hidden from the list', 'vidi se u listi soba': 'shown in the room list',
+    'Soba se ne prikazuje u listi otvorenih soba. Ulazi se samo preko linka ili koda.': 'The room is not shown in the open rooms list. Players join only with the link or code.',
+    'Sakrij banku': 'Hide bank', 'broj karata se ne vidi': 'card counts hidden', 'broj karata se vidi': 'card counts shown',
+    'Niko ne vidi koliko je karata ostalo u banci i u špilu razvojnih karata.': 'Nobody sees how many cards are left in the bank and in the development deck.',
+    'Prijateljski lopov': 'Friendly thief', 'štiti slabe igrače': 'protects weak players', 'isključeno': 'off',
+    'Lopov ne može da se stavi na polje igrača koji ima 2 poena ili manje. Pomaže novim igračima.': 'The thief cannot be placed on a tile of a player with 2 points or less. Helps new players.',
+    'Fer kockice': 'Fair dice', 'manje sreće': 'less luck', 'obične kockice': 'normal dice',
+    'Svih 36 kombinacija kockica izlazi redom kao iz špila, pa se brojevi pojavljuju onoliko često koliko i treba. Manje zavisi od sreće.': 'All 36 dice combinations come out like cards from a deck, so numbers appear as often as they should. Less luck involved.',
+    'Iste sirovine jedna do druge': 'Same resources next to each other', 'mogu da se dodiruju': 'may touch', 'nikad se ne dodiruju': 'never touch',
+    'Uključeno: polja se raspoređuju potpuno nasumično, pa dve iste sirovine (npr. dve šume) mogu biti jedna pored druge. Isključeno: ista polja se nikad ne dodiruju.': 'On: tiles are placed completely at random, so two of the same resource (e.g. two forests) can be next to each other. Off: same tiles never touch.',
+    'Isti brojevi jedan do drugog': 'Same numbers next to each other',
+    'Uključeno: isti brojevi (npr. dve devetke) mogu biti na susednim poljima. Isključeno: isti brojevi se nikad ne dodiruju. Šestica i osmica nikad nisu jedna pored druge.': 'On: the same numbers (e.g. two nines) can be on neighboring tiles. Off: the same numbers never touch. A 6 and an 8 are never next to each other.',
+    'Parovi igrača': 'Paired players', 'pomoćni potez uključen': 'helper turn on',
+    'Pravilo za proširenje (5–8 igrača). Posle svakog poteza sledeći igrač odmah igra pomoćni potez: ne baca kockice, trguje sa bankom, lukama i samo sa glavnim igračem, gradi, kupuje i igra razvojne karte. Zatim on postaje glavni igrač i baca kockice.': 'Expansion rule (5–8 players). After each turn the next player immediately plays a helper turn: no dice roll, trades with the bank, harbors and only with the main player, builds, buys and plays development cards. Then they become the main player and roll the dice.',
+    'Koliko vremena igrač ima za potez. Kad istekne, igra sama baci kockice ili završi potez.': 'How much time a player has per turn. When it runs out, the game rolls or ends the turn automatically.',
+    'Najveći broj igrača u ovoj sobi.': 'Maximum number of players in this room.', 'Koliko poena treba za pobedu.': 'Points needed to win.',
+    'Kad padne 7, svako ko ima više karata od ovog broja odbacuje polovinu.': 'When a 7 is rolled, everyone with more cards than this discards half.',
+    'Koliko karata svake sirovine ima u banci na početku.': 'How many cards of each resource the bank starts with.', 'Koliko razvojnih karata ima u špilu.': 'How many development cards are in the deck.',
+    'Tajmer poteza': 'Turn timer', 'Broj igrača': 'Players', 'Poeni za pobedu': 'Points to win', 'Limit karata (lopov)': 'Card limit (thief)',
+    'Karte sirovina (po vrsti)': 'Resource cards (each)', 'Razvojne karte (ukupno)': 'Development cards (total)', Bez: 'None',
+    '🎨 Tvoja boja i avatar': '🎨 Your color and avatar', 'Ovu boju već ima drugi igrač': 'Another player already has this color',
+    'Izaberi ovu boju': 'Choose this color', 'Izaberi ovog avatara': 'Choose this avatar', 'Izaberi ovog lika': 'Choose this character', Gotovo: 'Done',
+    // izgled
+    '🎨 Izgled igre': '🎨 Game look', 'Svetli ili tamni režim za sve izglede': 'Light or dark mode for all looks', Tamno: 'Dark', Svetlo: 'Light',
+    'Menja se samo kod tebe, drugi igrači biraju svoj izgled.': 'Changes only for you, other players choose their own look.',
+    'Klasične figure, prvi izgled igre.': 'Classic pieces, the original look.', 'Podvodni svet': 'Underwater world', 'Kućice': 'Little houses',
+    'Osnovni – tamno': 'Base – dark', 'Kućice – tamno': 'Little houses – dark',
+    'Morsko dno: alge, korali, meduze, školjke i kristali umesto običnih sirovina. Sela su školjke, gradovi velike spiralne školjke, putevi nizovi bisera, a lopov je ajkula.': 'Sea floor: seaweed, coral, jellyfish, shells and crystals instead of the usual resources. Settlements are shells, cities are pearls, roads are strings of pearls and the thief is a shark.',
+    'Osnovni ravni izgled u tamnim bojama: tamnija polja, paneli i pozadina.': 'The flat base look in dark colors: darker tiles, panels and background.',
+    'Isto kao Kućice, ali u tamnim bojama, kao noću: tamnija polja i paneli, a prozori na kućama svetle.': 'Like Little houses but in dark colors, as at night: darker tiles and panels, and the house windows glow.',
+    '3D izgled: polja sa drvećem, ovcama, žitom, ciglama i planinama, 3D putevi, lopov sa kapuljačom, ilustrovane karte i kućice u boji igrača.': '3D look: tiles with trees, sheep, wheat, bricks and mountains, 3D roads, a hooded thief, illustrated cards and houses in player colors.',
+    Alge: 'Seaweed', Korali: 'Coral', Meduze: 'Jellyfish', 'Školjke': 'Shells', Kristali: 'Crystals',
+    // podesavanja i profil
+    '⚙️ Podešavanja': '⚙️ Settings', '👤 Profil': '👤 Profile', '🔊 Zvuk': '🔊 Sound', '🌍 Jezik': '🌍 Language', '🎨 Izgled': '🎨 Looks', '🎮 Igra': '🎮 Game',
+    'Zvuk uključen': 'Sound on', 'Uključi ili isključi sve zvukove': 'Turn all sounds on or off', 'Jačina': 'Volume', 'Jačina svih zvukova': 'Volume of all sounds',
+    'Efekti igre': 'Game effects', 'Kockice, gradnja, karte, trgovina, lopov…': 'Dice, building, cards, trading, thief…',
+    'Zvuk kad si na potezu': 'Sound on your turn', 'Zvono kad dođe tvoj red i otkucaji kad ističe vreme': 'A bell when it is your turn and ticks when time runs out',
+    'Obaveštenja': 'Notifications', 'Ponude za razmenu, glasanje, pobeda i poraz': 'Trade offers, votes, win and loss',
+    'Poruke u ćaskanju': 'Chat messages', 'Kratak zvuk kad neko napiše poruku': 'A short sound when someone writes a message',
+    '▶ Probaj zvuk': '▶ Test sound', 'Pusti probni zvuk': 'Play a test sound',
+    'Menja se samo kod tebe. Ostali igrači vide igru na svom jeziku.': 'Changes only for you. Other players see the game in their own language.',
+    'Izgled igre': 'Game look', 'Izaberi kako izgledaju polja, figure i karte': 'Choose how tiles, pieces and cards look',
+    'Tamni režim': 'Dark mode', 'Tamne boje za Osnovni i Kućice izgled': 'Dark colors for the Base and Little houses looks',
+    'Veličina slova': 'Text size', Mala: 'Small', Srednja: 'Medium', Velika: 'Large',
+    Animacije: 'Animations', Normalno: 'Normal', Brzo: 'Fast', 'Isključeno': 'Off',
+    'Kockice koje se kotrljaju i karte koje lete do igrača': 'Rolling dice and cards flying to players',
+    'Potvrda pre gradnje': 'Confirm before building',
+    'Pre nego što se sagradi put, selo ili grad pita te da potvrdiš, da ne sagradiš nešto slučajno': 'Asks you to confirm before building a road, settlement or city, so you never build by accident',
+    Ime: 'Name', '✏️ Ime': '✏️ Name', '🎨 Omiljena boja': '🎨 Favorite color', '🦊 Omiljeni lik': '🦊 Favorite character',
+    'Dobijaš je kad uđeš u sobu, ako je niko drugi već nema.': 'You get it when you join a room, if nobody else has it.',
+    'Bez omiljene boje (dobijaš slobodnu)': 'No favorite color (you get a free one)', 'Ovako te vide ostali igrači u sobi.': 'This is how other players see you in a room.',
+    '✔ Sagradi': '✔ Build',
+    // igra
+    'Pravila igre, cene i prečice na tastaturi': 'Game rules, costs and keyboard shortcuts', 'Prikaži igru preko celog ekrana': 'Show the game full screen',
+    'Napusti igru ili je prekini (osnivač)': 'Leave the game or end it (host)', Zvuk: 'Sound', 'Dnevnik igre, ćaskanje i banka': 'Game log, chat and bank',
+    'Koliko dugo traje ova partija': 'How long this game has lasted', 'Uvećaj mapu (taster +, ili točkić miša gore)': 'Zoom in (+ key, or mouse wheel up)',
+    'Vrati mapu na celu veličinu (taster 0). Mapu pomeraš tako što je držiš levim klikom i vučeš.': 'Reset the map to full size (0 key). Move the map by holding the left mouse button and dragging.',
+    'Umanji mapu (taster −, ili točkić miša dole)': 'Zoom out (− key, or mouse wheel down)',
+    'Kockice. Klikni ili pritisni Space da baciš kad si na potezu.': 'Dice. Click or press Space to roll on your turn.',
+    'Preostalo vreme za potez. Kad istekne, igra sama odigra umesto igrača.': 'Time left for the turn. When it runs out, the game plays for the player.',
+    'Zatvori panel': 'Close panel', '✕ Nazad na tablu': '✕ Back to the board', 'Otvori ili zatvori ćaskanje. Komande: /izlaz, /kraj': 'Open or close chat. Commands: /izlaz (leave), /kraj (end)',
+    'Uključi zvuk': 'Turn sound on', 'Isključi zvuk': 'Turn sound off', 'Još nema poruka.': 'No messages yet.',
+    Drvo: 'Wood', Glina: 'Brick', Ovca: 'Sheep', 'Žito': 'Wheat', Kamen: 'Ore', Vitez: 'Knight', Poen: 'Point', Putevi: 'Roads', Obilje: 'Plenty', Monopol: 'Monopoly',
+    'Pomeri lopova i ukradi kartu.': 'Move the thief and steal a card.', '+1 poen (računa se sam).': '+1 point (counted automatically).',
+    'Sagradi 2 puta besplatno.': 'Build 2 roads for free.', 'Uzmi 2 sirovine iz banke.': 'Take 2 resources from the bank.', 'Uzmi svim igračima jednu sirovinu.': 'Take one resource type from all players.',
+    'Nemaš karte sirovina.': 'You have no resource cards.', 'Poen se računa automatski.': 'Points are counted automatically.',
+    'Obilje: izaberi 2 sirovine iz banke': 'Plenty: choose 2 resources from the bank', 'Monopol: koju sirovinu uzimaš od svih?': 'Monopoly: which resource do you take from everyone?',
+    'Trgovati možeš kad si na potezu, posle bacanja kockica.': 'You can trade on your turn, after rolling the dice.',
+    '🛑 Igra je prekinuta': '🛑 The game was ended', 'Postavi selo': 'Place a settlement', 'Postavi put': 'Place a road', '🎲 Baci kockice': '🎲 Roll the dice',
+    'Čeka se odbacivanje': 'Waiting for discards', 'Pomeri lopova': 'Move the thief', 'Izaberi od koga kradeš': 'Choose who to steal from',
+    'Izaberi mesto (Esc za otkaz)': 'Choose a spot (Esc to cancel)', '👥 Tvoj pomoćni potez': '👥 Your helper turn', 'Tvoj red': 'Your turn',
+    'Nemaš dovoljno sirovina': 'Not enough resources', 'Nemaš dovoljno sirovina.': 'Not enough resources.', 'Nema više karata.': 'No cards left.',
+    'Trgovina (T): razmeni karte sa igračima ili bankom. Možeš i da klikneš kartu u svojoj ruci.': 'Trade (T): trade cards with players or the bank. You can also click a card in your hand.',
+    'Razvojna karta (K): 🐑🌾🪨. Može biti vitez, poen, putevi, obilje ili monopol. Broj = karte u špilu.': 'Development card (K): 🐑🌾🪨. Can be a knight, point, roads, plenty or monopoly. Number = cards in the deck.',
+    'Put (P): 🌲🧱. Gradi se pored svog sela ili puta. Broj = preostali putevi.': 'Road (P): 🌲🧱. Built next to your settlement or road. Number = roads left.',
+    'Selo (S): 🌲🧱🐑🌾, 1 poen. Mora biti na tvom putu, bar 2 ivice od drugog sela.': 'Settlement (S): 🌲🧱🐑🌾, 1 point. Must be on your road, at least 2 edges from another settlement.',
+    'Grad (G): 🌾🌾🪨🪨🪨, 2 poena. Pravi se od tvog sela i daje duplo sirovina.': 'City (G): 🌾🌾🪨🪨🪨, 2 points. Upgrades your settlement and gives double resources.',
+    'Kraj poteza (E): predaj red sledećem igraču.': 'End turn (E): pass the turn to the next player.',
+    Trgovina: 'Trade', Karta: 'Card', Put: 'Road', Selo: 'Settlement', Grad: 'City', 'Kraj poteza': 'End turn', 'Razvojna karta': 'Development card',
+    'Predloži razmenu igraču koji je na potezu. Može bilo kad tokom njegovog poteza.': 'Propose a trade to the player on turn. Possible any time during their turn.',
+    '📜 Recepti': '📜 Recipes', Recepti: 'Recipes', Poeni: 'Points', 'Karte sirovina': 'Resource cards', 'Razvojne karte': 'Development cards', 'Odigrani vitezovi': 'Knights played',
+    'Odigrani vitezovi – najveća vojska (+2)': 'Knights played – largest army (+2)', 'Najduži put': 'Longest road', 'Najduži put (+2)': 'Longest road (+2)',
+    Banka: 'Bank', 'Banka (sakrivena)': 'Bank (hidden)', 'Razvojne karte u špilu': 'Development cards in the deck', 'Glasanje za izbacivanje': 'Vote to remove',
+    glavni: 'main', 'pomoćni': 'helper',
+    'Glavni igrač ovog kruga: jedini sa kim pomoćni igrač sme da trguje': 'Main player of this round: the only one the helper may trade with',
+    'Igra pomoćni potez: bez kockica, trguje samo sa glavnim igračem': 'Playing a helper turn: no dice, trades only with the main player',
+    '📨 Predlozi za razmenu': '📨 Trade proposals', 'Čeka se odgovor…': 'Waiting for answers…', Povuci: 'Withdraw', 'Povuci svoju ponudu': 'Withdraw your offer',
+    'Završi razmenu sa ovim igračem': 'Complete the trade with this player', '✔ Prihvati': '✔ Accept', '✕ Odbij': '✕ Decline', '✎ Kontraponuda': '✎ Counter-offer',
+    'Prihvati ovu kontraponudu i odmah razmeni': 'Accept this counter-offer and trade now', 'Prihvati ponudu (igrač na potezu zatim potvrđuje)': 'Accept the offer (the player on turn then confirms)',
+    'Odbij ponudu': 'Decline the offer', 'Predloži svoje uslove razmene': 'Propose your own terms', '⬇ Dobijaš': '⬇ You get', '⬆ Daješ': '⬆ You give',
+    'Nemaš dovoljno karata za ovu razmenu.': 'You do not have enough cards for this trade.', '✕ Odbio si ovu ponudu.': '✕ You declined this offer.', '✎ Poslao si kontraponudu.': '✎ You sent a counter-offer.',
+    'ti nudi razmenu': 'offers you a trade', 'Klikni sirovinu gore koju želiš da dobiješ': 'Click a resource above that you want to get', 'Klikni svoju kartu dole koju daješ': 'Click your card below that you give',
+    'Nema više karata': 'No more cards', 'Sirovine iz banke': 'Resources from the bank', 'Dobijaš': 'You get', 'Daješ': 'You give',
+    'Pošalji predlog igraču na potezu': 'Send a proposal to the player on turn', 'Predloži': 'Propose', 'Igračima': 'Players',
+    'Pošalji ponudu svim igračima; ti biraš sa kim ćeš razmeniti': 'Send an offer to all players; you choose who to trade with',
+    'Pomoćni potez: ponuda ide samo glavnom igraču': 'Helper turn: the offer goes only to the main player',
+    'Trguj sa bankom: daješ broj karata koji piše na kartici gore (4:1, 3:1 ili 2:1) za 1 kartu': 'Trade with the bank: give the number shown on the card above (4:1, 3:1 or 2:1) for 1 card',
+    'Zatvori trgovinu (Esc)': 'Close trade (Esc)', 'Za banku: daj jednu vrstu sirovine (broj piše na kartici gore) i traži 1 kartu.': 'For the bank: give one resource type (number on the card above) and ask for 1 card.',
+    'Samo osnivač sobe može da prekine igru.': 'Only the host can end the game.', 'Komande: /izlaz (napusti igru), /kraj (osnivač prekida igru za sve)': 'Commands: /izlaz (leave the game), /kraj (host ends the game for everyone)',
+    '🚪 Izlaz': '🚪 Leave', 'Ako napustiš igru, tvoje figure ostaju na tabli, a igra će umesto tebe završavati poteze. Možeš da se vratiš preko linka sobe.': 'If you leave, your pieces stay on the board and the game will end your turns for you. You can come back with the room link.',
+    'Napusti igru': 'Leave game', 'Prekini igru za sve': 'End game for everyone', 'Pokreni glasanje': 'Start vote', 'Ti ne glasaš.': 'You do not vote.',
+    'Nazad na sobe': 'Back to rooms', Odbaci: 'Discard', 'Od koga kradeš?': 'Who do you steal from?', Potvrdi: 'Confirm', Vitezovi: 'Knights',
+    '📊 Igrači': '📊 Players', '🎲 Dobio': '🎲 Gained', '🦹 Ukrao': '🦹 Stole', '😢 Izgubio': '😢 Lost', '🗑️ Odbacio': '🗑️ Discarded',
+    'Dobijene sirovine od kockica': 'Resources gained from dice', 'Ukradene karte': 'Cards stolen', 'Karte koje su mu ukradene': 'Cards stolen from them',
+    'Odbačene karte na 7': 'Cards discarded on 7', 'Razmene sa igračima': 'Trades with players', 'Razmene sa bankom': 'Trades with the bank', 'Kupljene razvojne karte': 'Development cards bought',
+    'Zatvori pravila (Esc)': 'Close rules (Esc)', Zatvori: 'Close', 'Glasajte!': 'Vote!', Da: 'Yes', Ne: 'No',
+    // greske sa servera
+    'Soba ne postoji. Proveri kod.': 'This room does not exist. Check the code.', 'Izbačen si iz ove igre glasanjem.': 'You were voted out of this game.',
+    'Greška na serveru.': 'Server error.', 'Nisi u sobi.': 'You are not in a room.', 'Boja i avatar se biraju u lobiju.': 'Color and avatar are chosen in the lobby.',
+    'Nepoznata boja.': 'Unknown color.', 'Tu boju već ima drugi igrač.': 'Another player already has that color.', 'Igra je već počela.': 'The game has already started.',
+    'Samo osnivač sobe menja podešavanja.': 'Only the host changes the settings.', 'U sobi ima previše igrača za ovu mapu.': 'Too many players in the room for this map.',
+    'Samo osnivač sobe može da izbaci igrača.': 'Only the host can remove a player.', 'Nema tog igrača.': 'No such player.',
+    'Glasanje je moguće samo tokom igre.': 'Voting is possible only during the game.', 'Napustio si igru.': 'You left the game.',
+    'Ne možeš da glasaš protiv sebe.': 'You cannot vote against yourself.', 'Već traje jedno glasanje.': 'A vote is already running.', 'Nema glasanja.': 'There is no vote.',
+    'Ti ne glasaš u ovom glasanju.': 'You do not vote in this vote.', 'Igra nije u toku.': 'The game is not running.', 'Nisi u ovoj sobi.': 'You are not in this room.',
+    'Igra je završena.': 'The game is over.', 'Igra još nije počela.': 'The game has not started yet.', 'Nije tvoj red.': 'It is not your turn.', 'Nepoznata akcija.': 'Unknown action.',
+    'Samo osnivač sobe može da pokrene igru.': 'Only the host can start the game.', 'Potrebna su bar 2 igrača.': 'At least 2 players are needed.',
+    'Prvo baci kockice.': 'Roll the dice first.', 'Sada to ne možeš.': 'You cannot do that now.', 'Pogrešno mesto.': 'Wrong spot.', 'Sada postavi put.': 'Now place a road.',
+    'Nemaš više sela.': 'No settlements left.', 'Nemaš dovoljno sirovina za selo.': 'Not enough resources for a settlement.', 'Tu ne možeš da gradiš selo.': 'You cannot build a settlement there.',
+    'Prvo postavi selo.': 'Place a settlement first.', 'Nemaš dovoljno sirovina za put.': 'Not enough resources for a road.', 'Nemaš više puteva.': 'No roads left.',
+    'Tu ne možeš da gradiš put.': 'You cannot build a road there.', 'Nemaš više gradova.': 'No cities left.', 'Nemaš dovoljno sirovina za grad.': 'Not enough resources for a city.',
+    'Grad se gradi na tvom selu.': 'A city is built on your settlement.', 'Sada ne možeš da baciš kockice.': 'You cannot roll the dice now.',
+    'Sada ne treba da odbacuješ.': 'You do not need to discard now.', 'Ti ne moraš da odbacuješ.': 'You do not have to discard.', 'Nemaš toliko karata.': 'You do not have that many cards.',
+    'Sada ne pomeraš lopova.': 'You are not moving the thief now.', 'Pogrešno polje.': 'Wrong tile.', 'Lopov mora na drugo polje.': 'The thief must move to another tile.',
+    'Prijateljski lopov: ne možeš na polje igrača sa 2 poena ili manje.': 'Friendly thief: you cannot use a tile of a player with 2 points or less.',
+    'Sada ne možeš da kradeš.': 'You cannot steal now.', 'Od tog igrača ne možeš da kradeš.': 'You cannot steal from that player.',
+    'Nema više razvojnih karata.': 'No development cards left.', 'Nemaš dovoljno sirovina za razvojnu kartu.': 'Not enough resources for a development card.',
+    'Sada ne možeš.': 'You cannot do that now.', 'Bod pobede se ne igra, automatski se računa.': 'A victory point is not played, it counts automatically.',
+    'Možeš da odigraš samo jednu razvojnu kartu po potezu.': 'You can play only one development card per turn.', 'Pre bacanja možeš da odigraš samo viteza.': 'Before rolling you can only play a knight.',
+    'Sada ne možeš da igraš kartu.': 'You cannot play a card now.', 'Nemaš tu kartu (ili si je kupio u ovom potezu).': 'You do not have that card (or you bought it this turn).',
+    'Izaberi dve sirovine.': 'Choose two resources.', 'Banka nema te sirovine.': 'The bank does not have those resources.', 'Izaberi sirovinu.': 'Choose a resource.',
+    'Nemaš gde da gradiš puteve.': 'You have nowhere to build roads.', 'Nepoznata karta.': 'Unknown card.', 'Izaberi šta daješ i šta dobijaš.': 'Choose what you give and what you get.',
+    'Banka nema tu sirovinu.': 'The bank does not have that resource.', 'Izaberi šta daješ i šta tražiš.': 'Choose what you give and what you ask for.', 'Nemaš te karte.': 'You do not have those cards.',
+    'Nema aktivne ponude.': 'There is no active offer.', 'Ne možeš da odgovoriš na svoju ponudu.': 'You cannot answer your own offer.', 'Nemaš karte koje se traže.': 'You do not have the requested cards.',
+    'Sada ne možeš da trguješ.': 'You cannot trade now.', 'Ti si na potezu: napravi svoju ponudu.': 'It is your turn: make your own offer.', 'Nema tvoje ponude.': 'You have no offer.',
+    'Taj igrač nije dao kontraponudu.': 'That player made no counter-offer.', 'Taj igrač nije prihvatio.': 'That player did not accept.', 'Više nemaš te karte.': 'You no longer have those cards.',
+    'Postavljanje završeno.': 'Setup finished.', '🛣️ Niko više nema najduži put.': '🛣️ Nobody has the longest road anymore.',
+    // pravila (prozor "Kako se igra")
+    '📖 Kako se igra': '📖 How to play', 'Cilj: prvi skupi dovoljno poena (obično 10).': 'Goal: be the first to collect enough points (usually 10).',
+    'Selo 1 poen, grad 2 poena': 'Settlement 1 point, city 2 points', 'Najduži put (bar 5 puteva) +2': 'Longest road (at least 5 roads) +2', 'Najveća vojska (bar 3 viteza) +2': 'Largest army (at least 3 knights) +2',
+    'Karta „Poen“ +1': '“Point” card +1', 'Tok poteza': 'A turn', 'Baci kockice: svako polje sa tim brojem daje sirovine selima (1) i gradovima (2) oko njega.': 'Roll the dice: every tile with that number gives resources to settlements (1) and cities (2) around it.',
+    'Trguj sa igračima ili bankom (4:1, a sa lukom 3:1 ili 2:1).': 'Trade with players or the bank (4:1, or 3:1 / 2:1 with a harbor).', 'Gradi i završi potez.': 'Build and end your turn.',
+    Cene: 'Costs', 'Put: 🌲🧱': 'Road: 🌲🧱', 'Selo: 🌲🧱🐑🌾': 'Settlement: 🌲🧱🐑🌾', 'Grad: 🌾🌾🪨🪨🪨': 'City: 🌾🌾🪨🪨🪨', 'Razvojna karta: 🐑🌾🪨': 'Development card: 🐑🌾🪨',
+    '👥 Parovi igrača (opcija u podešavanjima)': '👥 Paired players (room option)', 'Glavni igrač igra svoj potpuno normalan potez: baca kockice, trguje sa svima i gradi.': 'The main player plays a completely normal turn: rolls, trades with everyone and builds.',
+    'Odmah zatim sledeći igrač igra': 'Right after that the next player plays a', 'pomoćni potez': 'helper turn', ': ne baca kockice, trguje sa bankom, preko svojih luka i': ': no dice roll, trades with the bank, through their harbors and',
+    'samo sa glavnim igračem': 'only with the main player', ', gradi, kupuje i igra razvojne karte.': ', builds, buys and plays development cards.',
+    'Kad pomoćni igrač završi, on postaje glavni igrač i baca kockice, a sledeći do njega postaje novi pomoćni igrač.': 'When the helper finishes, they become the main player and roll, and the next player becomes the new helper.',
+    Sedmica: 'Seven', 'Ko ima više karata od limita odbacuje polovinu. Igrač na potezu pomera lopova (to polje ne daje sirovine) i krade jednu kartu.': 'Anyone with more cards than the limit discards half. The player on turn moves the thief (that tile gives no resources) and steals one card.',
+    Tasteri: 'Keys', 'baci kockice ·': 'roll the dice ·', 'kraj poteza ·': 'end turn ·', 'trgovina ·': 'trade ·', 'put ·': 'road ·', 'selo ·': 'settlement ·', 'grad ·': 'city ·',
+    'razvojna karta ·': 'development card ·', 'otkaži ·': 'cancel ·', 'zum mape ·': 'zoom the map ·', 'cela mapa. Točkić miša zumira, a mapu pomeraš držanjem levog klika.': 'whole map. The mouse wheel zooms, and you move the map by holding the left button.',
+    Izbacivanje: 'Removing a player', 'pored imena igrača da pokreneš glasanje. Ako se većina ostalih složi, igrač je izbačen.': 'next to a player name to start a vote. If most of the others agree, the player is removed.',
+    Klikni: 'Click', 'Komande u ćaskanju': 'Chat commands', 'napusti igru ·': 'leave the game ·', 'osnivač prekida igru za sve': 'host ends the game for everyone',
+    Postavljanje: 'Setup', 'Svako postavlja selo i put, pa opet obrnutim redom. Drugo selo odmah daje sirovine.': 'Everyone places a settlement and a road, then again in reverse order. The second settlement gives resources right away.',
+    'Klikni 🥾 pored imena igrača da pokreneš glasanje. Ako se većina ostalih složi, igrač je izbačen.': 'Click 🥾 next to a player name to start a vote. If most of the others agree, the player is removed.',
+    'Igra je počela!': 'The game has started!', put: 'road', selo: 'settlement', grad: 'city', 'Igrači (': 'Players (', 'Izbaci ovog igrača iz sobe': 'Remove this player from the room',
+  };
+
+  const P = [
+    [/^(.+?) (Nemaš dovoljno sirovina|Nema više karata|Nemaš više: \S+|Nema slobodnog mesta za \S+)\.$/, (m, a, b) => `${tr(a)} ${tr(b)}.`],
+    [/^(\d+) poen$/, '$1 point'], [/^(.+) ›$/, (m, a) => (EXACT[a] ? EXACT[a] + ' ›' : null)],
+    [/^Upiši ime i klikni sobu (\w+) ili „Uđi u sobu“\.$/, 'Enter your name and click room $1 or “Join room”.'],
+    [/^Igrači: (.*)$/, 'Players: $1'], [/^Igrači \((.*)\)$/, 'Players ($1)'], [/^Soba: (.*)$/, 'Room: $1'],
+    [/^Tabla za (.*)\. Veća tabla ima više polja, luka i karata\.$/, (m, a) => `Board for ${tr(a)}. A bigger board has more tiles, harbors and cards.`],
+    [/^(.+) postavlja selo$/, '$1 is placing a settlement'], [/^(.+) postavlja put$/, '$1 is placing a road'], [/^(.+) baca kockice$/, '$1 is rolling'],
+    [/^Odbaci (\d+) karata$/, 'Discard $1 cards'], [/^(.+) pomera lopova$/, '$1 is moving the thief'], [/^(.+) krade kartu$/, '$1 is stealing a card'],
+    [/^Postavi besplatan put \((\d+)\)$/, 'Place a free road ($1)'], [/^(.+) gradi puteve$/, '$1 is building roads'],
+    [/^👥 Pomoćni potez: (.+)$/, '👥 Helper turn: $1'], [/^Na potezu: (.+)$/, 'On turn: $1'],
+    [/^Pomoćni potez: bez kockica\. Trgovina sa bankom, lukama i samo sa glavnim igračem \((.+)\)\. Može da se gradi i igraju razvojne karte\.$/, 'Helper turn: no dice. Trade with the bank, harbors and only with the main player ($1). You can build and play development cards.'],
+    [/^Nemaš više: (.+)$/, (m, a) => `None left: ${tr(a)}`], [/^Nema slobodnog mesta za (.+)$/, (m, a) => `No free spot for ${tr(a)}`],
+    [/^(.+) je pobedio!$/, '$1 won!'], [/^🛑 Igra je prekinuta \(prekinuo (.+)\)$/, '🛑 The game was ended (by $1)'],
+    [/^(\d+) poena$/, '$1 points'], [/^\((\d+) karata\)$/, '($1 cards)'], [/^(.+) \((\d+) karata\)$/, '$1 ($2 cards)'],
+    [/^⏱ Igra je trajala$/, '⏱ The game lasted'], [/^· (\d+) poteza$/, '· $1 turns'], [/^🎲 Kockice \((\d+) bacanja\)$/, '🎲 Dice ($1 rolls)'],
+    [/^(\d+) je pao (\d+) puta \(očekivano oko ([\d.]+)\)$/, '$1 came up $2 times (expected about $3)'],
+    [/^Lopov! Odbaci (\d+) karata$/, 'Thief! Discard $1 cards'], [/^Izabrano:$/, 'Selected:'], [/^Izabrano: (.*)$/, 'Selected: $1'],
+    [/^🥾 Izbaci igrača (.+)\?$/, '🥾 Remove player $1?'],
+    [/^Pokrenućeš glasanje\. Ako se većina ostalih igrača složi u roku od 60 sekundi, (.+) se izbacuje\. Njegove figure ostaju na tabli, a potezi mu se preskaču\.$/, 'You will start a vote. If most of the other players agree within 60 seconds, $1 is removed. Their pieces stay on the board and their turns are skipped.'],
+    [/^predlaže da se izbaci$/, 'proposes to remove'], [/^✔ (\d+) · ✕ (\d+) od (\d+) ·$/, '✔ $1 · ✕ $2 of $3 ·'],
+    [/^daje$/, 'gives'], [/^za$/, 'for'], [/^Tvoj predlog za (.+): daješ$/, 'Your proposal to $1: you give'], [/^Čeka se da (.+) odluči…$/, 'Waiting for $1 to decide…'],
+    [/^Odbili: (.+)$/, 'Declined: $1'], [/^predlaže: ti daješ$/, 'proposes: you give'], [/^✔ Prihvatio si, čeka se da (.+) potvrdi\.$/, '✔ You accepted, waiting for $1 to confirm.'],
+    [/^Ukrao si: (.+)$/, (m, a) => `You stole: ${res(a)}`], [/^(.+) ti je ukrao: (.+)$/, (m, a, b) => `${a} stole from you: ${res(b)}`],
+    [/^(.+) \((iz šume|iz gliništa|sa pašnjaka|sa polja|iz planine)\)( – klikni za trgovinu)?$/, (m, a, b, c) => `${tr(a)} (${{ 'iz šume': 'from forest', 'iz gliništa': 'from clay pit', 'sa pašnjaka': 'from pasture', 'sa polja': 'from fields', 'iz planine': 'from mountains' }[b]})${c ? ' – click to trade' : ''}`],
+    [/^(.+): (.+?)( \(kupljena u ovom potezu\))?$/, (m, a, b, c) => (EXACT[a] && EXACT[b] ? `${EXACT[a]}: ${EXACT[b]}${c ? ' (bought this turn)' : ''}` : null)],
+    [/^Banka: daješ (\d) za 1$/, 'Bank: give $1 for 1'], [/^Sagradi (.+) ovde\?$/, (m, a) => `Build ${{ '🛤️ put': '🛤️ a road', '🏠 selo': '🏠 a settlement', '🏰 grad': '🏰 a city' }[a] || a} here?`],
+    // dnevnik igre
+    [/^(.+) je izašao iz sobe\.$/, '$1 left the room.'], [/^(.+) je ušao u sobu\.$/, '$1 joined the room.'],
+    [/^🛣️ (.+) sada ima najduži put \((\d+)\)\.$/, '🛣️ $1 now has the longest road ($2).'], [/^🚪 (.+) je napustio igru\.$/, '🚪 $1 left the game.'],
+    [/^🗳️ (.+) predlaže da se izbaci (.+)\. Glasajte!$/, '🗳️ $1 proposes to remove $2. Vote!'], [/^🥾 (.+) je izbačen iz igre \(glasanje (.+)\)\.$/, '🥾 $1 was removed from the game (vote $2).'],
+    [/^🗳️ Glasanje za izbacivanje (.+) nije prošlo\.$/, '🗳️ The vote to remove $1 failed.'], [/^🛑 (.+) je prekinuo igru\.$/, '🛑 $1 ended the game.'],
+    [/^🏆 (.+) je pobedio sa (\d+) poena!$/, '🏆 $1 won with $2 points!'], [/^Igra je počela! Redosled: (.+)\.$/, 'The game has started! Order: $1.'],
+    [/^(.+) postavlja prvo selo\.$/, '$1 places the first settlement.'], [/^🏠 (.+) je sagradio selo\.$/, '🏠 $1 built a settlement.'],
+    [/^(.+) dobija: (.+)\.$/, (m, a, b) => `${a} gets: ${res(b)}.`], [/^🛤️ (.+) je sagradio put\.$/, '🛤️ $1 built a road.'],
+    [/^Postavljanje završeno\. (.+) je na potezu\.$/, 'Setup finished. $1 is on turn.'], [/^🏰 (.+) je sagradio grad\.$/, '🏰 $1 built a city.'],
+    [/^🎲 (.+) je bacio (\d+)\.$/, '🎲 $1 rolled $2.'], [/^Banka nema dovoljno: (.+)\.$/, (m, a) => `The bank does not have enough: ${res(a)}.`],
+    [/^Igrači sa više od (\d+) karata odbacuju polovinu\.$/, 'Players with more than $1 cards discard half.'], [/^(.+) je odbacio (\d+) karata\.$/, '$1 discarded $2 cards.'],
+    [/^🦹 (.+) je pomerio lopova\.$/, '🦹 $1 moved the thief.'], [/^(.+) je ukrao kartu od (.+)\.$/, '$1 stole a card from $2.'],
+    [/^🃏 (.+) je kupio razvojnu kartu\.$/, '🃏 $1 bought a development card.'], [/^✨ (.+) je odigrao Obilje: (.+) i (.+)\.$/, (m, a, b, c) => `✨ ${a} played Plenty: ${res(b)} and ${res(c)}.`],
+    [/^💰 (.+) je odigrao Monopol i uzeo (\d+) × (.+)\.$/, (m, a, b, c) => `💰 ${a} played Monopoly and took ${b} × ${res(c)}.`],
+    [/^🛠️ (.+) je odigrao Graditelje puteva\.$/, '🛠️ $1 played Road Building.'], [/^⚔️ (.+) je odigrao Viteza\.$/, '⚔️ $1 played a Knight.'],
+    [/^🛡️ (.+) sada ima najveću vojsku\.$/, '🛡️ $1 now has the largest army.'],
+    [/^🏦 (.+) je razmenio (\d+) (.+) za 1 (.+) sa bankom\.$/, (m, a, b, c, d) => `🏦 ${a} traded ${b} ${res(c)} for 1 ${res(d)} with the bank.`],
+    [/^🤝 (.+) nudi (.+) za (.+)\.$/, (m, a, b, c) => `🤝 ${a} offers ${res(b)} for ${res(c)}.`], [/^🤝 (.+) predlaže: daje (.+) za (.+)\.$/, (m, a, b, c) => `🤝 ${a} proposes: gives ${res(b)} for ${res(c)}.`],
+    [/^✅ (.+) i (.+) su razmenili karte\.$/, '✅ $1 and $2 traded cards.'],
+    [/^🤝 Pomoćni potez: (.+) \(bez kockica, trguje samo sa glavnim igračem: (.+)\)\.$/, '🤝 Helper turn: $1 (no dice, trades only with the main player: $2).'],
+    [/^➡️ Na potezu je (.+)\.$/, '➡️ $1 is on turn.'], [/^(.+) se vratio u igru\.$/, '$1 is back in the game.'], [/^⏰ Isteklo je vreme za (.+)\.$/, '⏰ Time ran out for $1.'],
+    // greske sa promenljivim delom
+    [/^Soba je puna \((\d+) igrača\)\.$/, 'The room is full ($1 players).'], [/^Moraš da odbaciš tačno (\d+)\.$/, 'You must discard exactly $1.'],
+    [/^Za ovu razmenu treba ti (\d+) × (.+)\.$/, (m, a, b) => `This trade needs ${a} × ${res(b)}.`], [/^(.+) više nema te karte\.$/, '$1 no longer has those cards.'],
+    [/^U pomoćnom potezu trguje se samo sa glavnim igračem \((.+)\)\.$/, 'In a helper turn you trade only with the main player ($1).'],
+  ];
+
+  function tr(s) {
+    if (lang !== 'en' || !s) return s;
+    const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(s);
+    const core = m[2];
+    if (!core || !/[A-Za-zčćšđžČĆŠĐŽ]/.test(core)) return s;
+    let out = EXACT[core];
+    if (out === undefined) {
+      // pokusaj i bez emotikona na pocetku
+      const pm = /^([^\p{L}\p{N}]+)([\s\S]+)$/u.exec(core);
+      if (pm && EXACT[pm[2]] !== undefined) out = pm[1] + EXACT[pm[2]];
+    }
+    if (out === undefined) {
+      for (const [re, rep] of P) {
+        if (!re.test(core)) continue;
+        const r = typeof rep === 'function' ? rep(...re.exec(core)) : core.replace(re, rep);
+        if (r !== null) { out = r; break; }
+      }
+    }
+    if (out === undefined && /[.!?] \S/.test(core)) {
+      // vise recenica: prevedi svaku posebno
+      const parts = core.split(/(?<=[.!?]) +/);
+      if (parts.length > 1) { const t = parts.map((x) => tr(x)); if (t.some((x, i) => x !== parts[i])) out = t.join(' '); }
+    }
+    return out === undefined ? s : m[1] + out + m[3];
+  }
+
+  const ATTRS = ['title', 'placeholder', 'data-tip'];
+  const skip = (el) => el.closest && el.closest('#board, .nt, script, style');
+  function walk(node) {
+    if (node.nodeType === 3) {
+      if (node.parentElement && skip(node.parentElement)) return;
+      const t = tr(node.data); if (t !== node.data) node.data = t;
+      return;
+    }
+    if (node.nodeType !== 1 || skip(node)) return;
+    for (const a of ATTRS) if (node.hasAttribute(a)) { const v = node.getAttribute(a), t = tr(v); if (t !== v) node.setAttribute(a, t); }
+    for (const c of node.childNodes) walk(c);
+  }
+  function start() {
+    if (lang !== 'en') return;
+    document.documentElement.lang = 'en';
+    document.body.classList.add('lang-en');
+    document.title = 'Merchant Isle';
+    walk(document.body);
+    new MutationObserver((muts) => {
+      for (const mu of muts) {
+        if (mu.type === 'characterData') walk(mu.target);
+        else if (mu.type === 'attributes') { const el = mu.target; if (skip(el)) continue; const v = el.getAttribute(mu.attributeName); const t = tr(v); if (v && t !== v) el.setAttribute(mu.attributeName, t); }
+        else mu.addedNodes.forEach(walk);
+      }
+    }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else setTimeout(start, 0);
+
+  return {
+    get lang() { return lang; },
+    tr,
+    setLang(l) { try { localStorage.setItem('ot_lang', l); } catch (_) { /* */ } if (l !== lang) location.reload(); },
+  };
+})();
