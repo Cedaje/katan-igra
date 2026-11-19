@@ -170,7 +170,9 @@ function renderProfile() {
       ${opts('dice', DICE_STYLES, PREFS.dice, (v) => `<span class="dice dice-${v}">${dieHTML(5, 'mini')}</span>`)}
     </div>
     <div class="set-card"><h3>🏆 Kad pobedim</h3><p class="set-note">Proslava i zvuk koje svi vide i čuju kad ti pobediš.</p>
+      <div class="set-sub">Proslava</div>
       ${opts('win', WINS, PREFS.win)}
+      <div class="set-sub">Zvuk pobede</div>
       ${opts('winSound', WIN_SOUNDS, PREFS.winSound)}
       <button class="ob" data-wintest title="Pusti zvuk pobede">▶ Probaj zvuk</button>
     </div>`;
