@@ -316,6 +316,7 @@ function hexPoints(hx, V, scale = 1) {
 const SKINS = {
   osnovni: { name: 'Osnovni', desc: 'Klasične figure, prvi izgled igre.' },
   podvodni: { name: 'Podvodni svet', desc: 'Morsko dno: alge, korali, meduze, školjke i kristali umesto običnih sirovina. Sela su školjke, gradovi velike spiralne školjke, putevi nizovi bisera, a lopov je ajkula.' },
+  tamni: { name: 'Osnovni – tamno', desc: 'Osnovni ravni izgled u tamnim bojama: tamnija polja, paneli i pozadina.' },
   tamne: { name: 'Kućice – tamno', desc: 'Isto kao Kućice, ali u tamnim bojama, kao noću: tamnija polja i paneli, a prozori na kućama svetle.' },
   kucice: { name: 'Kućice', desc: '3D izgled: polja sa drvećem, ovcama, žitom, ciglama i planinama, 3D putevi, lopov sa kapuljačom, ilustrovane karte i kućice u boji igrača.' },
 };
@@ -326,10 +327,11 @@ const DARK = { ...ART, BOARD: { ring1: '#0e2230', ring2: '#4a4231', hexStroke: '
 const SKA = () => (skin === 'kucice' ? ART : skin === 'tamne' ? DARK : skin === 'podvodni' ? SEA : null);
 function applySkin() {
   for (const k of Object.keys(SKINS)) document.body.classList.toggle('skin-' + k, k === skin);
+  document.body.classList.toggle('dark-ui', skin === 'tamne' || skin === 'tamni');
   for (const r of RES) Object.assign(RES_INFO[r], BASE_RES[r], skin === 'podvodni' ? SEA.RES[r] : {});
   for (const t of Object.keys(TERRAIN)) Object.assign(TERRAIN[t], BASE_TERRAIN[t], skin === 'podvodni' ? SEA.TERRAIN[t] : {});
-  if (skin === 'tamne') for (const t of Object.keys(TERRAIN)) { TERRAIN[t].a = shade(BASE_TERRAIN[t].a, -0.32); TERRAIN[t].b = shade(BASE_TERRAIN[t].b, -0.42); }
-  if (skin === 'tamne') for (const r of RES) RES_INFO[r].color = shade(BASE_RES[r].color, -0.25);
+  if (skin === 'tamne' || skin === 'tamni') for (const t of Object.keys(TERRAIN)) { TERRAIN[t].a = shade(BASE_TERRAIN[t].a, -0.32); TERRAIN[t].b = shade(BASE_TERRAIN[t].b, -0.42); }
+  if (skin === 'tamne' || skin === 'tamni') for (const r of RES) RES_INFO[r].color = shade(BASE_RES[r].color, -0.25);
 }
 function setSkin(k) { skin = k; try { localStorage.setItem('ot_skin', k); } catch (_) { /* */ } applySkin(); }
 applySkin();
@@ -380,8 +382,23 @@ function pieceSVG(type, x, y, col) {
     if (type === 'settlement') return `<g class="piece" transform="translate(${x} ${y}) scale(1.45)">${isoHouse(-1, 14.5, 10, 12, 9, 9, col, { door: true, night: n })}</g>`;
     return `<g class="piece" transform="translate(${x} ${y}) scale(1.3)">${isoHouse(-4.5, 16, 11, 15, 17, 10, col, { floors: 2, chimney: true, night: n })}${isoHouse(7.5, 23, 7, 8, 7, 6, col, { door: true, night: n, roof: shade(col, -0.45) })}</g>`;
   }
-  if (type === 'settlement') return `<path d="M${x - 11} ${y + 10} V${y - 2} L${x} ${y - 13} L${x + 11} ${y - 2} V${y + 10} Z" fill="${col}" stroke="#1b1712" stroke-width="2.5" stroke-linejoin="round"/><path d="M${x - 11} ${y - 2} L${x} ${y - 13} L${x + 11} ${y - 2}" fill="none" stroke="#fff8" stroke-width="2"/>`;
-  return `<path d="M${x - 16} ${y + 12} V${y - 4} H${x - 4} V${y - 9} L${x + 5} ${y - 18} L${x + 14} ${y - 9} V${y + 12} Z" fill="${col}" stroke="#1b1712" stroke-width="2.5" stroke-linejoin="round"/><rect x="${x - 11}" y="${y + 1}" width="5" height="6" fill="#1b1712" opacity=".55"/><rect x="${x + 3}" y="${y - 4}" width="5" height="6" fill="#1b1712" opacity=".55"/>`;
+  // osnovni izgled: ravne 2D kucice i zgrade
+  const ol = 'stroke="#1b1712" stroke-width="2" stroke-linejoin="round"';
+  const d = shade(col, -0.3), w = '#fff6d8';
+  if (type === 'settlement') {
+    return `<g class="piece" transform="translate(${x} ${y}) scale(1.25) translate(${-x} ${-y})"><rect x="${x + 4}" y="${y - 13}" width="4" height="8" fill="${d}" ${ol}/>
+      <rect x="${x - 9}" y="${y - 3}" width="18" height="14" fill="${col}" ${ol}/>
+      <path d="M${x - 12} ${y - 2} L${x} ${y - 13} L${x + 12} ${y - 2} Z" fill="${d}" ${ol}/>
+      <rect x="${x - 6}" y="${y + 2}" width="5" height="9" fill="#5a3a22"/>
+      <rect x="${x + 2}" y="${y + 1}" width="5" height="5" fill="${w}" stroke="#1b1712" stroke-width="1"/></g>`;
+  }
+  let win = '';
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 2; c++) win += `<rect x="${x - 13 + c * 6}" y="${y - 13 + r * 6}" width="3.5" height="3.5" fill="${w}"/>`;
+  for (let c = 0; c < 2; c++) win += `<rect x="${x + 2 + c * 6}" y="${y - 1}" width="3.5" height="3.5" fill="${w}"/><rect x="${x + 2 + c * 6}" y="${y + 5}" width="3.5" height="3.5" fill="${w}"/>`;
+  return `<g class="piece" transform="translate(${x} ${y}) scale(1.2) translate(${-x} ${-y})"><rect x="${x - 16}" y="${y - 18}" width="16" height="30" fill="${col}" ${ol}/>
+    <rect x="${x - 14}" y="${y - 21}" width="12" height="3" fill="${d}" ${ol}/>
+    <rect x="${x}" y="${y - 5}" width="16" height="17" fill="${d}" ${ol}/>
+    <rect x="${x - 1}" y="${y - 7}" width="18" height="3" fill="${col}" ${ol}/>${win}</g>`;
 }
 function showSkinPicker() {
   const demo = (k) => { const prev = skin; skin = k; const c = (S && pById(S.me)?.color) || '#e07ab8'; const out = `<svg viewBox="-36 -36 92 66" width="150" height="94">${pieceSVG('settlement', -12, 0, c)}${pieceSVG('city', 22, -2, c)}</svg>`; skin = prev; return out; };
@@ -404,7 +421,7 @@ function renderBoard() {
   for (const [k, t] of Object.entries(TERRAIN)) h += `<radialGradient id="g-${k}" cx="50%" cy="40%" r="65%"><stop offset="0" stop-color="${t.a}"/><stop offset="1" stop-color="${t.b}"/></radialGradient>`;
   h += '</defs>';
 
-  const SK = SKA(), K3 = !!SK, BD = SK && SK.BOARD;
+  const SK = SKA(), K3 = !!SK, BD = (SK && SK.BOARD) || (skin === 'tamni' ? DARK.BOARD : null);
   // plicak i pesak oko ostrva
   for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 1.32)}" fill="${BD ? BD.ring1 : '#3f9fb8'}" opacity="${BD ? 0.9 : 0.55}" stroke="${BD ? BD.ring1 : '#3f9fb8'}" stroke-width="10" stroke-linejoin="round"/>`;
   for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 1.14)}" fill="${BD ? BD.ring2 : '#ecd9a2'}" stroke="${BD ? BD.ring2 : '#ecd9a2'}" stroke-width="6" stroke-linejoin="round"/>`;
@@ -465,8 +482,13 @@ function renderBoard() {
     for (const r of rr) h += r.under;
     for (const r of rr) h += r.top;
   } else {
-    for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="#1b1712" stroke-width="12" stroke-linecap="round"/>`;
-    for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="${r.col}" stroke-width="7.5" stroke-linecap="round"/>`;
+    // osnovni: put sa ivicama i isprekidanom linijom po sredini
+    for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="#1b1712" stroke-width="13" stroke-linecap="round"/>`;
+    for (const r of roadLines) h += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="${r.col}" stroke-width="9" stroke-linecap="round"/>`;
+    for (const r of roadLines) {
+      const len = Math.hypot(r.x2 - r.x1, r.y2 - r.y1), k = 7 / len;
+      h += `<line x1="${r.x1 + (r.x2 - r.x1) * k}" y1="${r.y1 + (r.y2 - r.y1) * k}" x2="${r.x2 - (r.x2 - r.x1) * k}" y2="${r.y2 - (r.y2 - r.y1) * k}" stroke="#fffbea" stroke-width="1.6" stroke-dasharray="5 4" opacity=".9"/>`;
+    }
   }
   // gradnja: kad imas sirovine i postoji mesto, mesta se sama oznace na tabli
   const mainNow = myTurn() && S.sub === 'main' && S.phase === 'play';
