@@ -145,7 +145,7 @@ function adminKick(game, pid) {
   if (game.phase === 'lobby') { game.players = game.players.filter((p) => p.id !== pid); game.addLog(`${pl.name} je izbačen iz sobe.`); }
   else if (!pl.kicked) { pl.kicked = true; game.addLog(`🥾 ${pl.name} je izbačen iz igre.`); if (!pl.quit) game.quit(pl); }
   for (const s of roomSockets(game.code)) if (s.data.pid === pid) { s.emit('kicked'); s.leave(game.code); s.data = {}; }
-  if (!game.players.length || game.players.every((p) => p.quit)) games.delete(game.code); else broadcast(game);
+  if (!game.players.length || game.players.every((p) => p.quit)) { games.delete(game.code); dirty = true; } else broadcast(game);
   sendRooms();
 }
 function adminClose(game) {
@@ -172,7 +172,7 @@ function leaveRoom(socket) {
   socket.leave(socket.data.code);
   socket.data = {};
   if (!game) return;
-  if (!game.players.length || game.players.every((p) => p.quit)) games.delete(game.code);
+  if (!game.players.length || game.players.every((p) => p.quit)) { games.delete(game.code); dirty = true; }
   else broadcast(game);
   sendRooms();
 }
@@ -257,14 +257,23 @@ io.on('connection', (socket) => {
   });
 });
 
-// Brisanje starih soba (3 sata bez aktivnosti)
+// Automatsko zatvaranje soba: prazne sobe i zavrsene partije (pravila u rooms.js).
+// Sobe su samo u memoriji: ovo ne brise profile, statistiku ni rezultate iz baze.
+const { closeReason } = require('./rooms');
 setInterval(() => {
   const now = Date.now();
+  let changed = false;
   for (const [code, g] of games) {
-    if (now - g.lastActivity > 3 * 3600 * 1000 || (g.emptySince && now - g.emptySince > 30 * 60 * 1000)) games.delete(code);
+    if (g.phase === 'ended' && !g.endedAt) g.endedAt = now;
+    const why = closeReason(g, now);
+    if (!why) continue;
+    const msg = why === 'ended' ? 'Partija je završena, soba je zatvorena.' : 'Soba je zatvorena zbog neaktivnosti.';
+    for (const s of roomSockets(code)) { s.emit('kicked', { msg }); s.leave(code); s.data = {}; }
+    games.delete(code);
+    changed = true;
   }
-  sendRooms();
-}, 60 * 1000);
+  if (changed) { dirty = true; sendRooms(); }
+}, 15 * 1000);
 
 const PORT = process.env.PORT || 3000;
 (async () => {
