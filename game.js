@@ -947,9 +947,17 @@ class Game {
     if (this.helperOf && id !== this.helperOf) fail(`U pomoćnom potezu trguje se samo sa glavnim igračem (${this.name(this.helperOf)}).`);
   }
 
+  // Trgovina medju igracima ide samo preko igraca na potezu: dvojica koji nisu na potezu
+  // ne mogu da menjaju karte medjusobno. Ponuda koja nije od igraca na potezu je zastarela.
+  activeTrade() {
+    if (this.trade && this.trade.from !== this.current().id) this.trade = null;
+    return this.trade;
+  }
+
   respondTrade(pl, accept) {
-    const t = this.trade;
+    const t = this.activeTrade();
     if (!t || t.open) fail('Nema aktivne ponude.');
+    if (pl.quit) fail('Napustio si igru.');
     this.requirePartner(pl.id);
     if (t.from === pl.id) fail('Ne možeš da odgovoriš na svoju ponudu.');
     t.accepted = t.accepted.filter((x) => x !== pl.id);
@@ -966,8 +974,9 @@ class Game {
   counterTrade(pl, give, get) {
     if (this.phase !== 'play') fail('Sada ne možeš da trguješ.');
     if (this.current().id === pl.id) fail('Ti si na potezu: napravi svoju ponudu.');
+    if (pl.quit) fail('Napustio si igru.');
     this.requirePartner(pl.id);
-    if (!this.trade) this.trade = { id: ++this.tradeSeq, from: this.current().id, give: {}, get: {}, accepted: [], declined: [], counters: {}, open: true };
+    if (!this.activeTrade()) this.trade = { id: ++this.tradeSeq, from: this.current().id, give: {}, get: {}, accepted: [], declined: [], counters: {}, open: true };
     const t = this.trade;
     if (t.from === pl.id) fail('Ne možeš da odgovoriš na svoju ponudu.');
     give = this.cleanOffer(give); get = this.cleanOffer(get); // give = sta ti dajes, get = sta trazis
@@ -983,15 +992,16 @@ class Game {
 
   confirmTrade(pl, withId, counter = false) {
     this.requireMain();
-    const t0 = this.trade;
+    const t0 = this.activeTrade();
     if (!t0 || t0.from !== pl.id) fail('Nema tvoje ponude.');
     this.requirePartner(withId);
+    const o = this.p(withId);
+    if (!o || o.id === pl.id || o.quit) fail('Sa tim igračem ne možeš da trguješ.');
     let t = t0;
     if (counter) {
       if (!t0.counters?.[withId]) fail('Taj igrač nije dao kontraponudu.');
       t = t0.counters[withId];
     } else if (!t0.accepted.includes(withId)) fail('Taj igrač nije prihvatio.');
-    const o = this.p(withId);
     if (!this.canAfford(pl, t.give)) fail('Više nemaš te karte.');
     if (!this.canAfford(o, t.get)) fail(`${o.name} više nema te karte.`);
     for (const [r, n] of Object.entries(t.give)) { pl.hand[r] -= n; o.hand[r] += n; }

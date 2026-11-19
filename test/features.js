@@ -67,6 +67,28 @@ function setup(settings = {}) {
   console.log('predlog bez ponude OK');
 }
 
+// trgovina samo sa igracem na potezu: igraci koji nisu na potezu ne mogu da menjaju medjusobno
+{
+  const g = setup();
+  const cur = g.current(); const [b, c] = g.players.filter((p) => p !== cur);
+  for (const p of g.players) p.hand = { drvo: 2, glina: 2, vuna: 2, zito: 2, kamen: 2 };
+  g.sub = 'main';
+  assert.throws(() => g.action(b.id, 'offerTrade', { give: { drvo: 1 }, get: { zito: 1 } }), /Nije tvoj red/);
+  assert.throws(() => g.action(b.id, 'confirmTrade', { with: c.id }), /Nije tvoj red/);
+  g.action(c.id, 'counterTrade', { give: { vuna: 1 }, get: { drvo: 1 } });
+  assert.throws(() => g.action(b.id, 'confirmTrade', { with: c.id, counter: true }), /Nije tvoj red/);
+  assert.equal(g.trade.from, cur.id); // predlog uvek ide igracu na potezu
+  assert.throws(() => g.action(cur.id, 'confirmTrade', { with: cur.id, counter: true }));
+  // zastarela ponuda prethodnog igraca ne moze da se prihvati ni kontrira u tudjem potezu
+  g.trade = { id: 99, from: b.id, give: { drvo: 1 }, get: { zito: 1 }, accepted: [], declined: [], counters: {} };
+  assert.throws(() => g.action(c.id, 'respondTrade', { accept: true }), /Nema aktivne/);
+  g.action(c.id, 'counterTrade', { give: { vuna: 1 }, get: { drvo: 1 } });
+  assert.equal(g.trade.from, cur.id);
+  g.action(cur.id, 'confirmTrade', { with: c.id, counter: true });
+  assert.equal(c.hand.drvo, 3); assert.equal(cur.hand.vuna, 3); assert.equal(b.hand.drvo, 2);
+  console.log('trgovina samo sa igracem na potezu OK');
+}
+
 // Parovi igraca: pomocni potez bez kockica, trgovina samo sa glavnim igracem
 {
   const g = setup({ pairedPlayers: true });

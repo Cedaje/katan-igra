@@ -1282,7 +1282,7 @@ function canPropose() { return !!S && S.phase === 'play' && S.turn !== S.me && !
 function renderOffers() {
   const t = S.trade;
   const box = $('offers');
-  if (!t || S.phase !== 'play' || (S.helperOf && t.from !== S.me && S.helperOf !== S.me)) { box.classList.add('hidden'); return; }
+  if (!t || S.phase !== 'play' || t.from !== S.turn || (S.helperOf && t.from !== S.me && S.helperOf !== S.me)) { box.classList.add('hidden'); return; }
   const from = pById(t.from);
   let h = t.open ? '<div class="offer"><div class="offer-row"><b>📨 Predlozi za razmenu</b></div>' : `<div class="offer"><div class="offer-row"><b>${esc(from.name)}</b> daje ${miniCards(t.give)} za ${miniCards(t.get)}</div>`;
   if (t.open && t.from !== S.me) {
