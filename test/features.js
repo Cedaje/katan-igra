@@ -149,3 +149,22 @@ function setup(settings = {}) {
   assert.equal(A.hand.drvo, 5); assert.equal(A.hand.kamen, 4);
   console.log('banka vise odjednom OK');
 }
+
+// automatsko zatvaranje soba: prazne sobe i zavrsene partije
+{
+  const { closeReason, LIMITS } = require('../rooms');
+  const now = 1e12;
+  const g = (o) => ({ players: [{ quit: false }], phase: 'play', lastActivity: now, emptySince: null, ...o });
+  assert.strictEqual(closeReason(g({}), now), null, 'aktivna partija ne sme da se zatvori');
+  assert.strictEqual(closeReason(g({ players: [] }), now), 'empty');
+  assert.strictEqual(closeReason(g({ players: [{ quit: true }] }), now), 'empty');
+  assert.strictEqual(closeReason(g({ phase: 'lobby', emptySince: now - 10 }), now), null, 'kratak prekid veze');
+  assert.strictEqual(closeReason(g({ phase: 'lobby', emptySince: now - LIMITS.emptyLobby }), now), 'empty');
+  assert.strictEqual(closeReason(g({ emptySince: now - LIMITS.emptyLobby }), now), null, 'partija u toku ceka povratak igraca');
+  assert.strictEqual(closeReason(g({ emptySince: now - LIMITS.emptyGame }), now), 'empty');
+  assert.strictEqual(closeReason(g({ phase: 'ended', endedAt: now - 1000 }), now), null, 'igraci gledaju rezultate');
+  assert.strictEqual(closeReason(g({ phase: 'ended', endedAt: now - 1000, emptySince: now - LIMITS.emptyEnded }), now), 'empty');
+  assert.strictEqual(closeReason(g({ phase: 'ended', endedAt: now - LIMITS.ended }), now), 'ended');
+  assert.strictEqual(closeReason(g({ lastActivity: now - LIMITS.idle - 1 }), now), 'idle');
+  console.log('zatvaranje soba OK');
+}
