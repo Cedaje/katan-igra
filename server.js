@@ -53,28 +53,25 @@ app.post('/admin/api', express.json({ limit: '2kb' }), (req, res) => {
   res.status(400).json({ error: 'Nepoznata komanda.' });
 });
 
-const fs = require('fs');
+const STORE = require('./store');
 const games = new Map(); // code -> Game
 
-// ---------- cuvanje partija na disk (da prezive restart servera) ----------
+// ---------- cuvanje partija (baza ili fajl), da prezive restart servera ----------
 const SAVE_FILE = process.env.SAVE_FILE || path.join(__dirname, 'data', 'games.json');
 let dirty = false;
 function saveGames() {
-  if (!dirty) return;
+  if (!dirty) return Promise.resolve();
   dirty = false;
-  try {
-    fs.mkdirSync(path.dirname(SAVE_FILE), { recursive: true });
-    const list = [...games.values()].filter((g) => g.phase !== 'ended').map((g) => {
-      const { botTimer, ...data } = g; // eslint-disable-line no-unused-vars
-      return data;
-    });
-    fs.writeFileSync(SAVE_FILE + '.tmp', JSON.stringify(list));
-    fs.renameSync(SAVE_FILE + '.tmp', SAVE_FILE);
-  } catch (e) { console.error('cuvanje nije uspelo', e.message); }
+  const list = [...games.values()].filter((g) => g.phase !== 'ended').map((g) => {
+    const { botTimer, ...data } = g; // eslint-disable-line no-unused-vars
+    return data;
+  });
+  return STORE.save('games', SAVE_FILE, list);
 }
-function loadGames() {
+async function loadGames() {
   try {
-    const list = JSON.parse(fs.readFileSync(SAVE_FILE, 'utf8'));
+    const list = await STORE.load('games', SAVE_FILE);
+    if (!Array.isArray(list)) return;
     for (const data of list) {
       const g = Object.assign(Object.create(Game.prototype), data);
       g.emptySince = Date.now();
@@ -83,11 +80,17 @@ function loadGames() {
       games.set(g.code, g);
     }
     if (list.length) console.log(`Učitano ${list.length} sačuvanih partija.`);
-  } catch (e) { if (e.code !== 'ENOENT') console.error('ucitavanje nije uspelo', e.message); }
+  } catch (e) { console.error('ucitavanje partija nije uspelo', e.message); }
 }
-loadGames();
 setInterval(saveGames, 5000);
-for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { dirty = true; saveGames(); PROFILES.save(); process.exit(0); });
+let stopping = false;
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, async () => {
+  if (stopping) return; stopping = true;
+  setTimeout(() => process.exit(0), 8000).unref(); // ne cekaj zauvek
+  dirty = true;
+  try { await Promise.all([saveGames(), PROFILES.save()]); await STORE.close(); } catch (e) { console.error(e); }
+  process.exit(0);
+});
 
 function newCode() {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -259,4 +262,12 @@ setInterval(() => {
 }, 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Ostrvo Trgovaca radi na http://localhost:${PORT}`));
+(async () => {
+  try { await PROFILES.init(); } catch (e) {
+    // bez profila server ne sme da krene (inace bi prepisao bazu praznim podacima)
+    console.error('BAZA NIJE DOSTUPNA, proveri DATABASE_URL:', e.message);
+    process.exit(1);
+  }
+  await loadGames();
+  server.listen(PORT, () => console.log(`Ostrvo Trgovaca radi na http://localhost:${PORT}`));
+})();
