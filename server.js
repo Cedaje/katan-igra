@@ -106,21 +106,37 @@ function newCode() {
 
 const roomSockets = (code) => [...io.of('/').sockets.values()].filter((s) => s.data.code === code);
 
+// igra koja traje (moze da se gleda)
+const LIVE = new Set(['setup', 'play', 'place', 'battle']);
 function roomList() {
   return [...games.values()]
-    .filter((g) => g.phase === 'lobby' && !g.settings.private && g.players.length)
-    .map((g) => ({ kind: kindOf(g), ...g.summary(), names: g.players.map((p) => p.name) }));
+    .filter((g) => (g.phase === 'lobby' || LIVE.has(g.phase)) && !g.settings.private && g.players.length)
+    .map((g) => ({
+      kind: kindOf(g), ...g.summary(), names: g.players.map((p) => p.name),
+      live: g.phase !== 'lobby', watchers: roomSockets(g.code).filter((s) => s.data.spectator).length,
+    }));
 }
 function sendRooms(target = io) { target.emit('rooms', roomList()); }
 
+// gledalac: vidi samo ono sto je javno (bez tudjih karata i brodova), ne moze da igra
+function spectatorView(game) {
+  if (game.spectatorView) return game.spectatorView();
+  return { ...game.viewFor(null), me: null };
+}
 function broadcast(game) {
-  const online = new Set(roomSockets(game.code).map((s) => s.data.pid));
+  const socks = roomSockets(game.code);
+  const online = new Set(socks.filter((s) => !s.data.spectator).map((s) => s.data.pid));
   for (const p of game.players) p.connected = online.has(p.id);
   if (online.size && game.emptySince) { game.timerKey = null; game.touchTimer(); } // igra se nastavlja: novo vreme za potez
   game.emptySince = online.size ? null : (game.emptySince || Date.now());
   dirty = true;
   if (game.phase === 'ended') PROFILES.recordGame(game);
-  for (const sock of roomSockets(game.code)) sock.emit('state', game.viewFor(sock.data.pid));
+  const watchers = socks.filter((s) => s.data.spectator).map((s) => s.data.name);
+  let specView = null;
+  for (const sock of socks) {
+    if (sock.data.spectator) sock.emit('state', { ...(specView ||= spectatorView(game)), spectator: true, watchers });
+    else sock.emit('state', { ...game.viewFor(sock.data.pid), watchers });
+  }
 }
 
 // Tajmer poteza
@@ -231,9 +247,31 @@ io.on('connection', (socket) => {
     sendRooms();
   });
 
+  // gledanje igre: ulaz u sobu bez mesta za stolom
+  socket.on('spectate', ({ code, name, token } = {}, cb) => {
+    code = String(code || '').toUpperCase().trim();
+    const game = games.get(code);
+    if (!game) return reply(cb, { ok: false, error: 'Soba ne postoji. Proveri kod.' });
+    if (PROFILES.isBanned(token)) return reply(cb, { ok: false, error: BANNED });
+    if (game.phase === 'ended' && !(socket.data.spectator && socket.data.code === code)) return reply(cb, { ok: false, error: 'Ova partija je već završena.' });
+    const old = socket.data.code && socket.data.code !== code ? games.get(socket.data.code) : null;
+    if (socket.data.code) socket.leave(socket.data.code);
+    socket.data = { code, spectator: true, name: PROFILES.nameFor(token, String(name || '').slice(0, 20).trim() || 'Gost') };
+    socket.join(code);
+    reply(cb, { ok: true, code, kind: kindOf(game) });
+    if (old) broadcast(old);
+    broadcast(game);
+    sendRooms();
+  });
+
   socket.on('action', ({ type, data } = {}, cb) => {
     const game = games.get(socket.data.code);
     if (!game) return reply(cb, { ok: false, error: 'Nisi u sobi.' });
+    if (socket.data.spectator) {
+      if (type !== 'leave') return reply(cb, { ok: false, error: 'Samo gledaš ovu igru, ne možeš da igraš.' });
+      reply(cb, { ok: true });
+      return leaveRoom(socket);
+    }
     try {
       if (type === 'look') data = PROFILES.filterLook(game.p(socket.data.pid)?.token, data);
       game.action(socket.data.pid, type, data);
@@ -245,7 +283,7 @@ io.on('connection', (socket) => {
     if (type === 'leave') return leaveRoom(socket);
     if (type === 'kick' || type === 'vote' || type === 'voteKick') kickOut(game);
     if (type === 'kick') {
-      for (const s of roomSockets(game.code)) if (!game.p(s.data.pid)) { s.emit('kicked'); s.leave(game.code); s.data = {}; }
+      for (const s of roomSockets(game.code)) if (!s.data.spectator && !game.p(s.data.pid)) { s.emit('kicked'); s.leave(game.code); s.data = {}; }
     }
     broadcast(game);
     if (['settings', 'kick', 'start'].includes(type)) sendRooms();

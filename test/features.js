@@ -168,3 +168,16 @@ function setup(settings = {}) {
   assert.strictEqual(closeReason(g({ lastActivity: now - LIMITS.idle - 1 }), now), 'idle');
   console.log('zatvaranje soba OK');
 }
+
+// gledalac (viewFor bez igraca): bez tudjih karata, bez legalnih poteza
+{
+  const g = setup();
+  const v = g.viewFor(null);
+  assert.strictEqual(v.hand, null);
+  assert.deepStrictEqual(v.dev, []);
+  assert.strictEqual(v.rates, null);
+  assert.deepStrictEqual(v.legal, {});
+  assert.strictEqual(v.lastSteal, null);
+  for (const p of v.players) assert.ok(!('hand' in p) && !('dev' in p) && !('token' in p));
+  console.log('gledalac OK');
+}

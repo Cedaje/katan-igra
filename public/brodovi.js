@@ -14,8 +14,10 @@ const BS = (() => {
   let endShown = null; // runda za koju je prikazan kraj (da se ne ponavlja animacija)
   let endHidden = false;
 
-  const meP = () => G.players.find((p) => p.id === G.me);
-  const foeP = () => G.players.find((p) => p.id !== G.me);
+  // gledalac (G.spectator): "moja" strana je prvi igrac (G.left), "protivnik" drugi (G.right)
+  const spec = () => !!(G && G.spectator);
+  const meP = () => G.players.find((p) => p.id === (spec() ? G.left : G.me));
+  const foeP = () => G.players.find((p) => (spec() ? p.id === G.right : p.id !== G.me));
   const isHost = () => G.host === G.me;
   const send = (type, data = {}) => socket.emit('action', { type, data }, (r) => { if (r && !r.ok) { toast(r.error); SFX.play('error'); } });
 
@@ -38,7 +40,7 @@ const BS = (() => {
 
   // omiljena boja, lik, okvir i titula iz profila: posalji jednom kad udjes u sobu
   function sendLook() {
-    const m = meP(); if (!m || lookSent === G.code) return;
+    const m = meP(); if (!m || spec() || lookSent === G.code) return;
     lookSent = G.code;
     const data = {};
     if (PREFS.color && m.color !== PREFS.color && !G.players.some((p) => p.id !== G.me && p.color === PREFS.color)) data.color = PREFS.color;
@@ -68,10 +70,10 @@ const BS = (() => {
       else if (t.startsWith('🔁')) SFX.play('vote');
       else if (t.startsWith('🏆')) {
         const w = G.players.find((p) => p.id === G.winner);
-        setTimeout(() => SFX.play(G.winner === G.me ? ({ zvona: 'winBells', bubnjevi: 'winDrums' }[w?.winSound] || 'win') : 'lose'), 900);
+        setTimeout(() => SFX.play(G.winner === G.me || spec() ? ({ zvona: 'winBells', bubnjevi: 'winDrums' }[w?.winSound] || 'win') : 'lose'), 900);
       } else if (t.includes('je ušao u sobu') && prev.players.length < G.players.length) SFX.play('bell');
     }
-    if (G.phase === 'battle' && prev.turn !== G.turn && G.turn === G.me && !fresh.some((l) => l.text.startsWith('🔥'))) setTimeout(() => SFX.play('myTurn'), 500);
+    if (!spec() && G.phase === 'battle' && prev.turn !== G.turn && G.turn === G.me && !fresh.some((l) => l.text.startsWith('🔥'))) setTimeout(() => SFX.play('myTurn'), 500);
   }
 
   // ---------- crtanje table ----------
@@ -196,6 +198,10 @@ const BS = (() => {
   }
   function placeHTML() {
     const m = meP();
+    if (spec()) {
+      const st = (p) => (p ? `${esc(p.name)}: ${p.ready ? '✅ spreman' : '⚓ raspoređuje…'}` : '');
+      return `<div class="bs-tools"><p class="bs-note">👀 Igrači tajno raspoređuju brodove. Bitka počinje kad oba budu spremna.<br>${st(m)}<br>${st(foeP())}</p></div>`;
+    }
     if (m.ready) {
       return `<div class="bs-boards one"><div class="bs-bwrap"><h3>Tvoja flota</h3>${boardSVG({ id: 'mine', ships: G.myShips, color: m.color })}</div></div>
         <div class="bs-tools"><p class="bs-note">✅ Spreman si. ${foeP()?.ready ? '' : 'Čeka se da protivnik rasporedi brodove…'}</p>
@@ -223,9 +229,17 @@ const BS = (() => {
 
   function battleHTML() {
     const m = meP(), f = foeP();
-    const myTurn = G.phase === 'battle' && G.turn === G.me;
-    const lastMine = G.lastShot && G.lastShot.by !== G.me ? G.lastShot : null;
-    const lastFoe = G.lastShot && G.lastShot.by === G.me ? G.lastShot : null;
+    const myTurn = !spec() && G.phase === 'battle' && G.turn === G.me;
+    const meId = m ? m.id : G.me;
+    const lastMine = G.lastShot && G.lastShot.by !== meId ? G.lastShot : null;
+    const lastFoe = G.lastShot && G.lastShot.by === meId ? G.lastShot : null;
+    if (spec()) { // gledalac: dve table, bez klikova
+      const underFire = (p) => G.phase === 'battle' && p && G.turn !== p.id;
+      return `<div class="bs-boards">
+      <div class="bs-bwrap mine ${underFire(m) ? 'active' : ''}"><h3>🚢 Flota <small>${esc(m?.name || '')}</small></h3>${boardSVG({ id: 'left', ships: G.myShips || [], color: m?.color, shots: G.myShots, radars: G.myRadars, last: lastMine })}</div>
+      <div class="bs-bwrap mine ${underFire(f) ? 'active' : ''}"><h3>🚢 Flota <small>${esc(f?.name || '')}</small></h3>${boardSVG({ id: 'right', ships: G.foeShips || [], color: f?.color, shots: G.foeShots, radars: G.foeRadars, last: lastFoe })}</div>
+    </div>`;
+    }
     const foeShips = (G.foeShips || []).map((s) => ({ ...s, cls: s.sunk ? '' : 'reveal' }));
     const special = G.settings.special && G.phase === 'battle' ? `<div class="bs-special">
         <button class="bs-sp ${aimMode === 'shot' ? 'on' : ''}" data-aim="shot" ${myTurn ? '' : 'disabled'} title="Običan hitac u jedno polje">🎯 Hitac</button>
@@ -240,6 +254,12 @@ const BS = (() => {
 
   function statusText() {
     const f = foeP();
+    if (spec()) {
+      const t = G.players.find((p) => p.id === G.turn);
+      if (G.phase === 'lobby') return '👀 Gledaš sobu. Čeka se početak bitke.';
+      if (G.phase === 'place') return '👀 Gledaš · igrači raspoređuju brodove';
+      if (G.phase === 'battle') return `👀 Gledaš · 🎯 ${esc(t?.name || '')} gađa${G.settings.salvo && G.shotsLeft > 1 ? ` <span class="bs-salvo">💥 još ${G.shotsLeft} gađanja</span>` : ''}<span id="bsTimer" class="bs-timer"></span>`;
+    }
     if (G.phase === 'lobby') return G.players.length < 2 ? 'Pošalji link prijatelju i sačekaj da uđe u sobu.' : isHost() ? 'Protivnik je tu. Izaberi pravila i pokreni bitku!' : 'Protivnik je tu. Osnivač bira pravila.';
     if (G.phase === 'place') return meP().ready ? 'Čeka se protivnik…' : 'Rasporedi brodove tajno. Protivnik ih ne vidi.';
     if (G.phase === 'battle') {
@@ -259,10 +279,10 @@ const BS = (() => {
       const acc = p.st.shots ? Math.round((p.st.hits / p.st.shots) * 100) : 0;
       return `<tr style="--pc:${p.color}"><td><span class="avatar ${frameCls(p)}" style="background:${p.color}">${avatarOf(p)}</span></td><td class="rn">${esc(p.name)}${p.id === G.winner ? ' 👑' : ''}</td><td>${p.st.shots}</td><td>${p.st.hits}</td><td>${acc}%</td><td>${p.st.sunk}</td></tr>`;
     };
-    const canRematch = f && !f.quit && !meP().quit;
+    const canRematch = !spec() && f && !f.quit && !meP().quit;
     return `${w ? celebration(w) : ''}<div class="bs-end-card">
       <h2>${iWon ? '🏆 Pobeda!' : w ? `⚓ ${esc(w.name)} je pobedio` : 'Bitka je završena'}</h2>
-      <p>${G.forfeit ? 'Protivnik je napustio bitku.' : iWon ? 'Potopio si celu protivničku flotu.' : 'Tvoja flota je potopljena. Probaj revanš!'}</p>
+      <p>${spec() ? (G.forfeit ? 'Jedan igrač je napustio bitku.' : w ? `${esc(w.name)} je potopio celu protivničku flotu.` : '') : G.forfeit ? 'Protivnik je napustio bitku.' : iWon ? 'Potopio si celu protivničku flotu.' : 'Tvoja flota je potopljena. Probaj revanš!'}</p>
       <table class="bs-stats"><tr><th></th><th></th><th title="Gađanja">🎯</th><th title="Pogoci">💥</th><th title="Preciznost">%</th><th title="Potopljeni brodovi">🔥</th></tr>${G.players.map(row).join('')}</table>
       <div class="bs-end-btns">
         ${canRematch ? `<button class="btn green" data-bsrematch ${meP().rematch ? 'disabled' : ''}>${meP().rematch ? '⏳ Čeka se protivnik…' : f.rematch ? '🔁 Prihvati revanš' : '🔁 Revanš'}</button>` : ''}
@@ -297,12 +317,15 @@ const BS = (() => {
 
   function render() {
     if (!G) return;
-    $('bsRoom').textContent = `Soba ${G.code}${G.round > 1 ? ` · runda ${G.round}` : ''}`;
+    const w = G.watchers || [];
+    $('bsRoom').textContent = `Soba ${G.code}${G.round > 1 ? ` · runda ${G.round}` : ''}${spec() ? ' · 👀 gledaš' : ''}${w.length ? ` · 👀 ${w.length}` : ''}`;
+    $('bsRoom').title = w.length ? 'Gledaju: ' + w.join(', ') : '';
+    $('bsChatForm').classList.toggle('hidden', spec());
     $('bsSound').textContent = SFX.muted ? '🔇' : '🔊';
     const m = meP(), f = foeP();
     $('bsPlayers').innerHTML = `${pCard(m, 'left')}<span class="bs-vs">VS</span>${pCard(f, 'right')}`;
     $('bsStatus').innerHTML = statusText();
-    $('bsStatus').className = 'bs-status' + (G.phase === 'battle' && G.turn === G.me ? ' my' : '');
+    $('bsStatus').className = 'bs-status' + (!spec() && G.phase === 'battle' && G.turn === G.me ? ' my' : '');
     let body = '';
     if (G.phase === 'lobby') body = lobbyHTML();
     else if (G.phase === 'place') body = placeHTML();
@@ -353,7 +376,7 @@ const BS = (() => {
   });
   // pregled gde ce brod stati dok mis prelazi preko table
   $('bsBody').addEventListener('mouseover', (e) => {
-    if (!G || G.phase !== 'place' || !place) return;
+    if (!G || G.phase !== 'place' || !place || spec()) return;
     const c = e.target.closest('[data-board="place"] [data-x]');
     const h = c ? [Number(c.dataset.x), Number(c.dataset.y)] : null;
     if (String(h) !== String(place.hover)) { place.hover = h; render(); }
@@ -391,7 +414,7 @@ const BS = (() => {
   $('bsSideClose').onclick = () => { sideOpen = false; $('bsSide').classList.remove('open'); };
   $('bsExit').onclick = () => {
     if (!G) return;
-    if (G.phase === 'place' || G.phase === 'battle') {
+    if (!spec() && (G.phase === 'place' || G.phase === 'battle')) {
       modalExtra = () => `<h3>🚪 Napusti bitku?</h3><p>Ako sada izađeš, protivnik pobeđuje.</p>
         <div class="row"><button class="ob red" data-bsleave>Napusti</button><button class="ob gray" data-close>Ostani</button></div>`;
       renderModal();
@@ -402,7 +425,7 @@ const BS = (() => {
   $('modalCard').addEventListener('click', (e) => { if (e.target.closest('[data-bsleave]')) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); leave(); } });
 
   function leave() {
-    setSavedRoom('');
+    if (!spec()) setSavedRoom('');
     send('leave');
     reset();
     history.replaceState(null, '', '/');
@@ -447,6 +470,7 @@ const BS = (() => {
     reset,
     showRules,
     code: () => (G ? G.code : null),
+    spectating: () => spec(),
   };
 })();
 
