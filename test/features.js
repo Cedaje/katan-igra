@@ -105,3 +105,25 @@ function setup(settings = {}) {
   assert.ok(copy.dice && ['main', 'discard', 'robber'].includes(copy.sub));
   console.log('cuvanje OK');
 }
+
+// banka: vise karata odjednom (8 za 2 kod 4:1, 6 za 2 kod 3:1, 4 za 2 kod 2:1)
+{
+  const g = setup();
+  const A = g.current();
+  g.dice = null; g.action(A.id, 'roll'); if (g.sub !== 'main') { g.sub = 'main'; g.pendingDiscard = {}; }
+  g.tradeRate = (pl, r) => ({ drvo: 4, vuna: 3, zito: 2 }[r] || 4);
+  A.hand = { drvo: 9, glina: 0, vuna: 6, zito: 4, kamen: 0 };
+  g.action(A.id, 'bankTrade', { give: { drvo: 8 }, get: { kamen: 2 } });
+  assert.equal(A.hand.drvo, 1); assert.equal(A.hand.kamen, 2);
+  g.action(A.id, 'bankTrade', { give: { vuna: 6 }, get: { glina: 2 } });
+  assert.equal(A.hand.vuna, 0); assert.equal(A.hand.glina, 2);
+  g.action(A.id, 'bankTrade', { give: { zito: 4 }, get: { kamen: 1, glina: 1 } });
+  assert.equal(A.hand.zito, 0); assert.equal(A.hand.kamen, 3); assert.equal(A.hand.glina, 3);
+  A.hand.drvo = 9;
+  assert.throws(() => g.action(A.id, 'bankTrade', { give: { drvo: 6 }, get: { kamen: 1 } }), /po 4/);
+  assert.throws(() => g.action(A.id, 'bankTrade', { give: { drvo: 8 }, get: { kamen: 3 } }), /tražiš 3/);
+  assert.throws(() => g.action(A.id, 'bankTrade', { give: { drvo: 12 }, get: { kamen: 3 } }), /Nemaš/);
+  g.action(A.id, 'bankTrade', { give: 'drvo', get: 'kamen' }); // stari oblik: 4 za 1
+  assert.equal(A.hand.drvo, 5); assert.equal(A.hand.kamen, 4);
+  console.log('banka vise odjednom OK');
+}

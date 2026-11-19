@@ -886,16 +886,44 @@ class Game {
     return rate;
   }
 
+  // Razmena sa bankom. give/get mogu biti nazivi sirovina (stari oblik, 1 komad)
+  // ili mape { sirovina: broj }. Svaka sirovina koja se daje mora biti umnožak
+  // svog odnosa (4:1, 3:1, 2:1), a ukupan broj "paketa" mora biti jednak broju
+  // karata koje se dobijaju — npr. 8 drva za 2 kamena, ili 6 vune (3:1) za 2 žita.
   bankTrade(pl, give, get) {
     this.requireMain();
-    if (!RES.includes(give) || !RES.includes(get) || give === get) fail('Izaberi šta daješ i šta dobijaš.');
-    const rate = this.tradeRate(pl, give);
-    if (pl.hand[give] < rate) fail(`Za ovu razmenu treba ti ${rate} × ${RES_NAMES[give]}.`);
-    if (this.bank[get] < 1) fail('Banka nema tu sirovinu.');
-    pl.hand[give] -= rate; this.bank[give] += rate;
-    this.give(pl, get, 1);
+    const norm = (x) => {
+      if (typeof x === 'string') return RES.includes(x) ? { [x]: 1 } : null;
+      if (!x || typeof x !== 'object') return null;
+      const out = {};
+      for (const [r, v] of Object.entries(x)) {
+        if (!RES.includes(r)) return null;
+        const n = Math.floor(Number(v) || 0);
+        if (n < 0) return null;
+        if (n > 0) out[r] = n;
+      }
+      return out;
+    };
+    let G = norm(give);
+    const W = norm(get);
+    if (!G || !W || !Object.keys(G).length || !Object.keys(W).length) fail('Izaberi šta daješ i šta dobijaš.');
+    if (typeof give === 'string') G = { [give]: this.tradeRate(pl, give) * (W[Object.keys(W)[0]] || 1) };
+    if (Object.keys(G).some((r) => W[r])) fail('Ne možeš davati i dobijati istu sirovinu.');
+    let units = 0;
+    for (const [r, n] of Object.entries(G)) {
+      const rate = this.tradeRate(pl, r);
+      if (n % rate) fail(`${RES_NAMES[r]}: daješ po ${rate} za 1 kartu (${rate}, ${rate * 2}, ${rate * 3}…).`);
+      if (pl.hand[r] < n) fail(`Nemaš ${n} × ${RES_NAMES[r]}.`);
+      units += n / rate;
+    }
+    const want = Object.values(W).reduce((a, b) => a + b, 0);
+    if (units !== want) fail(`Za ove karte dobijaš ${units} ${units === 1 ? 'kartu' : 'karte'} iz banke, a tražiš ${want}.`);
+    for (const [r, n] of Object.entries(W)) if (this.bank[r] < n) fail(`Banka nema dovoljno: ${RES_NAMES[r]}.`);
+    for (const [r, n] of Object.entries(G)) { pl.hand[r] -= n; this.bank[r] += n; }
+    for (const [r, n] of Object.entries(W)) this.give(pl, r, n);
     this.stat(pl.id, 'bank');
-    this.addLog(`🏦 ${pl.name} je razmenio ${rate} ${RES_NAMES[give]} za 1 ${RES_NAMES[get]} sa bankom.`);
+    const list = (m) => Object.entries(m).map(([r, n]) => `${n} ${RES_NAMES[r]}`).join(' + ');
+    this.addLog(`🏦 ${pl.name} je razmenio ${list(G)} za ${list(W)} sa bankom.`);
   }
 
   cleanOffer(o) {

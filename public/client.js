@@ -1321,9 +1321,20 @@ function renderOffers() {
   box.classList.toggle('hidden', tradeOpen);
   box.classList.toggle('big-offer', t.from !== S.me || !!t.open);
 }
+// Banka: svaka sirovina koju daješ mora biti umnožak svog odnosa (4, 8, 12… za 4:1;
+// 3, 6… za 3:1; 2, 4… za 2:1), a broj karata iz banke = zbir (dato / odnos).
 function bankTradeValid() {
   const give = Object.keys(tradeGive), get = Object.keys(tradeGet);
-  return give.length === 1 && get.length === 1 && tradeGet[get[0]] === 1 && tradeGive[give[0]] === S.rates[give[0]] && give[0] !== get[0];
+  if (!give.length || !get.length || give.some((r) => tradeGet[r])) return false;
+  let units = 0;
+  for (const r of give) {
+    const rate = S.rates && S.rates[r];
+    if (!rate || tradeGive[r] % rate) return false;
+    units += tradeGive[r] / rate;
+  }
+  const want = get.reduce((a, r) => a + tradeGet[r], 0);
+  if (units !== want) return false;
+  return !S.bank || get.every((r) => S.bank[r] >= tradeGet[r]);
 }
 function renderTradePanel() {
   const p = $('tradePanel');
@@ -1346,7 +1357,7 @@ function renderTradePanel() {
     <div class="tp-side">
       ${counterMode
         ? `<button class="tbig" data-tr="sendcounter" ${canOffer ? '' : 'disabled'} title="Pošalji predlog igraču na potezu">✎<small>Predloži</small></button>`
-        : `<button class="tbig" data-tr="bank" ${bankTradeValid() ? '' : 'disabled'} title="Trguj sa bankom: daješ broj karata koji piše na kartici gore (4:1, 3:1 ili 2:1) za 1 kartu">🏦<small>Banka</small></button>
+        : `<button class="tbig" data-tr="bank" ${bankTradeValid() ? '' : 'disabled'} title="Trguj sa bankom: za svaku kartu iz banke daješ broj karata koji piše na kartici gore (4:1, 3:1 ili 2:1), npr. 8 za 2 ili 6 za 2">🏦<small>Banka</small></button>
       <button class="tbig" data-tr="offer" ${canOffer ? '' : 'disabled'} title="${S.helperOf ? 'Pomoćni potez: ponuda ide samo glavnom igraču' : 'Pošalji ponudu svim igračima; ti biraš sa kim ćeš razmeniti'}">👥<small>${S.helperOf ? esc(pById(S.helperOf).name) : 'Igračima'}</small></button>`}
       <button class="tbig close" data-tr="close" title="Zatvori trgovinu (Esc)">✕</button>
     </div>`;
@@ -1379,8 +1390,8 @@ function onTradeClick(ev) {
   if (a === 'sendcounter') { act('counterTrade', { give: tradeGive, get: tradeGet }); counterMode = false; tradeOpen = false; tradeGive = {}; tradeGet = {}; return render(); }
   if (a === 'offer') { act('offerTrade', { give: tradeGive, get: tradeGet }); tradeGive = {}; tradeGet = {}; tradeOpen = false; render(); }
   if (a === 'bank') {
-    if (!bankTradeValid()) return toast('Za banku: daj jednu vrstu sirovine (broj piše na kartici gore) i traži 1 kartu.');
-    act('bankTrade', { give: Object.keys(tradeGive)[0], get: Object.keys(tradeGet)[0] });
+    if (!bankTradeValid()) return toast('Za banku: daj sirovinu u paketima po odnosu sa kartice gore (npr. 8 za 2 kod 4:1) i traži toliko karata koliko paketa daješ.');
+    act('bankTrade', { give: { ...tradeGive }, get: { ...tradeGet } });
     tradeGive = {}; tradeGet = {}; tradeOpen = false;
   }
 }
