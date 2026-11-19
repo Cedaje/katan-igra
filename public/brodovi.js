@@ -2,8 +2,11 @@
 // Ekran igre "Potapanje brodova". Koristi zajednicke stvari iz client.js (socket, profil, avatari, zvuk, prozor).
 const BS = (() => {
   const R = BS_RULES;
-  const CELL = 34, PAD = 24, SIZE = PAD + R.N * CELL + 4;
-  const LET = 'ABCDEFGHIJ';
+  const CELL = 34, PAD = 24;
+  const LET = R.LETTERS;
+  const N = () => (G && G.settings.size) || 10; // velicina table
+  let aimMode = 'shot'; // 'shot' | 'radar' | 'bomb'
+  let aimHover = null;
   let G = null; // stanje sa servera
   let place = null; // lokalni raspored: { round, ships: [], sel: duzina|null, dir, hover: [x,y]|null }
   let lookSent = null;
@@ -23,9 +26,11 @@ const BS = (() => {
     if (!prev || prev.code !== G.code) { seenLog = null; endShown = null; lookSent = null; place = null; seenChat = 0; }
     sounds(prev);
     if (G.phase === 'place' && (!place || place.round !== G.round)) {
-      place = { round: G.round, ships: [], sel: R.sizesOf(G.settings.fleet)[0], dir: 'h', hover: null };
+      place = { round: G.round, ships: [], sel: R.sizesOf(G.settings.fleet, N())[0], dir: 'h', hover: null };
     }
     if (G.phase !== 'ended') { endHidden = false; }
+    if (G.turn !== G.me || (aimMode !== 'shot' && !(meP()?.[aimMode] > 0))) aimMode = 'shot';
+    clockOff = G.now - Date.now();
     sendLook();
     showPage('bsgame');
     render();
@@ -50,11 +55,15 @@ const BS = (() => {
     if (G.chat.length > (prev.chat || []).length && G.chat[G.chat.length - 1].pid !== G.me) SFX.play('chat');
     for (const l of fresh) {
       const t = l.text;
-      if (t.startsWith('🌊')) { SFX.play('shot'); SFX.play('splash'); }
-      else if (t.startsWith('💥')) { SFX.play('shot'); SFX.play('boom'); }
-      else if (t.startsWith('🔥')) { SFX.play('shot'); SFX.play('sunk'); }
-      else if (t.startsWith('🔔')) SFX.play('bell');
-      else if (t.startsWith('✅')) SFX.play('click');
+      if (t.startsWith('🌊')) { SFX.play('cannon'); SFX.play('splash'); }
+      else if (t.startsWith('💥')) { SFX.play('cannon'); SFX.play('boom'); }
+      else if (t.startsWith('🔥')) { SFX.play('cannon'); SFX.play('sunk'); }
+      else if (t.startsWith('📡')) SFX.play('sonar');
+      else if (t.startsWith('💣')) { SFX.play('bombFall'); if (t.includes('potopljeno')) setTimeout(() => SFX.play('sunk'), 500); }
+      else if (t.startsWith('⏰')) SFX.play('warn');
+      else if (t.startsWith('🔔')) SFX.play('horn');
+      else if (t.startsWith('✅')) SFX.play('ready');
+      else if (t.startsWith('⚓')) SFX.play('anchor');
       else if (t.startsWith('🚪')) SFX.play('leave');
       else if (t.startsWith('🔁')) SFX.play('vote');
       else if (t.startsWith('🏆')) {
@@ -87,6 +96,11 @@ const BS = (() => {
     const stripe = o.color ? `<path d="M ${H * 0.3},${H - 2.5} H ${L - bow * 0.6}" stroke="${o.color}" stroke-width="3" stroke-linecap="round"/>` : '';
     return `<g class="ship ${o.cls || ''}" transform="${tr}"><path d="${hull}" class="sh-hull"/>${stripe}${deck}</g>`;
   }
+  function radarSVG(r) {
+    const n = N(), x0 = Math.max(0, r.x - 1), y0 = Math.max(0, r.y - 1), x1 = Math.min(n - 1, r.x + 1), y1 = Math.min(n - 1, r.y + 1);
+    const X = PAD + x0 * CELL + 2, Y = PAD + y0 * CELL + 2, W = (x1 - x0 + 1) * CELL - 4, H = (y1 - y0 + 1) * CELL - 4;
+    return `<g class="mk-radar"><rect x="${X}" y="${Y}" width="${W}" height="${H}" rx="6"/><circle cx="${X + W - 9}" cy="${Y + 9}" r="9"/><text x="${X + W - 9}" y="${Y + 13}">${r.n}</text></g>`;
+  }
   function markSVG(x, y, v, last) {
     const cx = PAD + x * CELL + CELL / 2, cy = PAD + y * CELL + CELL / 2;
     let m = '';
@@ -99,18 +113,22 @@ const BS = (() => {
     return m + (last ? `<circle cx="${cx}" cy="${cy}" r="15" class="mk-last"/>` : '');
   }
   function boardSVG(o) {
-    let h = `<rect x="${PAD}" y="${PAD}" width="${R.N * CELL}" height="${R.N * CELL}" rx="6" class="water"/>`;
-    for (let i = 0; i < R.N; i++) {
+    const n = N(), SIZE = PAD + n * CELL + 4;
+    let h = `<rect x="${PAD}" y="${PAD}" width="${n * CELL}" height="${n * CELL}" rx="6" class="water"/>`;
+    for (let i = 0; i < n; i++) {
       h += `<text x="${PAD + i * CELL + CELL / 2}" y="${PAD - 8}" class="lbl">${LET[i]}</text>`;
       h += `<text x="${PAD - 10}" y="${PAD + i * CELL + CELL / 2 + 5}" class="lbl">${i + 1}</text>`;
     }
-    for (let i = 1; i < R.N; i++) h += `<line x1="${PAD + i * CELL}" y1="${PAD}" x2="${PAD + i * CELL}" y2="${PAD + R.N * CELL}" class="gl"/><line x1="${PAD}" y1="${PAD + i * CELL}" x2="${PAD + R.N * CELL}" y2="${PAD + i * CELL}" class="gl"/>`;
+    for (let i = 1; i < n; i++) h += `<line x1="${PAD + i * CELL}" y1="${PAD}" x2="${PAD + i * CELL}" y2="${PAD + n * CELL}" class="gl"/><line x1="${PAD}" y1="${PAD + i * CELL}" x2="${PAD + n * CELL}" y2="${PAD + i * CELL}" class="gl"/>`;
     for (const s of o.ships || []) h += shipSVG(s, { color: o.color, cls: (s.sunk ? 'sunk ' : '') + (s.cls || '') });
     if (o.ghost) h += shipSVG(o.ghost, { cls: o.ghost.ok ? 'ghost' : 'ghost bad' });
     const last = o.last;
-    for (const [k, v] of Object.entries(o.shots || {})) { const [x, y] = k.split(',').map(Number); h += markSVG(x, y, v, last && last.x === x && last.y === y); }
-    if (o.click) for (let y = 0; y < R.N; y++) for (let x = 0; x < R.N; x++) {
-      if (o.aim && o.shots[x + ',' + y]) continue;
+    for (const [k, v] of Object.entries(o.shots || {})) { const [x, y] = k.split(',').map(Number); h += markSVG(x, y, v, last && last.kind === 'shot' && last.x === x && last.y === y); }
+    for (const r of o.radars || []) h += radarSVG(r);
+    if (last && last.kind && last.kind !== 'shot') h += `<rect x="${PAD + (last.x - 1) * CELL}" y="${PAD + (last.y - 1) * CELL}" width="${CELL * 3}" height="${CELL * 3}" rx="8" class="mk-area"/>`;
+    if (o.area) h += `<rect x="${PAD + (o.area[0] - 1) * CELL + 1}" y="${PAD + (o.area[1] - 1) * CELL + 1}" width="${CELL * 3 - 2}" height="${CELL * 3 - 2}" rx="8" class="aim-area ${aimMode}"/>`;
+    if (o.click) for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      if (o.aim && aimMode === 'shot' && o.shots[x + ',' + y]) continue;
       h += `<rect x="${PAD + x * CELL}" y="${PAD + y * CELL}" width="${CELL}" height="${CELL}" class="cell" data-x="${x}" data-y="${y}"><title>${LET[x]}${y + 1}</title></rect>`;
     }
     return `<svg viewBox="0 0 ${SIZE} ${SIZE}" class="bs-board ${o.aim ? 'aim' : ''} ${o.cls || ''}" data-board="${o.id}">${h}</svg>`;
@@ -133,22 +151,30 @@ const BS = (() => {
       <span class="bs-pn"><b>${esc(p.name)}${p.id === G.me ? ' <small>(ti)</small>' : ''}</b>${p.title ? `<i class="ptitle">${TITLES[p.title]}</i>` : ''}<small>${sub}</small>${G.phase === 'battle' || G.phase === 'ended' ? fleet : ''}</span></div>`;
   }
 
+  // podesavanja sobe: jedan red po opciji, sa kratkim izborom (osnivac menja, drugi igrac samo vidi)
+  const LOBBY_OPTS = [
+    { k: 'fleet', label: '🚢 Flota', tip: 'Klasična: mnogo malih brodova (na 10×10: 4, 3, 3, 2, 2, 2, 1, 1, 1, 1). Velika: manje brodova, ali duži (5, 4, 3, 3, 2).', vals: [['klasicna', 'Klasična'], ['velika', 'Velika']] },
+    { k: 'size', label: '🗺️ Tabla', tip: 'Veličina table. Na manjoj tabli bitka je kraća, na većoj duža. Broj brodova se prilagodi tabli.', vals: [[8, '8×8'], [10, '10×10'], [12, '12×12']] },
+    { k: 'again', label: '🎯 Posle pogotka', tip: 'Gađaš opet: kad pogodiš, ostaješ na potezu dok ne promašiš. Menja se: posle svakog gađanja igra protivnik.', vals: [[true, 'Gađaš opet'], [false, 'Menja se']], off: (st) => st.salvo },
+    { k: 'touch', label: '🧩 Brodovi se dodiruju', tip: 'Ne: između brodova mora biti prazno polje, a oko potopljenog broda se polja sama označe. Da: brodovi smeju da stoje jedan uz drugi.', vals: [[false, 'Ne'], [true, 'Da']] },
+    { k: 'salvo', label: '💥 Salva', tip: 'U jednom potezu gađaš onoliko puta koliko ti je brodova ostalo na vodi. Što više brodova izgubiš, slabije pucaš.', vals: [[false, 'Ne'], [true, 'Da']] },
+    { k: 'special', label: '📡 Radar i bomba', tip: 'Svaki igrač jednom po bitki može da upotrebi radar (pokaže koliko polja broda ima u kvadratu 3×3) i bombu (gađa ceo kvadrat 3×3). Troše jedno gađanje.', vals: [[false, 'Ne'], [true, 'Da']] },
+    { k: 'timer', label: '⏱️ Vreme za gađanje', tip: 'Koliko sekundi imaš za jedno gađanje. Kad istekne, igra gađa nasumično umesto tebe.', vals: [[0, 'Bez'], [15, '15s'], [30, '30s'], [60, '60s']] },
+  ];
   function lobbyHTML() {
     const st = G.settings, host = isHost();
     const url = new URL(location.href); url.search = '?soba=' + G.code;
-    const opt = (k, v, label, tip) => `<button class="bs-opt ${st[k] === v ? 'on' : ''}" ${host ? `data-bsset="${k}" data-v="${v}"` : 'disabled'} title="${tip}">${label}</button>`;
+    const rows = LOBBY_OPTS.map((o) => {
+      const off = o.off && o.off(st);
+      return `<div class="bs-set ${off ? 'off' : ''}" title="${o.tip}"><span class="bs-set-l">${o.label}${off ? ' <small>(ne važi uz salvu)</small>' : ''}</span>
+        <div class="seg2">${o.vals.map(([v, l]) => `<button class="${st[o.k] === v ? 'on' : ''}" ${host && !off ? `data-bsset="${o.k}" data-v="${v}"` : 'disabled'}>${l}</button>`).join('')}</div></div>`;
+    }).join('');
+    const fleet = R.sizesOf(st.fleet, st.size);
     return `<div class="bs-lobby">
-      <div class="bs-box"><h3>Pozovi prijatelja</h3>
-        <div class="invite"><input id="bsInvite" readonly value="${url.toString()}"><button class="btn green sm" data-bscopy title="Kopiraj link i pošalji ga prijatelju">Kopiraj</button></div>
-        <p class="bs-note">Kod sobe: <b>${G.code}</b></p></div>
-      <div class="bs-box"><h3>Flota</h3><div class="bs-opts">
-        ${opt('fleet', 'klasicna', '<b>Klasična</b><small>10 brodova: 4, 3, 3, 2, 2, 2, 1, 1, 1, 1</small>', 'Jedan brod od 4 polja, dva od 3, tri od 2 i četiri podmornice od 1 polja')}
-        ${opt('fleet', 'velika', '<b>Velika</b><small>5 brodova: 5, 4, 3, 3, 2</small>', 'Manje brodova, ali duži')}</div></div>
-      <div class="bs-box"><h3>Pravila</h3><div class="bs-opts">
-        ${opt('again', true, '<b>Pogodak = gađaš opet</b><small>Posle pogotka ostaješ na potezu</small>', 'Kad pogodiš brod, gađaš ponovo dok ne promašiš')}
-        ${opt('again', false, '<b>Naizmenično</b><small>Svako gađa po jednom</small>', 'Posle svakog gađanja potez prelazi na protivnika')}
-        ${opt('touch', false, '<b>Brodovi se ne dodiruju</b><small>Ni ćoškom; oko potopljenog broda se polja sama označe</small>', 'Između brodova mora biti bar jedno prazno polje')}
-        ${opt('touch', true, '<b>Brodovi smeju da se dodiruju</b><small>Teže je pogoditi ceo brod</small>', 'Brodovi mogu da stoje jedan uz drugi')}</div></div>
+      <div class="bs-box bs-inv"><b>Pozovi prijatelja</b>
+        <div class="invite"><input id="bsInvite" readonly value="${url.toString()}"><button class="btn green sm" data-bscopy title="Kopiraj link i pošalji ga prijatelju">Kopiraj</button></div></div>
+      <div class="bs-box"><h3>⚙️ Podešavanja ${host ? '' : '<small>(menja osnivač sobe)</small>'}</h3>${rows}
+        <p class="bs-note">Flota: ${fleet.length} brodova (${fleet.join(', ')}). Pređi mišem preko opcije za opis.</p></div>
       <div class="bs-start">${host ? `<button class="btn green" data-bsstart ${G.players.length < 2 ? 'disabled' : ''} title="Pokreni bitku (potrebna su 2 igrača)">Pokreni bitku</button>` : '<span class="muted-light">Čeka se da osnivač pokrene bitku…</span>'}
         ${G.players.length < 2 ? '<span class="muted-light">Čeka se drugi igrač…</span>' : ''}</div>
     </div>`;
@@ -156,7 +182,7 @@ const BS = (() => {
 
   // raspored brodova: izaberi brod, pa klikni na tablu (R ili desni klik okreće)
   function remaining() {
-    const left = [...R.sizesOf(G.settings.fleet)];
+    const left = [...R.sizesOf(G.settings.fleet, N())];
     for (const s of place.ships) left.splice(left.indexOf(s.len), 1);
     return left;
   }
@@ -164,8 +190,8 @@ const BS = (() => {
     if (!place.sel) return null;
     const g = { x, y, len: place.sel, dir: place.dir };
     // da brod ne ispadne sa table: pomeri ga unazad
-    if (g.dir === 'h') g.x = Math.min(g.x, R.N - g.len); else g.y = Math.min(g.y, R.N - g.len);
-    g.ok = R.fits(place.ships, g, G.settings.touch);
+    if (g.dir === 'h') g.x = Math.min(g.x, N() - g.len); else g.y = Math.min(g.y, N() - g.len);
+    g.ok = R.fits(place.ships, g, G.settings.touch, N());
     return g;
   }
   function placeHTML() {
@@ -178,7 +204,7 @@ const BS = (() => {
     const left = remaining();
     if (place.sel && !left.includes(place.sel)) place.sel = left[0] || null;
     const ghost = place.hover ? ghostAt(...place.hover) : null;
-    const dock = R.sizesOf(G.settings.fleet).map((n, i, all) => {
+    const dock = R.sizesOf(G.settings.fleet, N()).map((n, i, all) => {
       const used = all.slice(0, i).filter((v) => v === n).length < all.filter((v) => v === n).length - left.filter((v) => v === n).length;
       return { n, used };
     });
@@ -201,9 +227,14 @@ const BS = (() => {
     const lastMine = G.lastShot && G.lastShot.by !== G.me ? G.lastShot : null;
     const lastFoe = G.lastShot && G.lastShot.by === G.me ? G.lastShot : null;
     const foeShips = (G.foeShips || []).map((s) => ({ ...s, cls: s.sunk ? '' : 'reveal' }));
+    const special = G.settings.special && G.phase === 'battle' ? `<div class="bs-special">
+        <button class="bs-sp ${aimMode === 'shot' ? 'on' : ''}" data-aim="shot" ${myTurn ? '' : 'disabled'} title="Običan hitac u jedno polje">🎯 Hitac</button>
+        <button class="bs-sp ${aimMode === 'radar' ? 'on' : ''}" data-aim="radar" ${myTurn && m.radar ? '' : 'disabled'} title="Radar: pokaže koliko polja broda ima u kvadratu 3×3 (jednom po bitki)">📡 Radar <b>${m.radar}</b></button>
+        <button class="bs-sp ${aimMode === 'bomb' ? 'on' : ''}" data-aim="bomb" ${myTurn && m.bomb ? '' : 'disabled'} title="Bomba: gađa ceo kvadrat 3×3 (jednom po bitki)">💣 Bomba <b>${m.bomb}</b></button></div>` : '';
+    const area = myTurn && aimMode !== 'shot' && aimHover ? aimHover : null;
     return `<div class="bs-boards">
-      <div class="bs-bwrap foe ${myTurn ? 'active' : ''}"><h3>🎯 More protivnika ${f ? `<small>${esc(f.name)}</small>` : ''}</h3>${boardSVG({ id: 'foe', ships: foeShips, color: f?.color, shots: G.foeShots, last: lastFoe, click: myTurn, aim: myTurn })}</div>
-      <div class="bs-bwrap mine ${!myTurn && G.phase === 'battle' ? 'active' : ''}"><h3>🚢 Tvoja flota</h3>${boardSVG({ id: 'mine', ships: G.myShips || [], color: m.color, shots: G.myShots, last: lastMine })}</div>
+      <div class="bs-bwrap foe ${myTurn ? 'active' : ''}"><h3>🎯 More protivnika ${f ? `<small>${esc(f.name)}</small>` : ''}</h3>${boardSVG({ id: 'foe', ships: foeShips, color: f?.color, shots: G.foeShots, radars: G.foeRadars, last: lastFoe, click: myTurn, aim: myTurn, area })}${special}</div>
+      <div class="bs-bwrap mine ${!myTurn && G.phase === 'battle' ? 'active' : ''}"><h3>🚢 Tvoja flota</h3>${boardSVG({ id: 'mine', ships: G.myShips || [], color: m.color, shots: G.myShots, radars: G.myRadars, last: lastMine })}</div>
     </div>`;
   }
 
@@ -211,7 +242,11 @@ const BS = (() => {
     const f = foeP();
     if (G.phase === 'lobby') return G.players.length < 2 ? 'Pošalji link prijatelju i sačekaj da uđe u sobu.' : isHost() ? 'Protivnik je tu. Izaberi pravila i pokreni bitku!' : 'Protivnik je tu. Osnivač bira pravila.';
     if (G.phase === 'place') return meP().ready ? 'Čeka se protivnik…' : 'Rasporedi brodove tajno. Protivnik ih ne vidi.';
-    if (G.phase === 'battle') return G.turn === G.me ? '🎯 Tvoj red! Gađaj polje na protivničkoj tabli.' : `⏳ ${esc(f?.name || 'Protivnik')} gađa tvoju flotu…`;
+    if (G.phase === 'battle') {
+      const salvo = G.settings.salvo && G.shotsLeft > 1 ? ` <span class="bs-salvo">💥 još ${G.shotsLeft} gađanja</span>` : '';
+      const mode = G.turn === G.me && aimMode !== 'shot' ? (aimMode === 'radar' ? '📡 Izaberi centar kvadrata za radar.' : '💣 Izaberi centar kvadrata za bombu.') : null;
+      return (G.turn === G.me ? (mode || '🎯 Tvoj red! Gađaj polje na protivničkoj tabli.') : `⏳ ${esc(f?.name || 'Protivnik')} gađa tvoju flotu…`) + salvo + '<span id="bsTimer" class="bs-timer"></span>';
+    }
     if (G.phase === 'ended') return G.winner === G.me ? '🏆 Pobedio si!' : G.winner ? `${esc(G.players.find((p) => p.id === G.winner)?.name || '')} je pobedio.` : 'Bitka je završena.';
     return '';
   }
@@ -247,6 +282,19 @@ const BS = (() => {
     $('bsBadge').textContent = unread > 0 ? unread : '';
   }
 
+  // odbrojavanje vremena za gadjanje
+  let clockOff = 0, lastTickSec = null;
+  setInterval(() => {
+    const el = $('bsTimer');
+    if (!G || !el) return;
+    if (!G.deadline || G.phase !== 'battle') { el.textContent = ''; return; }
+    const sec = Math.max(0, Math.ceil((G.deadline - (Date.now() + clockOff)) / 1000));
+    el.textContent = `⏱️ ${sec}s`;
+    el.classList.toggle('low', sec <= 5);
+    if (G.turn === G.me && sec <= 5 && sec > 0 && sec !== lastTickSec) SFX.play('tick');
+    lastTickSec = sec;
+  }, 250);
+
   function render() {
     if (!G) return;
     $('bsRoom').textContent = `Soba ${G.code}${G.round > 1 ? ` · runda ${G.round}` : ''}`;
@@ -274,15 +322,15 @@ const BS = (() => {
     const c = e.target.closest('[data-x]'); if (!c) return;
     const x = Number(c.dataset.x), y = Number(c.dataset.y);
     const b = c.closest('[data-board]').dataset.board;
-    if (b === 'foe') { send('shoot', { x, y }); return; }
+    if (b === 'foe') { send('shoot', { x, y, kind: aimMode }); aimMode = 'shot'; aimHover = null; return; }
     if (b === 'place') {
       const hitShip = place.ships.find((s) => R.cellsOf(s).some(([a, bb]) => a === x && bb === y));
-      if (hitShip) { place.ships = place.ships.filter((s) => s !== hitShip); place.sel = hitShip.len; place.dir = hitShip.dir; SFX.play('click'); render(); return; }
+      if (hitShip) { place.ships = place.ships.filter((s) => s !== hitShip); place.sel = hitShip.len; place.dir = hitShip.dir; SFX.play('pickup'); render(); return; }
       const g = ghostAt(x, y);
       if (!g) return toast('Prvo izaberi brod sa desne strane.');
       if (!g.ok) { SFX.play('error'); return toast(G.settings.touch ? 'Tu brod ne može da stane.' : 'Tu brod ne može da stane: brodovi ne smeju da se dodiruju.'); }
       place.ships.push({ x: g.x, y: g.y, len: g.len, dir: g.dir });
-      SFX.play('click');
+      SFX.play('place');
       const left = remaining(); place.sel = left[0] || null;
       render();
     }
@@ -295,9 +343,10 @@ const BS = (() => {
     if (b.hasAttribute('data-bscopy')) { navigator.clipboard?.writeText($('bsInvite').value); toast('Link je kopiran. Pošalji ga prijatelju.'); return; }
     if (b.hasAttribute('data-bsstart')) return send('start');
     if (b.dataset.bssel) { place.sel = Number(b.dataset.bssel); render(); return; }
-    if (b.hasAttribute('data-bsrot')) { place.dir = place.dir === 'h' ? 'v' : 'h'; render(); return; }
-    if (b.hasAttribute('data-bsrand')) { place.ships = R.randomFleet(G.settings.fleet, G.settings.touch) || []; place.sel = null; SFX.play('click'); render(); return; }
-    if (b.hasAttribute('data-bsclear')) { place.ships = []; place.sel = R.sizesOf(G.settings.fleet)[0]; render(); return; }
+    if (b.hasAttribute('data-bsrot')) { place.dir = place.dir === 'h' ? 'v' : 'h'; SFX.play('rotate'); render(); return; }
+    if (b.dataset.aim) { aimMode = aimMode === b.dataset.aim ? 'shot' : b.dataset.aim; SFX.play('click'); render(); return; }
+    if (b.hasAttribute('data-bsrand')) { place.ships = R.randomFleet(G.settings.fleet, G.settings.touch, N()) || []; place.sel = null; SFX.play('shuffle'); render(); return; }
+    if (b.hasAttribute('data-bsclear')) { place.ships = []; place.sel = R.sizesOf(G.settings.fleet, N())[0]; SFX.play('click'); render(); return; }
     if (b.hasAttribute('data-bsready')) return send('place', { ships: place.ships });
     if (b.hasAttribute('data-bsunready')) { place.ships = (G.myShips || []).map(({ x, y, len, dir }) => ({ x, y, len, dir })); place.sel = null; send('unready'); return; }
     if (b.hasAttribute('data-bsshowend')) { endHidden = false; render(); }
@@ -309,13 +358,20 @@ const BS = (() => {
     const h = c ? [Number(c.dataset.x), Number(c.dataset.y)] : null;
     if (String(h) !== String(place.hover)) { place.hover = h; render(); }
   });
+  $('bsBody').addEventListener('mouseover', (e) => {
+    if (!G || G.phase !== 'battle' || aimMode === 'shot') return;
+    const c = e.target.closest('[data-board="foe"] [data-x]');
+    const h = c ? [Number(c.dataset.x), Number(c.dataset.y)] : null;
+    if (String(h) !== String(aimHover)) { aimHover = h; render(); }
+  });
   $('bsBody').addEventListener('contextmenu', (e) => {
     if (!G || G.phase !== 'place' || !e.target.closest('[data-board="place"]')) return;
-    e.preventDefault(); place.dir = place.dir === 'h' ? 'v' : 'h'; render();
+    e.preventDefault(); place.dir = place.dir === 'h' ? 'v' : 'h'; SFX.play('rotate'); render();
   });
   document.addEventListener('keydown', (e) => {
     if (!G || $('bsgame').classList.contains('hidden') || e.target.matches('input, textarea')) return;
-    if (e.key.toLowerCase() === 'r' && G.phase === 'place' && place) { place.dir = place.dir === 'h' ? 'v' : 'h'; render(); }
+    if (e.key.toLowerCase() === 'r' && G.phase === 'place' && place) { place.dir = place.dir === 'h' ? 'v' : 'h'; SFX.play('rotate'); render(); }
+    if (e.key === 'Escape' && aimMode !== 'shot') { aimMode = 'shot'; render(); }
   });
   $('bsEnd').addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;

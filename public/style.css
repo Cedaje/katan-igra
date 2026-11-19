@@ -903,3 +903,35 @@ body.dark-ui { --bs-w1: #1d4659; --bs-w2: #12303f; --bs-gl: rgba(255,255,255,.12
 }
 .bs-lookbtn { background: var(--blue-l); }
 .stat-kinds { align-self: flex-start; }
+/* brodovi: jednostavniji meni podesavanja, specijalni hici, tajmer */
+.bs-lobby { max-width: 640px; }
+.bs-inv { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.bs-inv .invite { flex: 1; }
+.bs-inv .invite input { width: auto; flex: 1; min-width: 0; }
+.bs-box h3 small { font-weight: 400; opacity: .7; font-size: 13px; }
+.bs-set { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+.bs-set:last-of-type { border-bottom: 0; }
+.bs-set-l { font-weight: 600; }
+.bs-set-l small { font-weight: 400; opacity: .7; }
+.bs-set .seg2 button:disabled { cursor: default; }
+.bs-set .seg2 button:disabled:not(.on) { opacity: .55; }
+.bs-set.off { opacity: .5; }
+.bs-special { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
+.bs-sp { border: 2px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: #fff; border-radius: 9px; padding: 6px 12px; font-weight: 700; }
+.bs-sp b { background: rgba(255,255,255,.2); border-radius: 999px; padding: 0 6px; margin-left: 2px; font-size: 12px; }
+.bs-sp.on { border-color: var(--hilite); background: rgba(255,209,102,.22); }
+.bs-sp:disabled { opacity: .4; cursor: default; }
+.mk-radar rect { fill: rgba(94,242,224,.12); stroke: #5ef2e0; stroke-width: 2; stroke-dasharray: 6 4; }
+.mk-radar circle { fill: #0b5f69; stroke: #5ef2e0; stroke-width: 2; }
+.mk-radar text { fill: #fff; font-size: 12px; font-weight: 800; text-anchor: middle; }
+.mk-area { fill: none; stroke: #ffd166; stroke-width: 3; animation: bsArea 1.4s ease-out 2; pointer-events: none; }
+@keyframes bsArea { from { opacity: 1; } to { opacity: 0; } }
+.aim-area { fill: rgba(255,209,102,.25); stroke: #ffd166; stroke-width: 2.5; pointer-events: none; }
+.aim-area.radar { fill: rgba(94,242,224,.22); stroke: #5ef2e0; }
+.bs-salvo { color: #ffb38a; margin-left: 8px; }
+.bs-timer { margin-left: 10px; font-variant-numeric: tabular-nums; color: #cfe3ea; }
+.bs-timer.low { color: #ff8a7a; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .bs-set { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .bs-inv { flex-direction: column; align-items: stretch; }
+}
