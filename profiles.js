@@ -139,6 +139,7 @@ function adminSearch(q) {
 function adminUpdate(code, what) {
   const t = claim(code); if (!t) return null;
   const p = profiles[t];
+  if (what === 'delete') { const row = adminRow(t, p); delete profiles[t]; dirty = true; return { ...row, deleted: true }; }
   if (what === 'unlockAll') p.unlockAll = true;
   else if (what === 'lock') delete p.unlockAll;
   else if (what === 'newCode') p.code = newCode(); // stari kod prestaje da radi

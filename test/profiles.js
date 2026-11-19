@@ -31,5 +31,8 @@ const nc = P.adminUpdate(oldCode, 'newCode').code;
 assert.notEqual(nc, oldCode); assert.equal(P.claim(oldCode), null); assert.equal(P.claim(nc), 'token-bbbb');
 assert.equal(P.adminUpdate(nc, 'lock').all, false);
 assert.equal(P.adminUpdate('ZZZZ-ZZZZ', 'unlockAll'), null);
+assert.ok(P.adminUpdate(nc, 'delete').deleted);
+assert.equal(P.claim(nc), null);
+assert.ok(!P.leaderboard('token-aaaa').some((r) => r.name === 'B'));
 console.log('profili OK');
 process.exit(0);

@@ -62,7 +62,8 @@
       <td class="hide-sm">${r.games} / ${r.wins}</td><td class="hide-sm">${when(r.updated)}</td>
       <td><div class="acts"><button class="gray" data-copy>Kopiraj kod</button>
       ${r.all ? '<button class="gray" data-what="lock">Vrati zaključano</button>' : '<button data-what="unlockAll">Otključaj sve</button>'}
-      <button class="red" data-what="newCode" title="Stari kod prestaje da radi">Novi kod</button></div></td></tr>`;
+      <button class="red" data-what="newCode" title="Stari kod prestaje da radi">Novi kod</button>
+      <button class="red" data-what="delete" title="Briše profil, statistiku i mesto u tabeli najboljih. Ne može da se vrati.">🗑 Obriši nalog</button></div></td></tr>`;
   }
   async function search() {
     try {
@@ -88,9 +89,10 @@
     const tr = b.closest('tr'), code = tr.dataset.code;
     if (b.hasAttribute('data-copy')) { navigator.clipboard?.writeText(code); msg('Kod ' + code + ' je kopiran.'); return; }
     const what = b.dataset.what;
-    if (what === 'newCode' && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Sigurno? Klikni opet'; return; }
+    if ((what === 'newCode' || what === 'delete') && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Sigurno? Klikni opet'; return; }
     try {
       const { row } = await api({ op: 'update', code, what });
+      if (row.deleted) { tr.remove(); msg('Nalog ' + row.name + ' (' + row.code + ') je obrisan.'); return; }
       tr.outerHTML = rowHTML(row);
       msg({ unlockAll: 'Otključano sve za ' + row.name + '. Neka osveži stranicu igre.', lock: 'Ukrasi su ponovo zaključani za ' + row.name + '.', newCode: 'Novi kod za ' + row.name + ': ' + row.code + ' (stari više ne radi).' }[what]);
     } catch (err) { msg(err.message, true); }
