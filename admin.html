@@ -116,7 +116,7 @@
   }
   function detailHTML(r) {
     const grant = new Set(r.grant);
-    const done = (a) => (r.stats[a.stat] || 0) >= a.need;
+    const done = (a) => window.ACHIEVEMENTS.value(a, r.stats, r.gstats) >= a.need;
     return `<tr class="detail" data-code="${r.code}"><td colspan="5"><div class="dgrid">
       <div class="card"><h3>✏️ Ime</h3>
         <div class="row"><input data-f="name" maxlength="16" value="${esc(r.forcedName || r.name)}"><button data-what="rename">Sačuvaj</button></div>
@@ -131,7 +131,8 @@
       </div>
       <div class="card"><h3>📊 Statistika</h3>
         <div class="stats">${Object.keys(STAT_NAMES).map((k) => `<label>${STAT_NAMES[k]}<input type="number" min="0" data-stat="${k}" value="${r.stats[k] || 0}"></label>`).join('')}</div>
-        <div class="row" style="margin-top:8px"><button data-what="setStats">Sačuvaj statistiku</button><button class="red" data-what="resetStats">Resetuj na nulu</button></div>
+        <div class="row" style="margin-top:8px"><button data-what="setStats">Sačuvaj statistiku</button><button class="red" data-what="resetStats" title="Briše statistiku za sve igre">Resetuj na nulu</button></div>
+        <p class="small">⚓ Potapanje brodova: ${r.gstats && r.gstats.brodovi ? `${r.gstats.brodovi.games} bitaka, ${r.gstats.brodovi.wins} pobeda, ${r.gstats.brodovi.sunk} potopljenih brodova` : '0 bitaka'}</p>
       </div>
       <div class="card" style="grid-column:1/-1"><h3>🎖️ Dostignuća <small style="font-weight:400;color:#7a6448">(dodeljeno dostignuće otključava i njegov okvir ili titulu)</small></h3>
         <div class="achs">${ACH.map((a) => {
@@ -189,10 +190,10 @@
   };
 
   // ---------- sobe ----------
-  const PHASE = { lobby: 'čeka igrače', setup: 'postavljanje', main: 'igra u toku', ended: 'završena' };
+  const PHASE = { lobby: 'čeka igrače', setup: 'postavljanje', main: 'igra u toku', play: 'igra u toku', place: 'raspoređuju brodove', battle: 'bitka u toku', ended: 'završena' };
   function drawRooms(rooms) {
     $('roomList').innerHTML = rooms.length ? rooms.map((g) => `<div class="room" data-code="${g.code}">
-      <div class="row"><b style="flex:1">Soba ${g.code} <small style="font-weight:400;color:#7a6448">· ${PHASE[g.phase] || g.phase} · ${esc(g.map || '')} · ${when(g.last)}</small></b>
+      <div class="row"><b style="flex:1">Soba ${g.code} <small style="font-weight:400;color:#7a6448">· ${PHASE[g.phase] || g.phase} · ${g.kind === 'brodovi' ? '⚓ Potapanje brodova' : '⛵ Ostrvo · ' + esc(g.map || '')} · ${when(g.last)}</small></b>
       <button class="red" data-close>Zatvori sobu</button></div>
       <div>${g.players.map((p) => `<span class="pl ${p.connected && !p.out ? '' : 'off'}"><i class="dot ${p.connected ? 'on' : ''}"></i>${esc(p.name)}${p.out ? '' : ` <button class="red" data-kick="${p.id}" title="Izbaci igrača iz sobe">Izbaci</button>`}</span>`).join('')}</div>
     </div>`).join('') : '<p class="small">Trenutno nema soba.</p>';

@@ -122,6 +122,11 @@ const SFX = (() => {
     kick() { tone(120, 0.35, { type: 'triangle', vol: 0.45, to: 50 }); noise(0.2, { vol: 0.2, freq: 250 }); },
     leave() { tone(500, 0.25, { vol: 0.12, to: 250 }); },
     click() { tone(900, 0.03, { vol: 0.06 }); },
+    // Potapanje brodova
+    shot() { noise(0.12, { vol: 0.2, freq: 900, to: 300, q: 0.8 }); },
+    splash() { noise(0.5, { vol: 0.28, freq: 1800, to: 500, q: 0.6, at: 0.12 }); tone(420, 0.18, { vol: 0.05, to: 200, at: 0.12, type: 'triangle' }); },
+    boom() { tone(90, 0.5, { type: 'sawtooth', vol: 0.16, to: 45, at: 0.1 }); noise(0.45, { vol: 0.4, freq: 600, to: 120, q: 0.7, at: 0.1 }); },
+    sunk() { tone(80, 0.8, { type: 'sawtooth', vol: 0.16, to: 35, at: 0.1 }); noise(0.9, { vol: 0.42, freq: 500, to: 80, q: 0.7, at: 0.1 }); [0.7, 0.85, 1.0].forEach((at, i) => tone(300 - i * 60, 0.25, { vol: 0.07, at, type: 'triangle', to: 150 - i * 30 })); },
   };
 
   // ---------- muzika u pozadini (pravi se u browseru, bez fajlova) ----------

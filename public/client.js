@@ -81,7 +81,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const COLOR_ORDER = ['#e05a47', '#3b82c4', '#f2b134', '#4caf6a', '#9b5fc0', '#26b5b0', '#e07ab8', '#8a5a3c'];
 // licni ukrasi (isti spiskovi kao LOOKS u game.js)
 const FRAMES = [['nema', 'Bez okvira'], ['zlato', 'Zlatni'], ['srebro', 'Srebrni'], ['drvo', 'Drveni'], ['cvece', 'Cvetni'], ['talasi', 'Talasi'], ['zvezde', 'Zvezde'], ['vatra', 'Vatra']];
-const TITLES = ['', 'Početnik', 'Trgovac', 'Graditelj', 'Moreplovac', 'Kralj puteva', 'Vitez', 'Lopov u penziji', 'Majstor luka', 'Farmer', 'Rudar', 'Kapetan', 'Legenda ostrva'];
+const TITLES = ['', 'Početnik', 'Trgovac', 'Graditelj', 'Moreplovac', 'Kralj puteva', 'Vitez', 'Lopov u penziji', 'Majstor luka', 'Farmer', 'Rudar', 'Kapetan', 'Legenda ostrva', 'Mornar', 'Lovac na brodove', 'Sokolovo oko', 'Nepotopivi', 'Admiral'];
 const DICE_STYLES = [['klasicne', 'Klasične'], ['crne', 'Crne'], ['crvene', 'Crvene'], ['zlatne', 'Zlatne'], ['drvene', 'Drvene'], ['plave', 'Plave'], ['roze', 'Roze'], ['zelene', 'Zelene']];
 const WINS = [['konfete', '🎊 Konfete'], ['vatromet', '🎆 Vatromet'], ['zlatnici', '🪙 Zlatnici'], ['baloni', '🎈 Baloni']];
 const WIN_SOUNDS = [['fanfara', '🎺 Fanfara'], ['zvona', '🔔 Zvona'], ['bubnjevi', '🥁 Bubnjevi']];
@@ -93,13 +93,13 @@ const avatarOf = (p) => AVATARS[(p.avatar ?? Math.max(0, COLOR_ORDER.indexOf(p.c
 // ---------- navigacija ----------
 document.addEventListener('click', (e) => {
   const n = e.target.closest('[data-nav]'); if (!n) return;
-  if (n.dataset.nav === 'rules') showRules();
-  if (n.dataset.nav === 'home') { if (S && S.phase === 'lobby') doLeave(); else showPage('rooms'); }
+  if (n.dataset.nav === 'rules') { if (!S && curKind === 'brodovi') BS.showRules(); else showRules(); }
+  if (n.dataset.nav === 'home' || n.dataset.nav === 'hub') { if (S && S.phase === 'lobby') { if (n.dataset.nav === 'home') doLeave(); else toast('Prvo izađi iz sobe (✕ gore desno).'); } if (!S) showPage('hub'); }
   if (n.dataset.nav === 'rooms' && S && S.phase === 'lobby') toast('Prvo izađi iz sobe (✕ gore desno).');
   else if (n.dataset.nav === 'rooms' && !S) showPage('rooms');
   if (n.dataset.nav === 'top') {
     if (S && S.phase === 'lobby') toast('Prvo izađi iz sobe (✕ gore desno).');
-    else if (!S) { showPage('top'); loadTop(); }
+    else if (!S) { topKind = null; showPage('top'); loadTop(); }
   }
   if (n.dataset.nav === 'settings' || n.dataset.nav === 'profile') {
     if (S && S.phase === 'lobby') toast('Prvo izađi iz sobe (✕ gore desno).');
@@ -108,15 +108,53 @@ document.addEventListener('click', (e) => {
 });
 
 function showPage(page) {
-  $('shell').classList.toggle('hidden', page === 'game');
+  $('shell').classList.toggle('hidden', page === 'game' || page === 'bsgame');
   $('game').classList.toggle('hidden', page !== 'game');
+  $('bsgame').classList.toggle('hidden', page !== 'bsgame');
+  $('hub').classList.toggle('hidden', page !== 'hub');
+  // obavestenje admina se vidi i na izboru igre i na sobama
+  const ann = $('announce');
+  if (page === 'hub' && ann.parentNode !== $('hubAnn')) $('hubAnn').appendChild(ann);
+  if (page === 'rooms' && ann.parentNode === $('hubAnn')) $('rooms').querySelector('.rooms-col').prepend(ann);
   $('rooms').classList.toggle('hidden', page !== 'rooms');
   $('lobby').classList.toggle('hidden', page !== 'lobby');
   $('settings').classList.toggle('hidden', page !== 'settings');
   $('profile').classList.toggle('hidden', page !== 'profile');
   $('top').classList.toggle('hidden', page !== 'top');
-  document.querySelectorAll('.rail-btn[data-nav]').forEach((b) => b.classList.toggle('active', b.dataset.nav === (['settings', 'profile', 'top'].includes(page) ? page : 'rooms')));
+  document.querySelectorAll('.rail-btn[data-nav]').forEach((b) => b.classList.toggle('active', b.dataset.nav === (['settings', 'profile', 'top', 'hub'].includes(page) ? page : 'rooms')));
 }
+
+// ---------- izbor igre (sve igre dele isti profil) ----------
+const KIND_INFO = {
+  ostrvo: { name: 'Ostrvo Trgovaca', ico: '⛵', nav: '🏝️' },
+  brodovi: { name: 'Potapanje brodova', ico: '⚓', nav: '⚓' },
+};
+let curKind = 'ostrvo';
+try { if (KIND_INFO[localStorage.getItem('ot_kind')]) curKind = localStorage.getItem('ot_kind'); } catch (_) { /* */ }
+let allRooms = [];
+function setKind(k) {
+  if (!KIND_INFO[k]) return;
+  curKind = k;
+  try { localStorage.setItem('ot_kind', k); } catch (_) { /* */ }
+  applyKind();
+}
+function applyKind() {
+  const K = KIND_INFO[curKind], bs = curKind === 'brodovi';
+  $('kindName').textContent = `${K.ico} ${K.name}`;
+  $('roomsNavIco').textContent = K.nav;
+  $('rtHead').innerHTML = bs ? '<span>Soba</span><span>Flota</span><span>Pogodak</span><span>Dodir</span><span>Igrači</span><span></span>'
+    : '<span>Soba</span><span>Mod</span><span>Mapa</span><span>Tajmer</span><span>Igrači</span><span></span>';
+  $('promoArtO').classList.toggle('hidden', bs);
+  $('promoArtB').classList.toggle('hidden', !bs);
+  $('promoH').textContent = bs ? 'Rasporedi. Gađaj. Potopi.' : 'Gradi. Trguj. Pobedi.';
+  $('promoP').textContent = bs ? 'Napravi sobu, pošalji link prijatelju i odigrajte pomorsku bitku u browseru. Za 2 igrača.'
+    : 'Napravi sobu, pošalji link prijateljima i igrajte zajedno u browseru. Od 2 do 8 igrača.';
+  renderRooms();
+}
+$('hub').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-kind]'); if (!c) return;
+  setKind(c.dataset.kind); showPage('rooms'); socket.emit('rooms');
+});
 
 // ---------- licna podesavanja (cuvaju se samo u ovom browseru) ----------
 const PREFS = { anim: 'normal', confirmBuild: false, font: 'normal', color: null, avatar: null, frame: 'nema', title: 0, dice: 'klasicne', win: 'konfete', winSound: 'fanfara' };
@@ -130,7 +168,7 @@ function syncProfile(cb) {
 }
 function checkLocked() {
   if (!profile) return;
-  const U = ACHIEVEMENTS.unlocked(profile.stats, profile.all, profile.grant);
+  const U = ACHIEVEMENTS.unlocked(profile.stats, profile.all, profile.grant, profile.gstats);
   if (!U.frames.has(PREFS.frame)) setPref('frame', 'nema');
   if (!U.titles.has(Number(PREFS.title))) setPref('title', 0);
 }
@@ -153,11 +191,23 @@ applyPrefs();
 // ---------- tabela najboljih ----------
 let topRows = [], topSort = 'wins';
 const TOP_SORTS = [['wins', 'Pobede'], ['pct', 'Procenat pobeda'], ['bestPoints', 'Najviše poena'], ['bestRoad', 'Najduži put'], ['games', 'Partije']];
+const TOP_SORTS_BS = [['wins', 'Pobede'], ['pct', 'Procenat pobeda'], ['sunk', 'Potopljeni brodovi'], ['acc', 'Preciznost'], ['games', 'Bitke']];
+let topKind = null;
 function loadTop() {
+  topKind = topKind || curKind;
+  if (!(topKind === 'brodovi' ? TOP_SORTS_BS : TOP_SORTS).some(([k]) => k === topSort)) topSort = 'wins';
   $('topBody').innerHTML = '<p class="set-note">Učitavam…</p>';
-  socket.emit('leaderboard', { token: token() }, (r) => { if (r && r.ok) { topRows = r.rows; renderTop(); } });
+  renderTopKinds();
+  socket.emit('leaderboard', { token: token(), kind: topKind }, (r) => { if (r && r.ok) { topRows = r.rows; renderTop(); } });
 }
+function renderTopKinds() {
+  let el = $('topKinds');
+  if (!el) { el = document.createElement('div'); el.id = 'topKinds'; el.className = 'seg2 top-tabs top-kinds'; $('topTabs').before(el); }
+  el.innerHTML = Object.entries(KIND_INFO).map(([k, K]) => `<button class="${topKind === k ? 'on' : ''}" data-topkind="${k}">${K.ico} ${K.name}</button>`).join('');
+}
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-topkind]'); if (b) { topKind = b.dataset.topkind; loadTop(); } });
 function renderTop() {
+  if (topKind === 'brodovi') return renderTopBs();
   $('topTabs').innerHTML = TOP_SORTS.map(([k, l]) => `<button class="${topSort === k ? 'on' : ''}" data-topsort="${k}">${l}</button>`).join('');
   const rows = [...topRows].sort((a, b) => b[topSort] - a[topSort] || b.wins - a.wins || b.games - a.games);
   if (!rows.length) { $('topBody').innerHTML = '<div class="rt-empty">Još niko nije završio partiju. Odigraj prvu i budi na vrhu!</div>'; return; }
@@ -168,15 +218,29 @@ function renderTop() {
       <span class="tt-who"><span class="avatar ${frameCls(r)}" style="background:${r.color || '#888'}">${avatarOf(r)}</span><span><b><span class="nt">${esc(r.name)}</span>${r.me ? ' <small>(ti)</small>' : ''}</b>${r.title ? `<i class="ptitle">${TITLES[r.title]}</i>` : ''}</span></span>
       <span><b>${r.wins}</b></span><span>${r.games}</span><span>${r.pct}%</span><span>${r.bestPoints}</span><span>${r.bestRoad}</span></div>`).join('');
 }
+function renderTopBs() {
+  $('topTabs').innerHTML = TOP_SORTS_BS.map(([k, l]) => `<button class="${topSort === k ? 'on' : ''}" data-topsort="${k}">${l}</button>`).join('');
+  const rows = [...topRows].sort((a, b) => b[topSort] - a[topSort] || b.wins - a.wins || b.games - a.games);
+  if (!rows.length) { $('topBody').innerHTML = '<div class="rt-empty">Još niko nije završio bitku. Odigraj prvu i budi na vrhu!</div>'; return; }
+  const medal = (i) => ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+  $('topBody').innerHTML = `<div class="tt-head"><span>#</span><span>Igrač</span><span title="Pobede">🏆</span><span title="Odigrane bitke">⚓</span><span title="Procenat pobeda">%</span><span title="Potopljeni brodovi">🔥</span><span title="Preciznost gađanja">🎯</span></div>` +
+    rows.map((r, i) => `<div class="tt-row ${r.me ? 'me' : ''} ${i < 3 ? 'top3' : ''}">
+      <span class="tt-rank">${medal(i)}</span>
+      <span class="tt-who"><span class="avatar ${frameCls(r)}" style="background:${r.color || '#888'}">${avatarOf(r)}</span><span><b><span class="nt">${esc(r.name)}</span>${r.me ? ' <small>(ti)</small>' : ''}</b>${r.title ? `<i class="ptitle">${TITLES[r.title]}</i>` : ''}</span></span>
+      <span><b>${r.wins}</b></span><span>${r.games}</span><span>${r.pct}%</span><span>${r.sunk}</span><span>${r.acc}%</span></div>`).join('');
+}
 $('topTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-topsort]'); if (b) { topSort = b.dataset.topsort; renderTop(); } });
 
 let nameSync = null;
+let profKind = null; // cija statistika se vidi u profilu
 function renderProfile() {
+  profKind = profKind || curKind;
   const nm = $('nameInput').value.trim();
   const col = PREFS.color || COLOR_ORDER[0];
   const av = AVATARS[PREFS.avatar ?? 0];
   const st = profile?.stats;
-  const U = ACHIEVEMENTS.unlocked(st || {}, profile?.all, profile?.grant);
+  const gs = profile?.gstats || {};
+  const U = ACHIEVEMENTS.unlocked(st || {}, profile?.all, profile?.grant, gs);
   // sta otkljucava zakljucani okvir ili titulu
   const lockOf = (key, v) => {
     if (key === 'frame' && !U.frames.has(v)) return ACHIEVEMENTS.ACH.find((a) => a.frame === v);
@@ -187,22 +251,28 @@ function renderProfile() {
     const lock = lockOf(key, v);
     return `<button class="${cur === v ? 'sel' : ''} ${lock ? 'locked' : ''}" data-look-k="${key}" data-look-v="${v}" ${lock ? `title="🔒 Otključava se dostignućem „${lock.name}“: ${lock.desc}"` : ''}>${fmt ? fmt(v) : ''}<span>${l}</span>${lock ? '<i>🔒</i>' : ''}</button>`;
   }).join('')}</div>`;
-  const achDone = ACHIEVEMENTS.ACH.filter((a) => ACHIEVEMENTS.done(a, st, profile?.grant)).length;
+  const achDone = ACHIEVEMENTS.ACH.filter((a) => ACHIEVEMENTS.done(a, st, profile?.grant, gs)).length;
+  const bs = gs.brodovi, bsPct = bs && bs.games ? Math.round((bs.wins / bs.games) * 100) : 0, bsAcc = bs && bs.shots ? Math.round((bs.hits / bs.shots) * 100) : 0;
   const pct = st && st.games ? Math.round((st.wins / st.games) * 100) : 0;
   const hrs = st ? Math.round(st.playMs / 360000) / 10 : 0;
   $('profBody').innerHTML = `
     <div class="set-card prof-card"><div class="prof-av ${PREFS.frame !== 'nema' ? 'fr-' + PREFS.frame : ''}" style="--pc:${col}">${av}</div><b class="prof-name" style="color:${col}">${esc(nm) || '…'}</b>${PREFS.title ? `<i class="prof-title">${TITLES[PREFS.title]}</i>` : ''}<small>Ovako te vide ostali igrači u sobi.</small></div>
     <div class="set-card"><h3>📊 Moja statistika</h3>
-      ${st ? `<div class="stat-grid">
+      <div class="seg2 stat-kinds">${Object.entries(KIND_INFO).map(([k, K]) => `<button class="${profKind === k ? 'on' : ''}" data-profkind="${k}">${K.ico} ${K.name}</button>`).join('')}</div>
+      ${profKind === 'brodovi' ? (bs ? `<div class="stat-grid">
+        <div><b>${bs.games}</b><small>Odigrane bitke</small></div><div><b>${bs.wins}</b><small>Pobede</small></div><div><b>${bsPct}%</b><small>Procenat pobeda</small></div>
+        <div><b>${bs.sunk}</b><small>Potopljeni brodovi</small></div><div><b>${bsAcc}%</b><small>Preciznost</small></div><div><b>${bs.bestAcc}%</b><small>Najbolja preciznost</small></div>
+        <div><b>${bs.flawless}</b><small>Pobede bez gubitka</small></div><div><b>${bs.bestStreak}</b><small>Najduži niz pobeda</small></div><div><b>${Math.round(bs.playMs / 360000) / 10}h</b><small>Vreme igranja</small></div></div>` : '<p class="set-note">Učitavam…</p>')
+      : st ? `<div class="stat-grid">
         <div><b>${st.games}</b><small>Odigrane partije</small></div><div><b>${st.wins}</b><small>Pobede</small></div><div><b>${pct}%</b><small>Procenat pobeda</small></div>
         <div><b>${st.bestPoints}</b><small>Najviše poena</small></div><div><b>${st.bestRoad}</b><small>Najduži put</small></div><div><b>${st.knights}</b><small>Odigrani vitezovi</small></div>
         <div><b>${st.cities}</b><small>Sagrađeni gradovi</small></div><div><b>${st.trades}</b><small>Razmene</small></div><div><b>${hrs}h</b><small>Vreme igranja</small></div></div>` : '<p class="set-note">Učitavam…</p>'}
     </div>
     <div class="set-card ach-card"><h3>🎖️ Dostignuća <small>${achDone} / ${ACHIEVEMENTS.ACH.length}</small></h3>
       <div class="ach-list">${ACHIEVEMENTS.ACH.map((a) => {
-        const ok = ACHIEVEMENTS.done(a, st, profile?.grant), v = ok ? a.need : Math.min(a.need, (st && st[a.stat]) || 0);
+        const ok = ACHIEVEMENTS.done(a, st, profile?.grant, gs), v = ok ? a.need : Math.min(a.need, ACHIEVEMENTS.value(a, st, gs));
         const prize = a.frame ? `okvir: ${FRAMES.find((f) => f[0] === a.frame)[1]}` : `titula: ${TITLES[a.title]}`;
-        return `<div class="ach ${ok ? 'ok' : ''}" title="${a.desc}. Nagrada – ${prize}"><span class="ach-ico">${ok ? a.ico : '🔒'}</span><span class="ach-txt"><b>${a.name}</b><small>${a.desc}</small><i class="ach-bar"><i style="width:${(v / a.need) * 100}%"></i></i></span><span class="ach-n">${v}/${a.need}</span></div>`;
+        return `<div class="ach ${ok ? 'ok' : ''}" title="${a.desc}. Nagrada – ${prize}"><span class="ach-ico">${ok ? a.ico : '🔒'}</span><span class="ach-txt"><b>${a.name}${a.g ? ` <em class="ach-game">${KIND_INFO[a.g].ico} ${KIND_INFO[a.g].name}</em>` : ''}</b><small>${a.desc}</small><i class="ach-bar"><i style="width:${(v / a.need) * 100}%"></i></i></span><span class="ach-n">${v}/${a.need}</span></div>`;
       }).join('')}</div>
     </div>
     <div class="set-card"><h3>🔑 Kod profila</h3>
@@ -249,6 +319,7 @@ $('profBody').addEventListener('click', (e) => {
     if (b.classList.contains('locked')) return toast(b.dataset.tip || b.title || 'Zaključano.');
     const k = b.dataset.lookK; setPref(k, k === 'title' ? Number(b.dataset.lookV) : b.dataset.lookV);
   }
+  if (b.dataset.profkind) { profKind = b.dataset.profkind; renderProfile(); return; }
   if (b.hasAttribute('data-wintest')) { SFX.play({ zvona: 'winBells', bubnjevi: 'winDrums' }[PREFS.winSound] || 'win'); return; }
   if (b.hasAttribute('data-copycode') && profile) { navigator.clipboard?.writeText(profile.code); toast('Kod profila je kopiran.'); return; }
   if (b.hasAttribute('data-logout')) {
@@ -337,19 +408,32 @@ function seatIcons(n, max) {
   for (let i = 0; i < max; i++) h += `<svg class="seat" viewBox="0 0 13 18"><circle cx="6.5" cy="4" r="3.5" fill="${i < n ? '#fff' : '#ffffff55'}"/><path d="M1 18 V11 Q1 8 6.5 8 Q12 8 12 11 V18Z" fill="${i < n ? '#fff' : '#ffffff55'}"/></svg>`;
   return h;
 }
-socket.on('rooms', (rooms) => {
+socket.on('rooms', (rooms) => { allRooms = rooms; renderRooms(); });
+function renderRooms() {
   const rows = $('roomRows');
+  for (const k of Object.keys(KIND_INFO)) {
+    const n = allRooms.filter((r) => (r.kind || 'ostrvo') === k && r.players < r.settings.maxPlayers).length;
+    document.querySelectorAll(`[data-open="${k}"]`).forEach((el) => { el.textContent = n ? `🟢 ${n} ${n === 1 ? 'otvorena soba' : n < 5 ? 'otvorene sobe' : 'otvorenih soba'}` : ''; });
+  }
+  const rooms = allRooms.filter((r) => (r.kind || 'ostrvo') === curKind);
   if (!rooms.length) { rows.innerHTML = '<div class="rt-empty">Trenutno nema otvorenih soba. Napravi svoju i pozovi prijatelje!</div>'; return; }
   rows.innerHTML = rooms.map((r) => {
     const h = r.host || { name: r.names[0] || '?', color: '#888' };
     const full = r.players >= r.settings.maxPlayers;
+    if (r.kind === 'brodovi') {
+      return `<div class="rt-row ${full ? 'full' : 'open'}" data-room="${r.code}" title="Igrači: ${esc(r.names.join(', '))}">
+    <span class="rt-host"><span class="rt-av" style="--pc:${h.color || '#888'}">${avatarOf(h)}</span><span class="rt-hn"><b>${esc(h.name)}</b><small><i class="rt-dot"></i>${full ? 'Popunjena' : 'Otvorena'}</small></span></span>
+    <span>${r.settings.fleet === 'velika' ? 'Velika' : 'Klasična'}</span><span>${r.settings.again ? 'gađa opet' : 'menja se'}</span>
+    <span>${r.settings.touch ? 'dozvoljen' : 'ne'}</span><span class="seats">${seatIcons(r.players, r.settings.maxPlayers)}</span>
+    <span class="rt-join">${full ? '' : 'Uđi ›'}</span></div>`;
+    }
     return `<div class="rt-row ${full ? 'full' : 'open'}" data-room="${r.code}" title="Igrači: ${esc(r.names.join(', '))}">
     <span class="rt-host"><span class="rt-av" style="--pc:${h.color || '#888'}">${avatarOf(h)}</span><span class="rt-hn"><b>${esc(h.name)}</b><small><i class="rt-dot"></i>${full ? 'Popunjena' : 'Otvorena'}</small></span></span>
     <span>${r.settings.maxPlayers <= 4 && !['ext6', 'ext8'].includes(r.settings.map) ? 'Osnovni' : 'Prošireni'}</span><span>${MAP_NAME[r.settings.map]}</span>
     <span>${r.settings.timer ? r.settings.timer + 's' : 'bez'}</span><span class="seats">${seatIcons(r.players, r.settings.maxPlayers)}</span>
     <span class="rt-join">${full ? '' : 'Uđi ›'}</span></div>`;
   }).join('');
-});
+}
 $('roomRows').addEventListener('click', (e) => { const r = e.target.closest('[data-room]'); if (r) join(r.dataset.room); });
 
 function enter(code) {
@@ -359,7 +443,7 @@ function enter(code) {
 }
 $('createBtn').onclick = () => {
   const name = myName(); if (!name) return;
-  socket.emit('create', { name, token: token() }, (r) => (r.ok ? enter(r.code) : ($('homeError').textContent = r.error)));
+  socket.emit('create', { name, token: token(), kind: curKind }, (r) => (r.ok ? enter(r.code) : ($('homeError').textContent = r.error)));
 };
 function join(code) {
   const name = myName(); if (!name) return;
@@ -380,17 +464,17 @@ function setSavedRoom(code) { try { if (code) localStorage.setItem('ot_room', co
 socket.on('disconnect', () => { if (S) $('netBar').classList.remove('hidden'); });
 socket.on('connect', () => {
   $('netBar').classList.add('hidden');
-  const code = (S && S.code) || inviteCode || savedRoom();
+  const code = (S && S.code) || BS.code() || inviteCode || savedRoom();
   if (!code) return;
   socket.emit('join', { code, token: token(), rejoinOnly: true }, (r) => {
     if (r.ok) { if (code !== inviteCode) enter(code); return; }
-    if (S) { S = null; render(); toast('Partija više ne postoji.'); setSavedRoom(''); return; }
+    if (S || BS.code()) { S = null; BS.reset(); render(); toast('Partija više ne postoji.'); setSavedRoom(''); return; }
     if (!inviteCode) { setSavedRoom(''); return; }
     if (localStorage.getItem('ot_name')) join(code);
     else { $('nameInput').focus(); toast(`Upiši ime i klikni sobu ${code} ili „Uđi u sobu“.`); }
   });
 });
-socket.on('kicked', (o) => { setSavedRoom(''); S = null; modalExtra = null; showPage('rooms'); renderModal(); history.replaceState(null, '', '/'); SFX.play('kick'); toast((o && o.msg) || 'Izbačen si iz sobe.'); });
+socket.on('kicked', (o) => { setSavedRoom(''); S = null; BS.reset(); modalExtra = null; showPage('rooms'); renderModal(); history.replaceState(null, '', '/'); SFX.play('kick'); toast((o && o.msg) || 'Izbačen si iz sobe.'); });
 // obavestenje od administratora: traka iznad liste soba (moze da se sakrije dok ne stigne novo)
 let annAt = 0;
 socket.on('announce', (a) => {
@@ -404,7 +488,7 @@ socket.on('announce', (a) => {
 $('annClose').addEventListener('click', () => { $('announce').classList.add('hidden'); try { localStorage.setItem('ot_ann_seen', String(annAt)); } catch (_) { /* */ } });
 
 // dok si u sobi, server se drzi budnim (besplatni hosting zaspi posle 15 minuta tisine)
-setInterval(() => { if (S) fetch('/health').catch(() => {}); }, 4 * 60 * 1000);
+setInterval(() => { if (S || BS.code()) fetch('/health').catch(() => {}); }, 4 * 60 * 1000);
 
 // ---------- prijem stanja ----------
 // ---------- zvukovi prema dogadjajima iz dnevnika ----------
@@ -456,6 +540,13 @@ function playEventSounds(prev, next) {
 const DICE_ANIM_MS = 900;
 let rollHold = null; // { state, prev } dok traje animacija
 socket.on('state', (state) => {
+  if (state.kind && state.kind !== 'ostrvo') { // druga igra (Potapanje brodova) ima svoj ekran
+    if (S) { S = null; modalExtra = null; }
+    if (KIND_INFO[state.kind] && curKind !== state.kind) setKind(state.kind);
+    return BS.onState(state);
+  }
+  if (BS.code()) BS.reset(true);
+  if (curKind !== 'ostrvo') setKind('ostrvo');
   if (rollHold) { rollHold.state = state; return; }
   const prev = S;
   const newRoll = prev && prev.code === state.code && state.dice && state.phase === 'play' && prev.phase === 'play'
@@ -490,7 +581,7 @@ const myTurn = () => S.turn === S.me;
 const canAfford = (cost) => RES.every((r) => S.hand[r] >= (cost[r] || 0));
 
 function render() {
-  if (!S) return showPage('rooms');
+  if (!S) return showPage(BS.code() ? 'bsgame' : 'rooms');
   if (S.phase === 'lobby') { showPage('lobby'); renderLobby(); renderChat(); renderModal(); return; }
   showPage('game');
   renderBoard(); renderDice(); renderHand(); renderStatus(); renderActions(); renderRecipes(); renderVote();
@@ -1481,7 +1572,7 @@ $('modalCard').addEventListener('click', (ev) => {
   if (b.dataset.skin) { setSkin(b.dataset.skin); $('modalCard').innerHTML = ''; renderModal(); if (S && S.phase !== 'lobby') render(); if (!S) renderSettings(); return; }
   if (b.dataset.color) { act('look', { color: b.dataset.color }); return; }
   if (b.dataset.avatar) { act('look', { avatar: Number(b.dataset.avatar) }); return; }
-  if (b.hasAttribute('data-backrooms')) { setSavedRoom(''); location.href = '/'; return; }
+  if (b.hasAttribute('data-backrooms')) { setSavedRoom(''); try { sessionStorage.setItem('ot_rooms', '1'); } catch (_) { /* */ } location.href = '/'; return; }
   if (b.hasAttribute('data-exit')) { modalExtra = null; $('modalCard').innerHTML = ''; return doLeave(); }
   if (b.hasAttribute('data-endgame')) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); return act('endGame'); }
   if (b.hasAttribute('data-bconfirm')) { const f = pendingBuild; pendingBuild = null; modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); if (f) f(); return; }
@@ -1499,7 +1590,11 @@ $('modalCard').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.t
     return `<polygon points="${pts}" fill="${TERRAIN[t[i]].a}" stroke="#fff6dc" stroke-width="3"/><text x="${x}" y="${y + 8}" text-anchor="middle" font-size="22">${TERRAIN[t[i]].ico}</text>`;
   }).join('');
 })();
-render();
+applyKind();
+(() => {
+  let back = false; try { back = sessionStorage.getItem('ot_rooms') === '1'; sessionStorage.removeItem('ot_rooms'); } catch (_) { /* */ }
+  showPage(back || inviteCode ? 'rooms' : 'hub');
+})();
 
 // ---------- opisi kad predjes misem (brzi, umesto obicnog title) ----------
 (() => {

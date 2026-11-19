@@ -3,15 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Ostrvo Trgovaca</title>
+  <title>Igraonica</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- Meni + sobe + lobi -->
   <div id="shell">
     <nav class="rail">
-      <div class="logo" data-nav="home" title="Nazad na početnu stranu (Sobe)"><span>⛵</span><b>Ostrvo</b><small>Trgovaca</small></div>
-      <button class="rail-btn active" data-nav="rooms"><span>🏝️</span>Sobe</button>
+      <div class="logo" data-nav="home" title="Nazad na početnu stranu (izbor igre)"><span>🎲</span><b>Igraonica</b><small>Online</small></div>
+      <button class="rail-btn" data-nav="hub" title="Izaberi koju igru igraš"><span>🎮</span>Igre</button>
+      <button class="rail-btn active" data-nav="rooms" id="roomsNav"><span id="roomsNavIco">🏝️</span>Sobe</button>
       <button class="rail-btn" data-nav="rules"><span>📖</span>Pravila</button>
       <button class="rail-btn" id="skinNav" title="Izgled igre (skin): izaberi kako izgledaju polja, putevi, sela, gradovi, lopov i karte. Menja se samo kod tebe."><span>🎨</span>Izgled</button>
       <button class="rail-btn" data-nav="top" title="Tabela najboljih igrača"><span>🏆</span>Najbolji</button>
@@ -23,13 +24,38 @@
         <label class="name-pill">Tvoje ime <input id="nameInput" maxlength="16" placeholder="Upiši ime"></label>
       </header>
 
+      <!-- Izbor igre -->
+      <section id="hub" class="page hidden">
+        <div class="hub-wrap">
+          <div id="hubAnn"></div>
+          <h1 class="hub-title">Izaberi igru</h1>
+          <p class="hub-sub">Isti profil, ime, avatar i dostignuća važe u svim igrama.</p>
+          <div class="hub-grid">
+            <button class="hub-card" data-kind="ostrvo" title="Otvori sobe za Ostrvo Trgovaca">
+              <div class="hub-art art-ostrvo"><svg viewBox="-110 -100 220 200"><g id="hubHex"></g></svg></div>
+              <div class="hub-txt"><h2>⛵ Ostrvo Trgovaca</h2><p>Gradi sela i gradove, trguj sirovinama i prvi stigni do 10 poena.</p>
+                <div class="hub-meta"><span>👥 2–8 igrača</span><span>⏱️ 45–90 min</span><span class="hub-open" data-open="ostrvo"></span></div></div>
+              <span class="hub-play">Igraj ›</span>
+            </button>
+            <button class="hub-card" data-kind="brodovi" title="Otvori sobe za Potapanje brodova">
+              <div class="hub-art art-brodovi"><svg viewBox="0 0 220 150" id="hubSea"></svg></div>
+              <div class="hub-txt"><h2>⚓ Potapanje brodova</h2><p>Rasporedi flotu u tajnosti i potopi protivničke brodove pre nego što on potopi tvoje.</p>
+                <div class="hub-meta"><span>👥 2 igrača</span><span>⏱️ 10–20 min</span><span class="hub-open" data-open="brodovi"></span></div></div>
+              <span class="hub-play">Igraj ›</span>
+            </button>
+            <div class="hub-card soon"><div class="hub-art art-soon">🎲🃏♟️</div><div class="hub-txt"><h2>Uskoro još igara</h2><p>Nove igre stižu na isto mesto, sa istim profilom.</p></div></div>
+          </div>
+        </div>
+      </section>
+
       <!-- Lista soba -->
       <section id="rooms" class="page">
         <div class="rooms-col">
           <div id="announce" class="announce hidden"><span class="ann-ico">📢</span><span id="annText"></span><button id="annClose" title="Sakrij obaveštenje">✕</button></div>
+          <div class="game-bar"><button class="gb-back" data-nav="hub" title="Nazad na izbor igre">‹ Sve igre</button><b id="kindName">⛵ Ostrvo Trgovaca</b></div>
           <div class="seg"><button class="active">Otvorene sobe</button></div>
           <div class="rooms-table">
-            <div class="rt-head"><span>Soba</span><span>Mod</span><span>Mapa</span><span>Tajmer</span><span>Igrači</span><span></span></div>
+            <div class="rt-head" id="rtHead"><span>Soba</span><span>Mod</span><span>Mapa</span><span>Tajmer</span><span>Igrači</span><span></span></div>
             <div id="roomRows"></div>
           </div>
           <div class="rooms-buttons">
@@ -39,11 +65,12 @@
           <p id="homeError" class="error"></p>
         </div>
         <aside class="promo">
-          <div class="promo-art">
+          <div class="promo-art" id="promoArtO">
             <svg viewBox="-110 -100 220 200" width="200"><g id="promoHex"></g></svg>
           </div>
-          <h2>Gradi. Trguj. Pobedi.</h2>
-          <p>Napravi sobu, pošalji link prijateljima i igrajte zajedno u browseru. Od 2 do 8 igrača.</p>
+          <div class="promo-art hidden" id="promoArtB"><svg viewBox="0 0 220 150" width="220" id="promoSea"></svg></div>
+          <h2 id="promoH">Gradi. Trguj. Pobedi.</h2>
+          <p id="promoP">Napravi sobu, pošalji link prijateljima i igrajte zajedno u browseru. Od 2 do 8 igrača.</p>
           <button class="btn ghost" data-nav="rules">Kako se igra?</button>
         </aside>
       </section>
@@ -156,6 +183,33 @@
     </aside>
   </section>
 
+  <!-- Potapanje brodova -->
+  <section id="bsgame" class="hidden">
+    <header class="bs-top">
+      <button id="bsExit" class="bs-tbtn" title="Napusti bitku i vrati se na sobe">🚪</button>
+      <div class="bs-title"><b>⚓ Potapanje brodova</b><small id="bsRoom"></small></div>
+      <button id="bsRules" class="bs-tbtn" title="Pravila igre">📖</button>
+      <button id="bsSound" class="bs-tbtn" title="Zvuk">🔊</button>
+      <button id="bsSideBtn" class="bs-tbtn bs-side-btn" title="Dnevnik i ćaskanje">💬<i id="bsBadge"></i></button>
+    </header>
+    <div class="bs-main">
+      <div class="bs-center">
+        <div class="bs-players" id="bsPlayers"></div>
+        <div class="bs-status" id="bsStatus"></div>
+        <div class="bs-body" id="bsBody"></div>
+      </div>
+      <aside class="bs-side" id="bsSide">
+        <button id="bsSideClose" class="side-close" title="Zatvori panel">✕ Nazad na bitku</button>
+        <div class="bs-log" id="bsLog"></div>
+        <div class="bs-chatbox">
+          <div id="bsChat" class="chat-list"></div>
+          <form class="chat-form" id="bsChatForm"><input maxlength="300" placeholder="Pošalji poruku" autocomplete="off"><button>➤</button></form>
+        </div>
+      </aside>
+    </div>
+    <div id="bsEnd" class="bs-end hidden"></div>
+  </section>
+
   <div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
   <div id="toast" class="toast hidden"></div>
   <div id="netBar" class="net-bar hidden">📡 Veza sa serverom je prekinuta. Povezujem se ponovo… Tvoje mesto u igri je sačuvano.</div>
@@ -168,5 +222,7 @@
   <script src="skin-sea.js"></script>
   <script src="achievements.js"></script>
   <script src="client.js"></script>
+  <script src="brodovi-rules.js"></script>
+  <script src="brodovi.js"></script>
 </body>
 </html>

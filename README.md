@@ -1,8 +1,11 @@
-# ⛵ Ostrvo Trgovaca
+# 🎲 Igraonica
 
-Online igra za 2 do 8 igrača u browseru: gradi sela i gradove na ostrvu od šestouglova, trguj sirovinama i prvi stigni do 10 poena.
+Sajt sa društvenim igrama u browseru. Na početku biraš igru, a profil (ime, avatar, okvir, titula, kod profila), podešavanja i dostignuća su zajednički za sve igre. Statistika i tabela najboljih vode se posebno za svaku igru.
 
-## Šta igra ima
+- **⛵ Ostrvo Trgovaca** (2 do 8 igrača): gradi sela i gradove na ostrvu od šestouglova, trguj sirovinama i prvi stigni do 10 poena.
+- **⚓ Potapanje brodova** (2 igrača): tajno rasporedi flotu na tablu 10×10 i potopi protivničke brodove. Klasična flota (10 brodova) ili velika (5), pogodak = gađaš opet, brodovi se dodiruju ili ne, revanš.
+
+## Šta ima Ostrvo Trgovaca
 - Sobe sa linkom za prijatelje (2–4 igrača obična tabla, 5–6 i 7–8 veća tabla)
 - Kockice, sirovine, lopov na 7 i odbacivanje karata
 - Putevi, sela, gradovi, luke (4:1, 3:1, 2:1)
@@ -25,8 +28,10 @@ Na Renderu: servis → **Environment** → **Add Environment Variable** → klju
 Bez te promenljive igra čuva u lokalne fajlove u folderu `data/`.
 
 ## Za programere
-- `game.js` sva pravila igre
+- `game.js` sva pravila Ostrva Trgovaca
+- `brodovi.js` pravila Potapanja brodova (`public/brodovi-rules.js` raspored, deli se sa browserom; `public/brodovi.js` ekran igre)
+- Nova igra: klasa sa istim metodama kao `brodovi.js` (addPlayer, action, viewFor, summary, quit), upiši je u `KINDS` u `server.js` i dodaj karticu na stranu „Izaberi igru“ u `public/index.html`
 - `store.js` čuvanje u bazi (DATABASE_URL) ili u fajlovima
 - `server.js` Express + Socket.IO server sa sobama
 - `public/` interfejs (HTML, CSS, JS, SVG tabla)
-- `npm test` pušta botove da odigraju 100 partija i proverava pravila
+- `npm test` proverava pravila obe igre i pušta automatske partije
