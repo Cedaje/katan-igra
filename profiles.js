@@ -42,6 +42,15 @@ function newCode() {
 }
 const emptyStats = () => ({ games: 0, wins: 0, points: 0, bestPoints: 0, bestRoad: 0, knights: 0, cities: 0, gained: 0, trades: 0, stolen: 0, bank: 0, streak: 0, bestStreak: 0, playMs: 0 });
 const { unlocked } = require('./public/achievements');
+// statistika za ostale igre na sajtu (Ostrvo Trgovaca ostaje u p.stats)
+const emptyGame = {
+  brodovi: () => ({ games: 0, wins: 0, shots: 0, hits: 0, sunk: 0, lost: 0, flawless: 0, bestAcc: 0, streak: 0, bestStreak: 0, playMs: 0 }),
+};
+function gstatsOf(p) {
+  p.gstats = p.gstats && typeof p.gstats === 'object' ? p.gstats : {};
+  for (const k of Object.keys(emptyGame)) p.gstats[k] = { ...emptyGame[k](), ...p.gstats[k] };
+  return p.gstats;
+}
 
 const validToken = (t) => typeof t === 'string' && t.length >= 8 && t.length <= 64;
 
@@ -50,12 +59,13 @@ function get(token) {
   if (!profiles[token]) { profiles[token] = { code: newCode(), stats: emptyStats(), prefs: {}, updated: Date.now() }; dirty = true; }
   const p = profiles[token];
   p.stats = { ...emptyStats(), ...p.stats };
+  gstatsOf(p);
   return p;
 }
 
 function publicView(token) {
   const p = get(token);
-  return p ? { code: p.code, stats: p.stats, prefs: p.prefs, all: !!p.unlockAll, grant: p.grant || [], forcedName: p.forcedName || null, banned: !!p.banned } : null;
+  return p ? { code: p.code, stats: p.stats, gstats: p.gstats, prefs: p.prefs, all: !!p.unlockAll, grant: p.grant || [], forcedName: p.forcedName || null, banned: !!p.banned } : null;
 }
 
 // licna podesavanja (ime, boja, lik, okvir...) da se prenesu na drugi uredjaj
@@ -90,6 +100,7 @@ function claim(code) {
 // posle zavrsene partije upisi rezultate svih igraca
 function recordGame(game) {
   if (game.statsSaved || game.phase !== 'ended' || !game.winner) return;
+  if (game.kind === 'brodovi') return recordBattleship(game);
   game.statsSaved = true;
   const dur = (game.endedAt || Date.now()) - (game.startedAt || Date.now());
   for (const pl of game.players) {
@@ -113,17 +124,41 @@ function recordGame(game) {
   dirty = true;
 }
 
+// Potapanje brodova: rezultat jedne bitke (i kad protivnik napusti bitku)
+function recordBattleship(game) {
+  game.statsSaved = true;
+  const dur = Math.max(0, (game.endedAt || Date.now()) - (game.startedAt || game.endedAt || Date.now()));
+  for (const pl of game.players) {
+    const p = get(pl.token); if (!p) continue;
+    const s = gstatsOf(p).brodovi, st = pl.st || { shots: 0, hits: 0, sunk: 0 };
+    const lost = (pl.ships || []).filter((sh) => sh.hits >= sh.len).length;
+    s.games++;
+    s.shots += st.shots; s.hits += st.hits; s.sunk += st.sunk; s.lost += lost;
+    s.playMs += dur;
+    if (game.winner === pl.id) {
+      s.wins++; s.streak++; s.bestStreak = Math.max(s.bestStreak, s.streak);
+      if (!game.forfeit) {
+        if (lost === 0) s.flawless++;
+        if (st.shots) s.bestAcc = Math.max(s.bestAcc, Math.round((st.hits / st.shots) * 100));
+      }
+    } else s.streak = 0;
+    p.updated = Date.now();
+  }
+  dirty = true;
+}
+
 // ukrasi koje igrac jos nije otkljucao se ne prihvataju
 function filterLook(token, data) {
   const p = get(token); if (!p || !data) return data;
-  const u = unlocked(p.stats, p.unlockAll, p.grant), out = { ...data };
+  const u = unlocked(p.stats, p.unlockAll, p.grant, p.gstats), out = { ...data };
   if (out.frame !== undefined && !u.frames.has(out.frame)) delete out.frame;
   if (out.title !== undefined && !u.titles.has(Number(out.title))) delete out.title;
   return out;
 }
 
 // tabela najboljih: samo igraci sa bar jednom odigranom partijom
-function leaderboard(myToken) {
+function leaderboard(myToken, kind) {
+  if (kind === 'brodovi') return leaderboardGame(myToken, kind);
   const rows = Object.entries(profiles).filter(([, p]) => p.stats && p.stats.games > 0 && !p.banned).map(([t, p]) => {
     const s = { ...emptyStats(), ...p.stats }, pr = p.prefs || {};
     return {
@@ -137,10 +172,25 @@ function leaderboard(myToken) {
   return rows.slice(0, 100).concat(rows.slice(100).filter((r) => r.me));
 }
 
+function leaderboardGame(myToken, kind) {
+  const rows = Object.entries(profiles).map(([t, p]) => [t, p, gstatsOf(p)[kind]]).filter(([, p, s]) => s.games > 0 && !p.banned).map(([t, p, s]) => {
+    const pr = p.prefs || {};
+    return {
+      me: t === myToken, name: String(pr.name || 'Igrač').slice(0, 16), color: pr.color || null, avatar: pr.avatar ?? null,
+      frame: pr.frame || 'nema', title: pr.title || 0,
+      games: s.games, wins: s.wins, pct: Math.round((s.wins / s.games) * 100), sunk: s.sunk,
+      acc: s.shots ? Math.round((s.hits / s.shots) * 100) : 0, bestStreak: s.bestStreak,
+    };
+  });
+  rows.sort((a, b) => b.wins - a.wins || b.pct - a.pct || b.games - a.games);
+  rows.forEach((r, i) => { r.rank = i + 1; });
+  return rows.slice(0, 100).concat(rows.slice(100).filter((r) => r.me));
+}
+
 // ---- admin (samo za vlasnika igre, preko /admin strane sa lozinkom) ----
 const adminRow = (t, p) => ({ code: p.code, name: String((p.prefs && p.prefs.name) || '(bez imena)').slice(0, 16), avatar: p.prefs?.avatar ?? null,
   games: p.stats?.games || 0, wins: p.stats?.wins || 0, updated: p.updated || 0, all: !!p.unlockAll,
-  banned: !!p.banned, forcedName: p.forcedName || null, grant: p.grant || [], stats: { ...emptyStats(), ...p.stats } });
+  banned: !!p.banned, forcedName: p.forcedName || null, grant: p.grant || [], stats: { ...emptyStats(), ...p.stats }, gstats: gstatsOf(p) });
 const { ACH } = require('./public/achievements');
 function adminSearch(q) {
   q = String(q || '').trim().toLowerCase();
@@ -158,7 +208,7 @@ function adminUpdate(code, what, val) {
     if (n) { p.forcedName = n; p.prefs = { ...p.prefs, name: n }; } else delete p.forcedName; // prazno = igrac opet bira ime sam
   } else if (what === 'ban') p.banned = true;
   else if (what === 'unban') delete p.banned;
-  else if (what === 'resetStats') p.stats = emptyStats();
+  else if (what === 'resetStats') { p.stats = emptyStats(); p.gstats = {}; gstatsOf(p); }
   else if (what === 'setStats') {
     if (!val || typeof val !== 'object') return null;
     const s = { ...emptyStats(), ...p.stats };

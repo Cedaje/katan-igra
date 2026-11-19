@@ -16,7 +16,7 @@ const LOOKS = {
   dice: ['klasicne', 'crne', 'crvene', 'zlatne', 'drvene', 'plave', 'roze', 'zelene'],
   win: ['konfete', 'vatromet', 'zlatnici', 'baloni'],
   winSound: ['fanfara', 'zvona', 'bubnjevi'],
-  titles: 13,
+  titles: 18,
 };
 const RES_NAMES = { drvo: 'drvo', glina: 'glina', vuna: 'ovca', zito: 'žito', kamen: 'kamen' };
 

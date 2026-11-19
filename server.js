@@ -3,6 +3,10 @@ const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
 const { Game, GameError } = require('./game');
+const { BattleshipGame } = require('./brodovi');
+// sve igre na sajtu: kljuc je vrsta igre
+const KINDS = { ostrvo: Game, brodovi: BattleshipGame };
+const kindOf = (g) => g.kind || 'ostrvo';
 const { timeoutTick } = require('./bot');
 const PROFILES = require('./profiles');
 
@@ -73,7 +77,7 @@ async function loadGames() {
     const list = await STORE.load('games', SAVE_FILE);
     if (!Array.isArray(list)) return;
     for (const data of list) {
-      const g = Object.assign(Object.create(Game.prototype), data);
+      const g = Object.assign(Object.create((KINDS[data.kind] || Game).prototype), data);
       g.emptySince = Date.now();
       g.botTimer = null;
       for (const p of g.players) p.connected = false;
@@ -105,7 +109,7 @@ const roomSockets = (code) => [...io.of('/').sockets.values()].filter((s) => s.d
 function roomList() {
   return [...games.values()]
     .filter((g) => g.phase === 'lobby' && !g.settings.private && g.players.length)
-    .map((g) => ({ ...g.summary(), names: g.players.map((p) => p.name) }));
+    .map((g) => ({ kind: kindOf(g), ...g.summary(), names: g.players.map((p) => p.name) }));
 }
 function sendRooms(target = io) { target.emit('rooms', roomList()); }
 
@@ -122,7 +126,7 @@ function broadcast(game) {
 // Tajmer poteza
 setInterval(() => {
   for (const g of games.values()) {
-    if (g.emptySince) continue; // niko nije tu: igra je pauzirana
+    if (g.emptySince || g.kind) continue; // niko nije tu: igra je pauzirana (brodovi nemaju tajmer)
     if (g.vote && Date.now() > g.vote.until && g.resolveVote()) broadcast(g);
     try { if (timeoutTick(g)) broadcast(g); } catch (e) { console.error('timer', e); }
   }
@@ -131,7 +135,7 @@ setInterval(() => {
 // ---- admin: sobe ----
 function adminRooms() {
   return [...games.values()].sort((a, b) => b.lastActivity - a.lastActivity).map((g) => ({
-    code: g.code, phase: g.phase, map: g.settings.map, last: g.lastActivity,
+    code: g.code, kind: kindOf(g), phase: g.phase, map: g.kind === 'brodovi' ? 'brodovi' : g.settings.map, last: g.lastActivity,
     players: g.players.map((p) => ({ id: p.id, name: p.name, connected: !!p.connected, out: !!(p.quit || p.kicked) })),
   }));
 }
@@ -186,17 +190,17 @@ io.on('connection', (socket) => {
     if (prefs) PROFILES.savePrefs(token, prefs);
     reply(cb, { ok: true, profile: PROFILES.publicView(token) });
   });
-  socket.on('leaderboard', ({ token } = {}, cb) => reply(cb, { ok: true, rows: PROFILES.leaderboard(token) }));
+  socket.on('leaderboard', ({ token, kind } = {}, cb) => reply(cb, { ok: true, rows: PROFILES.leaderboard(token, kind) }));
   socket.on('claimProfile', ({ code } = {}, cb) => {
     const token = PROFILES.claim(code);
     reply(cb, token ? { ok: true, token, profile: PROFILES.publicView(token) } : { ok: false, error: 'Ne postoji profil sa tim kodom.' });
   });
 
-  socket.on('create', ({ name, token, settings } = {}, cb) => {
+  socket.on('create', ({ name, token, settings, kind } = {}, cb) => {
     if (PROFILES.isBanned(token)) return reply(cb, { ok: false, error: BANNED });
     name = PROFILES.nameFor(token, name);
     const code = newCode();
-    const game = new Game(code, settings || {});
+    const game = new (KINDS[kind] || Game)(code, settings || {});
     games.set(code, game);
     const pl = game.addPlayer(name, token);
     socket.data = { code, pid: pl.id };
