@@ -62,13 +62,15 @@
 
     <section id="t-players">
       <div class="card">
-        <div class="row"><input id="q" placeholder="Ime igrača ili deo koda (prazno = poslednji aktivni)"><button id="search">Traži</button></div>
+        <div class="row"><input id="q" placeholder="Ime igrača ili deo koda (prazno = poslednji aktivni)"><button id="search">Traži</button><button class="gray" id="playersReload" title="Ponovo učitaj listu igrača">🔄 Osveži</button></div>
+        <p class="small" id="playersAt"></p>
       </div>
       <div class="card"><table><thead><tr><th>Ime</th><th>Kod profila</th><th class="hide-sm">Partije / pobede</th><th class="hide-sm">Poslednji put</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
     </section>
 
     <section id="t-rooms" class="hidden">
-      <div class="card"><div class="row"><h3 style="flex:1;margin:0">Sve sobe na serveru</h3><button class="gray" id="roomsReload">Osveži</button></div>
+      <div class="card"><div class="row"><h3 style="flex:1;margin:0">Sve sobe na serveru</h3><button class="gray" id="roomsReload" title="Ponovo učitaj listu soba">🔄 Osveži</button></div>
+        <p class="small" id="roomsAt"></p>
         <p class="small">Sive su igrači koji nisu trenutno povezani ili su napustili igru.</p>
         <div id="roomList" style="margin-top:10px"></div></div>
     </section>
@@ -148,10 +150,11 @@
     $('rows').innerHTML = rows.length ? rows.map(rowHTML).join('') : '<tr><td colspan="5">Nema profila koji odgovaraju.</td></tr>';
   }
   let lastRows = [];
+  function stamp(id) { $(id).textContent = 'Osveženo u ' + new Date().toLocaleTimeString('sr-RS', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
   async function search() {
     try {
       const { rows } = await api({ op: 'search', q: $('q').value });
-      lastRows = rows; drawRows(rows);
+      lastRows = rows; drawRows(rows); stamp('playersAt');
       msg(rows.length ? `Nađeno: ${rows.length}` : '');
       return true;
     } catch (e) { msg(e.message, true); return false; }
@@ -198,7 +201,7 @@
       <div>${g.players.map((p) => `<span class="pl ${p.connected && !p.out ? '' : 'off'}"><i class="dot ${p.connected ? 'on' : ''}"></i>${esc(p.name)}${p.out ? '' : ` <button class="red" data-kick="${p.id}" title="Izbaci igrača iz sobe">Izbaci</button>`}</span>`).join('')}</div>
     </div>`).join('') : '<p class="small">Trenutno nema soba.</p>';
   }
-  async function loadRooms() { try { drawRooms((await api({ op: 'rooms' })).rooms); } catch (e) { msg(e.message, true); } }
+  async function loadRooms() { try { drawRooms((await api({ op: 'rooms' })).rooms); stamp('roomsAt'); } catch (e) { msg(e.message, true); } }
   $('roomsReload').onclick = loadRooms;
   $('roomList').onclick = async (e) => {
     const b = e.target.closest('button'); if (!b) return;
@@ -230,6 +233,7 @@
   $('go').onclick = login;
   $('pass').onkeydown = (e) => { if (e.key === 'Enter') login(); };
   $('search').onclick = search;
+  $('playersReload').onclick = search;
   $('q').onkeydown = (e) => { if (e.key === 'Enter') search(); };
   if (PASS) login();
 </script>
