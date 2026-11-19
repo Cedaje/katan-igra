@@ -930,6 +930,7 @@ class Game {
     return {
       code: this.code, phase: this.phase, settings: this.settings,
       players: this.players.length,
+      host: (() => { const h = this.p(this.hostId()); return h ? { name: h.name, color: h.color, avatar: h.avatar ?? null } : null; })(),
     };
   }
 

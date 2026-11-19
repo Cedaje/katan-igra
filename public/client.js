@@ -101,9 +101,15 @@ function seatIcons(n, max) {
 socket.on('rooms', (rooms) => {
   const rows = $('roomRows');
   if (!rooms.length) { rows.innerHTML = '<div class="rt-empty">Trenutno nema otvorenih soba. Napravi svoju i pozovi prijatelje!</div>'; return; }
-  rows.innerHTML = rooms.map((r) => `<div class="rt-row" data-room="${r.code}" title="Igrači: ${esc(r.names.join(', '))}">
+  rows.innerHTML = rooms.map((r) => {
+    const h = r.host || { name: r.names[0] || '?', color: '#888' };
+    const full = r.players >= r.settings.maxPlayers;
+    return `<div class="rt-row ${full ? 'full' : 'open'}" data-room="${r.code}" title="Igrači: ${esc(r.names.join(', '))}">
+    <span class="rt-host"><span class="rt-av" style="--pc:${h.color || '#888'}">${avatarOf(h)}</span><span class="rt-hn"><b>${esc(h.name)}</b><small><i class="rt-dot"></i>${full ? 'Popunjena' : 'Otvorena'}</small></span></span>
     <span>${r.settings.map === 'base' ? 'Osnovni' : 'Prošireni'}</span><span>${MAP_NAME[r.settings.map]}</span>
-    <span>${r.settings.timer ? r.settings.timer + 's' : 'bez'}</span><span class="seats">${seatIcons(r.players, r.settings.maxPlayers)}</span></div>`).join('');
+    <span>${r.settings.timer ? r.settings.timer + 's' : 'bez'}</span><span class="seats">${seatIcons(r.players, r.settings.maxPlayers)}</span>
+    <span class="rt-join">${full ? '' : 'Uđi ›'}</span></div>`;
+  }).join('');
 });
 $('roomRows').addEventListener('click', (e) => { const r = e.target.closest('[data-room]'); if (r) join(r.dataset.room); });
 
