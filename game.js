@@ -10,6 +10,14 @@ const COST = {
 };
 const COLORS = ['#e05a47', '#3b82c4', '#f2b134', '#4caf6a', '#9b5fc0', '#26b5b0', '#e07ab8', '#8a5a3c'];
 const DEV_NAMES = { vitez: 'Vitez', bod: 'Bod pobede', putevi: 'Graditelji puteva', obilje: 'Obilje', monopol: 'Monopol' };
+// Licni ukrasi igraca (biraju se u Profilu): okvir avatara, titula, kockice, pobednicka proslava
+const LOOKS = {
+  frame: ['nema', 'zlato', 'srebro', 'drvo', 'cvece', 'talasi', 'zvezde', 'vatra'],
+  dice: ['klasicne', 'crne', 'crvene', 'zlatne', 'drvene', 'plave', 'roze', 'zelene'],
+  win: ['konfete', 'vatromet', 'zlatnici', 'baloni'],
+  winSound: ['fanfara', 'zvona', 'bubnjevi'],
+  titles: 13,
+};
 const RES_NAMES = { drvo: 'drvo', glina: 'glina', vuna: 'ovca', zito: 'žito', kamen: 'kamen' };
 
 function shuffle(a) {
@@ -240,8 +248,10 @@ class Game {
     if (s.devCards !== undefined) st.devCards = num(s.devCards, 10, 80);
   }
 
-  setLook(pl, { color, avatar }) {
+  setLook(pl, { color, avatar, frame, dice, win, winSound, title }) {
     if (this.phase !== 'lobby') fail('Boja i avatar se biraju u lobiju.');
+    for (const [k, v] of Object.entries({ frame, dice, win, winSound })) if (v !== undefined && LOOKS[k].includes(v)) pl[k] = v;
+    if (title !== undefined) pl.title = Math.max(0, Math.min(LOOKS.titles - 1, Math.floor(Number(title)) || 0));
     if (color !== undefined) {
       if (!COLORS.includes(color)) fail('Nepoznata boja.');
       if (this.players.some((p) => p.id !== pl.id && p.color === color)) fail('Tu boju već ima drugi igrač.');
@@ -412,6 +422,17 @@ class Game {
     if (this.phase !== 'ended' && this.players.every((p) => p.quit)) { this.phase = 'ended'; this.sub = null; }
   }
 
+  // brze reakcije u igri (emotikon iznad igraca)
+  emote(pl, e) {
+    const n = Math.floor(Number(e));
+    if (!(n >= 0 && n < 12)) fail('Nepoznata reakcija.');
+    this.emotes ??= [];
+    const last = this.emotes.filter((x) => x.pid === pl.id).pop();
+    if (last && Date.now() - last.t < 1200) return;
+    this.emotes.push({ pid: pl.id, e: n, t: Date.now() });
+    if (this.emotes.length > 20) this.emotes.shift();
+  }
+
   // ---------- glasanje za izbacivanje ----------
   voters(target) { return this.players.filter((p) => !p.quit && p.id !== target); }
 
@@ -503,6 +524,7 @@ class Game {
     if (type === 'look') return this.setLook(pl, data);
     if (type === 'voteKick') return this.startVote(pl, data.pid);
     if (type === 'vote') return this.castVote(pl, !!data.yes);
+    if (type === 'emote') return this.emote(pl, data.e);
     if (this.phase === 'ended') fail('Igra je završena.');
     if (this.phase === 'lobby') fail('Igra još nije počela.');
 
@@ -995,7 +1017,8 @@ class Game {
       buildings: this.buildings,
       roads: this.roads,
       players: this.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, avatar: p.avatar ?? null, connected: p.connected, quit: !!p.quit, kicked: !!p.kicked,
+        id: p.id, name: p.name, color: p.color, avatar: p.avatar ?? null,
+        frame: p.frame || 'nema', dice: p.dice || 'klasicne', win: p.win || 'konfete', winSound: p.winSound || 'fanfara', title: p.title || 0, connected: p.connected, quit: !!p.quit, kicked: !!p.kicked,
         cards: handSize(p.hand), devCards: p.dev.length, knights: p.knights,
         vp: this.phase === 'ended' || p.id === pid ? this.totalVP(p) : this.publicVP(p),
         roadLen: this.roadLength(p.id), left: p.left,
@@ -1011,6 +1034,7 @@ class Game {
       pendingDiscard: this.pendingDiscard,
       freeRoads: this.freeRoads || 0,
       trade: this.trade,
+      emotes: (this.emotes || []).filter((x) => Date.now() - x.t < 5000),
       vote: this.vote ? { ...this.vote, voters: this.voters(this.vote.target).length } : null,
       lastSteal: this.lastSteal && (this.lastSteal.thief === pid || this.lastSteal.victim === pid) ? this.lastSteal : null,
       legal,
@@ -1024,4 +1048,4 @@ class Game {
   }
 }
 
-module.exports = { COLORS, makeDevDeck, Game, GameError, RES, COST, LAYOUTS, MAP_MAX, buildBoard, handSize };
+module.exports = { LOOKS, COLORS, makeDevDeck, Game, GameError, RES, COST, LAYOUTS, MAP_MAX, buildBoard, handSize };

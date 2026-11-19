@@ -256,7 +256,7 @@ input { font: inherit; }
 }
 
 /* recepti */
-.recipes { position: absolute; top: 290px; left: 8px; z-index: 2; background: var(--panel); border-radius: 10px; padding: 6px 8px; box-shadow: 0 4px 12px rgba(0,0,0,.3); width: 168px; }
+.recipes { position: absolute; top: 346px; left: 8px; z-index: 2; background: var(--panel); border-radius: 10px; padding: 6px 8px; box-shadow: 0 4px 12px rgba(0,0,0,.3); width: 168px; }
 .rec-head { border: 0; background: none; font-weight: 800; width: 100%; display: flex; justify-content: space-between; padding: 2px 2px 4px; }
 .rec-row { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 1px 6px; padding: 5px 4px; border-top: 1px solid var(--line); opacity: .75; }
 .rec-row.ok { opacity: 1; background: #e3f4e6; border-radius: 6px; }
@@ -396,7 +396,7 @@ body.skin-podvodni #game { background: radial-gradient(ellipse at 40% 20%, #1249
   #sideBadge:empty { display: none; }
 
   .g-board { flex: 1; min-height: 0; }
-  .g-tools { flex-direction: row; gap: 5px; top: 4px; left: 4px; flex-wrap: wrap; max-width: 70%; }
+  .g-tools { flex-direction: row; gap: 5px; top: 4px; left: 4px; flex-wrap: wrap; max-width: 88%; }
   .g-tools button { width: 36px; height: 36px; font-size: 17px; }
   .zoom-ctl { top: 4px; right: 4px; gap: 4px; }
   .zoom-ctl button { width: 36px; height: 32px; font-size: 16px; }
@@ -636,3 +636,61 @@ body.dark-ui #game { background: radial-gradient(ellipse at 45% 25%, #1b3342 0%,
 .prof-grid .set-avatars { max-height: none; }
 .set-row #setName { max-width: none; }
 @media (max-width: 760px), (max-height: 500px) and (pointer: coarse) { #profile { padding: 0 12px 16px; } .prof-card { grid-row: auto; } }
+
+/* ---------- licni ukrasi ---------- */
+.avatar[class*="fr-"] { position: relative; }
+.avatar[class*="fr-"]::after { position: absolute; right: -7px; bottom: -6px; font-size: 14px; line-height: 1; filter: drop-shadow(0 1px 1px #0006); }
+.avatar.fr-zlato { border-color: #f2c94c; box-shadow: 0 0 0 2px #b8860b, 0 0 10px #f2c94c; }
+.avatar.fr-srebro { border-color: #e3e8ee; box-shadow: 0 0 0 2px #8e9aa6, 0 0 8px #cfd6de; }
+.avatar.fr-drvo { border-color: #a0703f; box-shadow: 0 0 0 3px #5b3a22; }
+.avatar.fr-cvece { border-color: #f48fb1; box-shadow: 0 0 0 2px #fff; } .avatar.fr-cvece::after { content: '🌸'; }
+.avatar.fr-talasi { border-color: #26b5b0; box-shadow: 0 0 0 2px #0e6f8a, 0 0 8px #4fd1e0; } .avatar.fr-talasi::after { content: '🌊'; }
+.avatar.fr-zvezde { border-color: #ffd54a; box-shadow: 0 0 0 2px #3b2a7a, 0 0 10px #ffd54a; } .avatar.fr-zvezde::after { content: '⭐'; }
+.avatar.fr-vatra { border-color: #ff7a1a; box-shadow: 0 0 0 2px #b3261e, 0 0 12px #ff9b3d; } .avatar.fr-vatra::after { content: '🔥'; }
+.ptitle { font-style: italic; font-weight: 600; opacity: .8; }
+.pname .ptitle { display: block; font-size: 10px; line-height: 1.1; }
+.pod-col .ptitle { font-size: 12px; color: var(--muted); }
+/* licne kockice (vidi se kockica igraca koji je na potezu) */
+.dice-crne .die { background: #2b2b30; box-shadow: 0 4px 0 #111, 0 6px 14px rgba(0,0,0,.4); } .dice-crne .die i { background: #f4f1ea; }
+.dice-crvene .die { background: #d8433a; box-shadow: 0 4px 0 #8e231c, 0 6px 14px rgba(0,0,0,.35); } .dice-crvene .die i { background: #fff; }
+.dice-zlatne .die { background: linear-gradient(145deg, #ffe48a, #d4a017); box-shadow: 0 4px 0 #8a6a0c, 0 6px 14px rgba(0,0,0,.35); } .dice-zlatne .die i { background: #4a3500; }
+.dice-drvene .die { background: repeating-linear-gradient(100deg, #c99a62 0 6px, #b8854d 6px 11px); box-shadow: 0 4px 0 #6e4a24, 0 6px 14px rgba(0,0,0,.35); } .dice-drvene .die i { background: #3a2412; }
+.dice-plave .die { background: #3b82c4; box-shadow: 0 4px 0 #1f4f7d, 0 6px 14px rgba(0,0,0,.35); } .dice-plave .die i { background: #fff; }
+.dice-roze .die { background: #f4a6c8; box-shadow: 0 4px 0 #b4577f, 0 6px 14px rgba(0,0,0,.35); } .dice-roze .die i { background: #5b1838; }
+.dice-zelene .die { background: #4caf6a; box-shadow: 0 4px 0 #2a6e3e, 0 6px 14px rgba(0,0,0,.35); } .dice-zelene .die i { background: #fff; }
+.die.mini { width: 34px; height: 34px; border-radius: 7px; display: inline-block; } .die.mini i { width: 7px; height: 7px; }
+/* brze reakcije */
+.emote-pop { position: absolute; left: 64px; top: 8px; z-index: 6; background: #fffaf0; border-radius: 12px; padding: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.35); width: 260px; }
+.emote-pop .em-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.emote-pop .em-row button { font-size: 24px; background: none; border: 0; border-radius: 8px; padding: 4px 0; }
+.emote-pop .em-row button:hover { background: #0001; }
+.emote-pop .em-phr { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; border-top: 1px solid #0002; padding-top: 6px; }
+.emote-pop .em-phr button { border: 0; background: #e9e1cd; border-radius: 999px; padding: 4px 9px; font-size: 13px; font-weight: 600; color: #3b3324; }
+.emote-bubble { position: fixed; z-index: 60; pointer-events: none; font-size: 34px; transform: translate(-50%, -100%); animation: emoteUp 2.6s ease-out forwards; filter: drop-shadow(0 3px 4px #0006); }
+@keyframes emoteUp { 0% { opacity: 0; transform: translate(-50%, -60%) scale(.4); } 15% { opacity: 1; transform: translate(-50%, -110%) scale(1.25); } 70% { opacity: 1; transform: translate(-50%, -150%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -190%) scale(.9); } }
+/* pobednicke proslave */
+.cel-zlatnici i, .cel-baloni i { background: none; width: auto; height: auto; font-size: 22px; }
+.cel-baloni i { top: auto; bottom: -40px; animation-name: rise; }
+@keyframes rise { from { transform: translateY(0) rotate(-8deg); } to { transform: translateY(-620px) rotate(8deg); opacity: .2; } }
+.cel-vatromet i { width: 6px; height: 6px; border-radius: 50%; background: var(--c); animation: boom 1.8s ease-out infinite; box-shadow: 0 -26px 0 var(--c), 0 26px 0 var(--c), 26px 0 0 var(--c), -26px 0 0 var(--c), 18px 18px 0 var(--c), -18px 18px 0 var(--c), 18px -18px 0 var(--c), -18px -18px 0 var(--c); }
+@keyframes boom { 0% { transform: scale(.1); opacity: 1; } 70% { opacity: 1; } 100% { transform: scale(1.6); opacity: 0; } }
+/* profil: izbor ukrasa i statistika */
+.look-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.look-opts button { border: 2px solid transparent; background: rgba(255,255,255,.12); color: #fff; border-radius: 10px; padding: 6px 10px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.look-opts button.sel { border-color: #4cd678; background: rgba(76,214,120,.2); }
+.look-opts .avatar { width: 30px; height: 30px; font-size: 15px; border-width: 2px; background: #fff; }
+.look-opts .dice { display: flex; gap: 3px; position: static; }
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat-grid div { background: rgba(255,255,255,.08); border-radius: 10px; padding: 8px; text-align: center; }
+.stat-grid b { display: block; font-size: 22px; } .stat-grid small { color: #cfe3ea; font-size: 12px; }
+.code-box { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.code-box code { font-size: 22px; font-weight: 800; letter-spacing: 2px; background: #fff; color: #10394a; padding: 4px 12px; border-radius: 8px; }
+.code-box input { width: 130px; padding: 8px 10px; border-radius: 8px; border: 0; font: inherit; text-transform: uppercase; }
+.prof-av { position: relative; }
+.prof-av.fr-zlato { box-shadow: 0 0 0 6px #f2c94c, 0 0 20px #f2c94c; } .prof-av.fr-srebro { box-shadow: 0 0 0 6px #dfe5eb, 0 0 14px #cfd6de; }
+.prof-av.fr-drvo { box-shadow: 0 0 0 6px #a0703f, 0 0 0 10px #5b3a22; } .prof-av.fr-cvece { box-shadow: 0 0 0 6px #f48fb1; }
+.prof-av.fr-talasi { box-shadow: 0 0 0 6px #26b5b0, 0 0 16px #4fd1e0; } .prof-av.fr-zvezde { box-shadow: 0 0 0 6px #ffd54a, 0 0 18px #ffd54a; }
+.prof-av.fr-vatra { box-shadow: 0 0 0 6px #ff7a1a, 0 0 22px #ff9b3d; }
+.prof-av[class*="fr-"]::after { position: absolute; right: -4px; bottom: -2px; font-size: 30px; }
+.prof-av.fr-cvece::after { content: '🌸'; } .prof-av.fr-talasi::after { content: '🌊'; } .prof-av.fr-zvezde::after { content: '⭐'; } .prof-av.fr-vatra::after { content: '🔥'; }
+.prof-title { font-style: italic; color: #ffe08a; }

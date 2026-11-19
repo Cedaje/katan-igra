@@ -8,7 +8,7 @@ const SFX = (() => {
     muted = localStorage.getItem('ot_muted') === '1';
     Object.assign(opts, JSON.parse(localStorage.getItem('ot_sound') || '{}'));
   } catch (_) { /* nema storage */ }
-  const GROUP = { myTurn: 'turn', tick: 'turn', turn: 'alerts', vote: 'alerts', offer: 'alerts', win: 'alerts', lose: 'alerts', chat: 'chat' };
+  const GROUP = { myTurn: 'turn', tick: 'turn', turn: 'alerts', vote: 'alerts', offer: 'alerts', win: 'alerts', winBells: 'alerts', winDrums: 'alerts', lose: 'alerts', chat: 'chat' };
   const gainFor = () => 0.8 * (opts.volume / 100);
 
   function ensure() {
@@ -87,6 +87,8 @@ const SFX = (() => {
     discard() { noise(0.25, { vol: 0.25, freq: 2500, q: 0.6, type: 'highpass' }); noise(0.2, { vol: 0.18, freq: 1800, q: 0.6, type: 'highpass', at: 0.12 }); },
     achieve() { chime([523, 659, 784, 1047, 1319], 0.08, 0, 0.16, 'triangle'); },
     win() { chime([523, 523, 523, 659, 784, 659, 784, 1047], 0.17, 0, 0.18, 'triangle'); tone(262, 1.4, { vol: 0.08, at: 0.1, type: 'sine' }); },
+    winBells() { [0, 0.25, 0.5, 0.75].forEach((at, i) => { tone([1047, 1319, 1568, 2093][i], 1.2, { vol: 0.14, at }); tone([1047, 1319, 1568, 2093][i] * 2.01, 0.8, { vol: 0.04, at }); }); },
+    winDrums() { [0, 0.12, 0.24, 0.42, 0.54, 0.66, 0.9].forEach((at, i) => knock(at, i === 6 ? 90 : 120, i === 6 ? 0.7 : 0.5)); chime([523, 659, 784], 0.1, 1.05, 0.16, 'triangle'); },
     lose() { chime([523, 466, 415, 349], 0.2, 0, 0.14, 'triangle'); },
     chat() { tone(1200, 0.06, { vol: 0.08 }); tone(1500, 0.06, { vol: 0.07, at: 0.06 }); },
     error() { tone(160, 0.18, { type: 'square', vol: 0.06 }); },

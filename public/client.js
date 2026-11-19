@@ -75,6 +75,15 @@ function act(type, data = {}) {
 }
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const COLOR_ORDER = ['#e05a47', '#3b82c4', '#f2b134', '#4caf6a', '#9b5fc0', '#26b5b0', '#e07ab8', '#8a5a3c'];
+// licni ukrasi (isti spiskovi kao LOOKS u game.js)
+const FRAMES = [['nema', 'Bez okvira'], ['zlato', 'Zlatni'], ['srebro', 'Srebrni'], ['drvo', 'Drveni'], ['cvece', 'Cvetni'], ['talasi', 'Talasi'], ['zvezde', 'Zvezde'], ['vatra', 'Vatra']];
+const TITLES = ['', 'Početnik', 'Trgovac', 'Graditelj', 'Moreplovac', 'Kralj puteva', 'Vitez', 'Lopov u penziji', 'Majstor luka', 'Farmer', 'Rudar', 'Kapetan', 'Legenda ostrva'];
+const DICE_STYLES = [['klasicne', 'Klasične'], ['crne', 'Crne'], ['crvene', 'Crvene'], ['zlatne', 'Zlatne'], ['drvene', 'Drvene'], ['plave', 'Plave'], ['roze', 'Roze'], ['zelene', 'Zelene']];
+const WINS = [['konfete', '🎊 Konfete'], ['vatromet', '🎆 Vatromet'], ['zlatnici', '🪙 Zlatnici'], ['baloni', '🎈 Baloni']];
+const WIN_SOUNDS = [['fanfara', '🎺 Fanfara'], ['zvona', '🔔 Zvona'], ['bubnjevi', '🥁 Bubnjevi']];
+const EMOTES = ['👍', '😂', '😮', '😡', '😭', '🎉', '🤝', '😎', '🙏', '🤔', '🔥', '👋'];
+const PHRASES = ['Dobar potez!', 'Ko ima drvo?', 'Ko ima glinu?', 'Ko ima žito?', 'Ko ima kamen?', 'Ko ima ovcu?', 'Hajde, brže!', 'Srećno!', 'GG'];
+const frameCls = (p) => (p.frame && p.frame !== 'nema' ? 'fr-' + p.frame : '');
 const avatarOf = (p) => AVATARS[(p.avatar ?? Math.max(0, COLOR_ORDER.indexOf(p.color))) % AVATARS.length];
 
 // ---------- navigacija ----------
@@ -86,7 +95,7 @@ document.addEventListener('click', (e) => {
   else if (n.dataset.nav === 'rooms' && !S) showPage('rooms');
   if (n.dataset.nav === 'settings' || n.dataset.nav === 'profile') {
     if (S && S.phase === 'lobby') toast('Prvo izađi iz sobe (✕ gore desno).');
-    else if (!S) { if (n.dataset.nav === 'profile') renderProfile(); else renderSettings(); showPage(n.dataset.nav); }
+    else if (!S) { if (n.dataset.nav === 'profile') { renderProfile(); syncProfile(() => { if (!$('profile').classList.contains('hidden')) renderProfile(); }); } else renderSettings(); showPage(n.dataset.nav); }
   }
 });
 
@@ -101,9 +110,16 @@ function showPage(page) {
 }
 
 // ---------- licna podesavanja (cuvaju se samo u ovom browseru) ----------
-const PREFS = { anim: 'normal', confirmBuild: false, font: 'normal', color: null, avatar: null };
+const PREFS = { anim: 'normal', confirmBuild: false, font: 'normal', color: null, avatar: null, frame: 'nema', title: 0, dice: 'klasicne', win: 'konfete', winSound: 'fanfara' };
 try { Object.assign(PREFS, JSON.parse(localStorage.getItem('ot_prefs') || '{}')); } catch (_) { /* */ }
-function setPref(k, v) { PREFS[k] = v; try { localStorage.setItem('ot_prefs', JSON.stringify(PREFS)); } catch (_) { /* */ } applyPrefs(); }
+function setPref(k, v) { PREFS[k] = v; try { localStorage.setItem('ot_prefs', JSON.stringify(PREFS)); } catch (_) { /* */ } applyPrefs(); syncProfile(); }
+// profil na serveru: statistika + kopija licnih podesavanja (za prenos na drugi uredjaj preko koda)
+let profile = null;
+function syncProfile(cb) {
+  const prefs = { ...PREFS, name: localStorage.getItem('ot_name') || '' };
+  socket.emit('profile', { token: token(), prefs }, (r) => { if (r && r.ok) { profile = r.profile; if (cb) cb(); } });
+}
+socket.on('connect', () => socket.emit('profile', { token: token() }, (r) => { if (r && r.ok) profile = r.profile; }));
 function applyPrefs() {
   document.body.classList.toggle('fs-small', PREFS.font === 'small');
   document.body.classList.toggle('fs-large', PREFS.font === 'large');
@@ -113,12 +129,28 @@ function applyPrefs() {
 const animMs = (ms) => (PREFS.anim === 'off' ? 0 : PREFS.anim === 'fast' ? Math.round(ms * 0.45) : ms);
 applyPrefs();
 
+let nameSync = null;
 function renderProfile() {
   const nm = $('nameInput').value.trim();
   const col = PREFS.color || COLOR_ORDER[0];
   const av = AVATARS[PREFS.avatar ?? 0];
+  const opts = (key, list, cur, fmt) => `<div class="look-opts">${list.map(([v, l]) => `<button class="${cur === v ? 'sel' : ''}" data-look-k="${key}" data-look-v="${v}">${fmt ? fmt(v) : ''}<span>${l}</span></button>`).join('')}</div>`;
+  const st = profile?.stats;
+  const pct = st && st.games ? Math.round((st.wins / st.games) * 100) : 0;
+  const hrs = st ? Math.round(st.playMs / 360000) / 10 : 0;
   $('profBody').innerHTML = `
-    <div class="set-card prof-card"><div class="prof-av" style="--pc:${col}">${av}</div><b class="prof-name" style="color:${col}">${esc(nm) || '…'}</b><small>Ovako te vide ostali igrači u sobi.</small></div>
+    <div class="set-card prof-card"><div class="prof-av ${PREFS.frame !== 'nema' ? 'fr-' + PREFS.frame : ''}" style="--pc:${col}">${av}</div><b class="prof-name" style="color:${col}">${esc(nm) || '…'}</b>${PREFS.title ? `<i class="prof-title">${TITLES[PREFS.title]}</i>` : ''}<small>Ovako te vide ostali igrači u sobi.</small></div>
+    <div class="set-card"><h3>📊 Moja statistika</h3>
+      ${st ? `<div class="stat-grid">
+        <div><b>${st.games}</b><small>Odigrane partije</small></div><div><b>${st.wins}</b><small>Pobede</small></div><div><b>${pct}%</b><small>Procenat pobeda</small></div>
+        <div><b>${st.bestPoints}</b><small>Najviše poena</small></div><div><b>${st.bestRoad}</b><small>Najduži put</small></div><div><b>${st.knights}</b><small>Odigrani vitezovi</small></div>
+        <div><b>${st.cities}</b><small>Sagrađeni gradovi</small></div><div><b>${st.trades}</b><small>Razmene</small></div><div><b>${hrs}h</b><small>Vreme igranja</small></div></div>` : '<p class="set-note">Učitavam…</p>'}
+    </div>
+    <div class="set-card"><h3>🔑 Kod profila</h3>
+      <p class="set-note">Upiši ovaj kod na drugom računaru ili telefonu i tamo ćeš imati isti profil i statistiku. Ne deli ga sa drugima.</p>
+      <div class="code-box"><code>${profile ? profile.code : '…'}</code><button class="ob" data-copycode title="Kopiraj kod profila">Kopiraj</button></div>
+      <div class="code-box"><input id="claimCode" maxlength="9" placeholder="XXXX-XXXX"><button class="ob gray" data-claim title="Prebaci se na profil sa drugog uređaja">Učitaj profil</button></div>
+    </div>
     <div class="set-card"><h3>✏️ Ime</h3>
       <div class="set-row"><input id="setName" maxlength="16" placeholder="Upiši ime" value="${esc(nm)}"></div>
     </div>
@@ -127,13 +159,46 @@ function renderProfile() {
     </div>
     <div class="set-card"><h3>🦊 Omiljeni lik</h3>
       <div class="set-avatars">${AVATARS.map((a, i) => `<button class="av ${PREFS.avatar === i ? 'sel' : ''}" data-pav="${i}" title="Izaberi ovog lika">${a}</button>`).join('')}</div>
+    </div>
+    <div class="set-card"><h3>🖼️ Okvir avatara</h3>
+      ${opts('frame', FRAMES, PREFS.frame, (v) => `<span class="avatar ${v !== 'nema' ? 'fr-' + v : ''}" style="border-color:${v === 'nema' ? col : ''}">${av}</span>`)}
+    </div>
+    <div class="set-card"><h3>🏷️ Titula ispod imena</h3>
+      ${opts('title', TITLES.map((t, i) => [String(i), t || 'Bez titule']), String(PREFS.title))}
+    </div>
+    <div class="set-card"><h3>🎲 Moje kockice</h3><p class="set-note">Svi vide tvoje kockice kad si ti na potezu.</p>
+      ${opts('dice', DICE_STYLES, PREFS.dice, (v) => `<span class="dice dice-${v}">${dieHTML(5, 'mini')}</span>`)}
+    </div>
+    <div class="set-card"><h3>🏆 Kad pobedim</h3><p class="set-note">Proslava i zvuk koje svi vide i čuju kad ti pobediš.</p>
+      ${opts('win', WINS, PREFS.win)}
+      ${opts('winSound', WIN_SOUNDS, PREFS.winSound)}
+      <button class="ob" data-wintest title="Pusti zvuk pobede">▶ Probaj zvuk</button>
     </div>`;
 }
 $('profBody').addEventListener('input', (e) => {
-  if (e.target.id === 'setName') { $('nameInput').value = e.target.value; localStorage.setItem('ot_name', e.target.value.trim()); document.querySelector('.prof-name').textContent = e.target.value.trim() || '…'; }
+  if (e.target.id === 'setName') { $('nameInput').value = e.target.value; localStorage.setItem('ot_name', e.target.value.trim()); document.querySelector('.prof-name').textContent = e.target.value.trim() || '…'; clearTimeout(nameSync); nameSync = setTimeout(syncProfile, 800); }
 });
 $('profBody').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.lookK) { const k = b.dataset.lookK; setPref(k, k === 'title' ? Number(b.dataset.lookV) : b.dataset.lookV); }
+  if (b.hasAttribute('data-wintest')) { SFX.play({ zvona: 'winBells', bubnjevi: 'winDrums' }[PREFS.winSound] || 'win'); return; }
+  if (b.hasAttribute('data-copycode') && profile) { navigator.clipboard?.writeText(profile.code); toast('Kod profila je kopiran.'); return; }
+  if (b.hasAttribute('data-claim')) {
+    const code = $('claimCode').value.trim();
+    socket.emit('claimProfile', { code }, (r) => {
+      if (!r || !r.ok) return toast(r?.error || 'Greška na serveru.');
+      // preuzmi profil: novi tajni token i podesavanja sa drugog uredjaja
+      try {
+        localStorage.setItem('ot_token', r.token);
+        const pr = r.profile.prefs || {};
+        if (pr.name) localStorage.setItem('ot_name', pr.name);
+        delete pr.name;
+        localStorage.setItem('ot_prefs', JSON.stringify({ ...PREFS, ...pr }));
+      } catch (_) { /* */ }
+      location.reload();
+    });
+    return;
+  }
   if (b.dataset.pcolor !== undefined) setPref('color', b.dataset.pcolor || null);
   if (b.dataset.pav !== undefined) setPref('avatar', PREFS.avatar === Number(b.dataset.pav) ? null : Number(b.dataset.pav));
   renderProfile();
@@ -282,7 +347,7 @@ function playEventSounds(prev, next) {
     else if (t.startsWith('✅')) SFX.play('tradeDone');
     else if (t.startsWith('🏦')) SFX.play('bank');
     else if (t.startsWith('🛣️') || t.startsWith('🛡️')) setTimeout(() => SFX.play('achieve'), 300);
-    else if (t.startsWith('🏆')) setTimeout(() => SFX.play(S.winner === S.me ? 'win' : 'lose'), 400);
+    else if (t.startsWith('🏆')) setTimeout(() => SFX.play({ zvona: 'winBells', bubnjevi: 'winDrums' }[pById(S.winner)?.winSound] || 'win'), 400);
     else if (t.startsWith('➡️')) SFX.play(S.turn === S.me ? 'myTurn' : 'turn');
     else if (t.includes('je odbacio')) SFX.play('discard');
     else if (t.startsWith('🗳️')) SFX.play('vote');
@@ -338,8 +403,37 @@ function render() {
   if (S.phase === 'lobby') { showPage('lobby'); renderLobby(); renderChat(); renderModal(); return; }
   showPage('game');
   renderBoard(); renderDice(); renderHand(); renderStatus(); renderActions(); renderRecipes(); renderVote();
-  renderPlayers(); renderBank(); renderOffers(); renderTradePanel(); renderLog(); renderChat(); renderModal();
+  renderPlayers(); renderBank(); renderOffers(); renderTradePanel(); renderLog(); renderChat(); renderModal(); renderEmotes();
 }
+
+// ---------- brze reakcije ----------
+const shownEmotes = new Set();
+function renderEmotes() {
+  for (const x of S.emotes || []) {
+    const key = `${x.pid}|${x.t}`;
+    if (shownEmotes.has(key)) continue;
+    shownEmotes.add(key);
+    const target = document.querySelector(`.pp[data-pid="${x.pid}"] .avatar`);
+    if (!target || !target.offsetParent) continue;
+    const r = target.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'emote-bubble'; el.textContent = EMOTES[x.e];
+    el.style.left = r.left + r.width / 2 + 'px'; el.style.top = r.top + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2600);
+    if (x.pid !== S.me) SFX.play('click');
+  }
+}
+$('emoteBtn').onclick = (e) => { e.stopPropagation(); $('emotePop').classList.toggle('hidden'); };
+$('emotePop').innerHTML = `<div class="em-row">${EMOTES.map((e, i) => `<button data-emote="${i}">${e}</button>`).join('')}</div>
+  <div class="em-phr">${PHRASES.map((t) => `<button data-phrase="${esc(t)}">${t}</button>`).join('')}</div>`;
+$('emotePop').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.emote !== undefined) act('emote', { e: Number(b.dataset.emote) });
+  if (b.dataset.phrase) act('chat', { text: I18N.tr(b.dataset.phrase) });
+  $('emotePop').classList.add('hidden');
+});
+document.addEventListener('click', (e) => { if (!e.target.closest('#emotePop')) $('emotePop').classList.add('hidden'); });
 
 // ---------- lobi ----------
 let lookSentFor = null;
@@ -351,6 +445,7 @@ function renderLobby() {
     const m = me(), data = {};
     if (PREFS.color && m.color !== PREFS.color && !S.players.some((p) => p.id !== S.me && p.color === PREFS.color)) data.color = PREFS.color;
     if (PREFS.avatar !== null && PREFS.avatar !== undefined && m.avatar !== PREFS.avatar) data.avatar = PREFS.avatar;
+    for (const k of ['frame', 'title', 'dice', 'win', 'winSound']) if (PREFS[k] !== undefined && m[k] !== PREFS[k]) data[k] = PREFS[k];
     if (Object.keys(data).length) act('look', data);
   }
   const st = S.settings;
@@ -358,8 +453,8 @@ function renderLobby() {
   $('lpCount').textContent = `${S.players.length}/${st.maxPlayers}`;
   const url = new URL(location.href); url.search = '?soba=' + S.code;
   $('inviteLink').value = url.toString();
-  let h = S.players.map((p) => `<div class="lp-slot"><div class="avatar ${p.id === S.me ? 'pickable' : ''}" ${p.id === S.me ? 'data-look title="Klikni da izabereš svoju boju i avatara"' : ''} style="background:${p.color}">${avatarOf(p)}</div>
-    <div class="nm">${esc(p.name)}${p.id === S.me ? ' (ti)' : ''}<div class="sub">${p.id === S.host ? '👑 osnivač' : p.connected ? 'spreman' : 'van mreže'}</div></div>
+  let h = S.players.map((p) => `<div class="lp-slot"><div class="avatar ${frameCls(p)} ${p.id === S.me ? 'pickable' : ''}" ${p.id === S.me ? 'data-look title="Klikni da izabereš svoju boju i avatara"' : ''} style="background:${p.color}">${avatarOf(p)}</div>
+    <div class="nm">${esc(p.name)}${p.id === S.me ? ' (ti)' : ''}<div class="sub">${p.id === S.host ? '👑 osnivač' : p.connected ? 'spreman' : 'van mreže'}${p.title ? ` · <i class="ptitle">${TITLES[p.title]}</i>` : ''}</div></div>
     ${host && p.id !== S.me ? `<button class="kick" data-kick="${p.id}" title="Izbaci ovog igrača iz sobe">✕</button>` : ''}</div>`).join('');
   for (let i = S.players.length; i < st.maxPlayers; i++) {
     h += `<div class="lp-slot empty"><span class="muted-light">Čeka se igrač…</span></div>`;
@@ -786,6 +881,7 @@ function flyCards(prev) {
 
 function renderDice() {
   const d = S.dice;
+  $('dice').className = 'dice dice-' + (pById(S.turn)?.dice || 'klasicne');
   const key = d ? `${S.turnNum}-${d}` : '';
   $('dice').style.cursor = myTurn() && S.sub === 'roll' ? 'pointer' : '';
   if (key && key !== lastDiceKey && lastDiceKey !== '') {
@@ -958,8 +1054,8 @@ $('actions').addEventListener('click', (ev) => {
 // ---------- igraci i banka ----------
 function playerPanel(p, big = false) {
   return `<div class="pp ${p.id === S.turn ? 'turn' : ''} ${big ? 'big' : ''}" data-pid="${p.id}" style="--pc:${p.color}">
-    <div class="who"><div class="avatar" style="background:${p.color}">${avatarOf(p)}</div><span class="vpb" title="Poeni">${p.vp}</span></div>
-    <div><div class="pname"><i class="pdot"></i>${esc(p.name)} ${S.helperOf && p.id === S.helperOf ? '<span class="pair-tag" title="Glavni igrač ovog kruga: jedini sa kim pomoćni igrač sme da trguje">glavni</span>' : S.helperOf && p.id === S.turn ? '<span class="pair-tag help" title="Igra pomoćni potez: bez kockica, trguje samo sa glavnim igračem">pomoćni</span>' : ''}${p.kicked ? '<span class="off">izbačen</span>' : p.quit ? '<span class="off">napustio</span>' : p.connected ? '' : '<span class="off">van mreže</span>'}${!big && !p.kicked && !S.vote && (S.phase === 'play' || S.phase === 'setup') && !me().quit ? `<button class="vk" data-votekick="${p.id}" title="Glasanje za izbacivanje">🥾</button>` : ''}</div>
+    <div class="who"><div class="avatar ${frameCls(p)}" style="background:${p.color}">${avatarOf(p)}</div><span class="vpb" title="Poeni">${p.vp}</span></div>
+    <div><div class="pname"><i class="pdot"></i>${esc(p.name)}${p.title ? `<small class="ptitle">${TITLES[p.title]}</small>` : ''} ${S.helperOf && p.id === S.helperOf ? '<span class="pair-tag" title="Glavni igrač ovog kruga: jedini sa kim pomoćni igrač sme da trguje">glavni</span>' : S.helperOf && p.id === S.turn ? '<span class="pair-tag help" title="Igra pomoćni potez: bez kockica, trguje samo sa glavnim igračem">pomoćni</span>' : ''}${p.kicked ? '<span class="off">izbačen</span>' : p.quit ? '<span class="off">napustio</span>' : p.connected ? '' : '<span class="off">van mreže</span>'}${!big && !p.kicked && !S.vote && (S.phase === 'play' || S.phase === 'setup') && !me().quit ? `<button class="vk" data-votekick="${p.id}" title="Glasanje za izbacivanje">🥾</button>` : ''}</div>
     <div class="stats">
       <span class="st" title="Karte sirovina"><span class="i">🂠</span>${p.cards}</span>
       <span class="st" title="Razvojne karte"><span class="i">🃏</span>${p.devCards}</span>
@@ -1219,6 +1315,19 @@ function showLookPicker() {
   renderModal();
 }
 
+// pobednicka proslava koju je pobednik izabrao u Profilu
+function celebration(w) {
+  const kind = w?.win || 'konfete';
+  const n = kind === 'vatromet' ? 10 : 28;
+  return `<div class="confetti cel-${kind}">${Array.from({ length: n }, (_, i) => {
+    const st = `left:${(i * 37) % 100}%;animation-delay:${(i % 7) * 0.25}s;animation-duration:${2.4 + (i % 5) * 0.4}s`;
+    if (kind === 'zlatnici') return `<i style="${st}">🪙</i>`;
+    if (kind === 'baloni') return `<i style="${st}">🎈</i>`;
+    if (kind === 'vatromet') return `<i style="left:${8 + (i * 29) % 84}%;top:${10 + (i * 17) % 45}%;--c:${COLOR_ORDER[i % COLOR_ORDER.length]};animation-delay:${(i % 5) * 0.4}s"></i>`;
+    return `<i style="${st};background:${COLOR_ORDER[i % COLOR_ORDER.length]}"></i>`;
+  }).join('')}</div>`;
+}
+
 function renderModal() {
   const modal = $('modal'), card = $('modalCard');
   let h = null;
@@ -1228,15 +1337,15 @@ function renderModal() {
       if (!p) return '<div class="pod-col empty"></div>';
       const place = [2, 1, 3][k];
       return `<div class="pod-col p${place}" style="--pc:${p.color}">
-        <div class="pod-who">${place === 1 && S.winner ? '<span class="crown">👑</span>' : ''}<div class="avatar" style="background:${p.color}">${avatarOf(p)}</div></div>
-        <div class="pod-name">${esc(p.name)}</div><div class="pod-vp">${p.vp} poena</div>
+        <div class="pod-who">${place === 1 && S.winner ? '<span class="crown">👑</span>' : ''}<div class="avatar ${frameCls(p)}" style="background:${p.color}">${avatarOf(p)}</div></div>
+        <div class="pod-name">${esc(p.name)}</div>${p.title ? `<div class="ptitle">${TITLES[p.title]}</div>` : ''}<div class="pod-vp">${p.vp} poena</div>
         <div class="pod-block">${place}</div></div>`;
     }).join('');
     const rest = ranking.slice(3);
-    const confetti = S.winner ? `<div class="confetti">${Array.from({ length: 28 }, (_, i) => `<i style="left:${(i * 37) % 100}%;background:${COLOR_ORDER[i % COLOR_ORDER.length]};animation-delay:${(i % 7) * 0.25}s;animation-duration:${2.4 + (i % 5) * 0.4}s"></i>`).join('')}</div>` : '';
+    const confetti = S.winner ? celebration(pById(S.winner)) : '';
     h = `${confetti}<h3 class="end-title">${S.winner ? `🏆 ${esc(pById(S.winner).name)} je pobedio!` : `🛑 Igra je prekinuta${S.endedBy ? ` (prekinuo ${esc(pById(S.endedBy).name)})` : ''}`}</h3>
       <div class="podium">${podium}</div>
-      ${rest.length ? `<table class="rest-table">${rest.map((p, i) => `<tr style="--pc:${p.color}"><td><b>${i + 4}.</b></td><td><div class="avatar" style="background:${p.color}">${avatarOf(p)}</div></td><td class="rn">${esc(p.name)}</td><td title="Vitezovi">⚔️ ${p.knights}</td><td title="Najduži put">🛤️ ${p.roadLen}</td><td><b>${p.vp} poena</b></td></tr>`).join('')}</table>` : ''}
+      ${rest.length ? `<table class="rest-table">${rest.map((p, i) => `<tr style="--pc:${p.color}"><td><b>${i + 4}.</b></td><td><div class="avatar ${frameCls(p)}" style="background:${p.color}">${avatarOf(p)}</div></td><td class="rn">${esc(p.name)}</td><td title="Vitezovi">⚔️ ${p.knights}</td><td title="Najduži put">🛤️ ${p.roadLen}</td><td><b>${p.vp} poena</b></td></tr>`).join('')}</table>` : ''}
       ${statsHTML()}
       <p><button class="btn green" style="width:100%" data-backrooms>Nazad na sobe</button></p>`;
   } else if (S && S.phase !== 'lobby' && S.sub === 'discard' && S.pendingDiscard[S.me]) {

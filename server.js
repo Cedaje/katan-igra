@@ -4,6 +4,7 @@ const express = require('express');
 const { Server } = require('socket.io');
 const { Game, GameError } = require('./game');
 const { timeoutTick } = require('./bot');
+const PROFILES = require('./profiles');
 
 const app = express();
 const server = http.createServer(app);
@@ -46,7 +47,7 @@ function loadGames() {
 }
 loadGames();
 setInterval(saveGames, 5000);
-for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { dirty = true; saveGames(); process.exit(0); });
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { dirty = true; saveGames(); PROFILES.save(); process.exit(0); });
 
 function newCode() {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -71,6 +72,7 @@ function broadcast(game) {
   if (online.size && game.emptySince) { game.timerKey = null; game.touchTimer(); } // igra se nastavlja: novo vreme za potez
   game.emptySince = online.size ? null : (game.emptySince || Date.now());
   dirty = true;
+  if (game.phase === 'ended') PROFILES.recordGame(game);
   for (const sock of roomSockets(game.code)) sock.emit('state', game.viewFor(sock.data.pid));
 }
 
@@ -107,6 +109,16 @@ io.on('connection', (socket) => {
   sendRooms(socket);
 
   socket.on('rooms', () => sendRooms(socket));
+
+  // profil bez logina: token iz browsera je kljuc, kod profila prenosi profil na drugi uredjaj
+  socket.on('profile', ({ token, prefs } = {}, cb) => {
+    if (prefs) PROFILES.savePrefs(token, prefs);
+    reply(cb, { ok: true, profile: PROFILES.publicView(token) });
+  });
+  socket.on('claimProfile', ({ code } = {}, cb) => {
+    const token = PROFILES.claim(code);
+    reply(cb, token ? { ok: true, token, profile: PROFILES.publicView(token) } : { ok: false, error: 'Ne postoji profil sa tim kodom.' });
+  });
 
   socket.on('create', ({ name, token, settings } = {}, cb) => {
     const code = newCode();
