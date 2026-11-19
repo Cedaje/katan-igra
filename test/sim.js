@@ -65,12 +65,12 @@ let wins = 0, turnsTotal = 0;
 const GAMES = Number(process.argv[2] || 200);
 for (let i = 0; i < GAMES; i++) {
   const n = 2 + (i % 7);
-  const g = new Game('TEST', { map: n <= 4 ? 'base' : n <= 6 ? 'ext6' : 'ext8', timer: 0, pairedPlayers: i % 2 === 1 });
+  const g = new Game('TEST', { map: n <= 4 ? ['base', 'dva', 'zaliv', 'arhipelag', 'dugo'][i % 5] : n <= 6 ? 'ext6' : 'ext8', timer: 0, pairedPlayers: i % 2 === 1 });
   for (let k = 0; k < n; k++) g.addPlayer('Bot' + k, 't' + k);
   g.action(g.players[0].id, 'start');
   const lay = LAYOUTS[g.board.layout];
-  assert.equal(g.board.hexes.length, lay.rows.reduce((a, b) => a + b, 0));
-  if (n <= 4) { assert.equal(g.board.vertices.length, 54); assert.equal(g.board.edges.length, 72); }
+  assert.equal(g.board.hexes.length, lay.cells ? lay.cells.length : lay.rows.reduce((a, b) => a + b, 0));
+  if (g.board.layout === 'base') { assert.equal(g.board.vertices.length, 54); assert.equal(g.board.edges.length, 72); }
   assert.equal(g.board.vertices.filter((v) => v.port).length, lay.ports.length * 2, 'luke dele teme');
   assert.ok(g.board.hexes.every((h) => h.terrain === 'pustinja' || h.num), 'polje bez broja');
   for (const a of g.board.hexes) for (const b of g.board.hexes) if (a !== b && [6, 8].includes(a.num) && [6, 8].includes(b.num)) assert.ok(Math.hypot(a.x - b.x, a.y - b.y) > 1.8, '6/8 susedi');

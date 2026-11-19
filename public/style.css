@@ -694,3 +694,39 @@ body.dark-ui #game { background: radial-gradient(ellipse at 45% 25%, #1b3342 0%,
 .prof-av[class*="fr-"]::after { position: absolute; right: -4px; bottom: -2px; font-size: 30px; }
 .prof-av.fr-cvece::after { content: '🌸'; } .prof-av.fr-talasi::after { content: '🌊'; } .prof-av.fr-zvezde::after { content: '⭐'; } .prof-av.fr-vatra::after { content: '🔥'; }
 .prof-title { font-style: italic; color: #ffe08a; }
+/* tabela najboljih */
+#top { padding: 0 28px 28px; overflow-y: auto; }
+.top-tabs { margin-bottom: 12px; }
+.top-table { background: rgba(0,0,0,.2); border-radius: 12px; overflow: hidden; color: #fff; }
+.tt-head, .tt-row { display: grid; grid-template-columns: 56px 1fr 70px 70px 70px 70px 70px; align-items: center; gap: 6px; padding: 0 16px; text-align: center; }
+.tt-head { background: rgba(0,0,0,.25); height: 44px; font-weight: 700; font-size: 18px; }
+.tt-row { min-height: 56px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.tt-row.top3 { background: rgba(242,201,76,.08); }
+.tt-row.me { background: rgba(76,214,120,.2); box-shadow: inset 5px 0 #4cd678; }
+.tt-rank { font-size: 20px; font-weight: 800; }
+.tt-who { display: flex; align-items: center; gap: 10px; text-align: left; min-width: 0; }
+.tt-who > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.tt-who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-who .ptitle { font-size: 12px; color: #ffe08a; }
+.tt-who .avatar { width: 36px; height: 36px; font-size: 18px; background: #fff; }
+/* dostignuca */
+.ach-card { grid-row: span 2; }
+.ach-card h3 small { font-weight: 600; opacity: .7; font-size: 14px; }
+.ach-list { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
+.ach { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px; background: rgba(255,255,255,.06); border-radius: 10px; padding: 6px 8px; opacity: .75; }
+.ach.ok { opacity: 1; background: rgba(76,214,120,.18); }
+.ach-ico { font-size: 22px; text-align: center; }
+.ach-txt { display: flex; flex-direction: column; min-width: 0; }
+.ach-txt small { font-size: 11px; color: #cfe3ea; }
+.ach-bar { display: block; height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); margin-top: 3px; overflow: hidden; }
+.ach-bar i { display: block; height: 100%; background: #4cd678; }
+.ach-n { font-size: 12px; font-weight: 700; }
+.look-opts button.locked { opacity: .45; position: relative; }
+.look-opts button.locked i { font-style: normal; font-size: 12px; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  #top { padding: 0 12px 16px; }
+  .tt-head, .tt-row { grid-template-columns: 36px 1fr 40px 40px 44px; padding: 0 8px; font-size: 13px; }
+  .tt-head span:nth-child(6), .tt-head span:nth-child(7), .tt-row > span:nth-child(6), .tt-row > span:nth-child(7) { display: none; }
+  .ach-card { grid-row: auto; }
+  .rail-btn { font-size: 10px; }
+}

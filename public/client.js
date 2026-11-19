@@ -35,8 +35,12 @@ const MAPS = [
   { id: 'base', name: 'Osnovna', sub: '2–4 igrača', max: 4 },
   { id: 'ext6', name: 'Proširenje', sub: '5–6 igrača', max: 6 },
   { id: 'ext8', name: 'Veliko proširenje', sub: '7–8 igrača', max: 8 },
+  { id: 'dva', name: 'Dva ostrva', sub: '2–4 igrača', max: 4, ico: '🏝️🏝️' },
+  { id: 'zaliv', name: 'Zaliv', sub: '2–4 igrača', max: 4, ico: '🌙' },
+  { id: 'arhipelag', name: 'Arhipelag', sub: '2–4 igrača', max: 4, ico: '🏝️🏝️🏝️' },
+  { id: 'dugo', name: 'Dugačko ostrvo', sub: '2–4 igrača', max: 4, ico: '➖' },
 ];
-const MAP_NAME = { base: 'Osnovna', ext6: 'Proširenje 5–6', ext8: 'Proširenje 7–8' };
+const MAP_NAME = { base: 'Osnovna', ext6: 'Proširenje 5–6', ext8: 'Proširenje 7–8', dva: 'Dva ostrva', zaliv: 'Zaliv', arhipelag: 'Arhipelag', dugo: 'Dugačko ostrvo' };
 const TIMERS = [0, 30, 60, 90, 120, 180, 240];
 const AVATARS = ['🦊', '🐻', '🦉', '🐢', '🦁', '🐺', '🐙', '🦌', '🐸', '🐧', '🦄', '🐼', '🐯', '🦅', '🐳', '🐝', '🐵', '🐒', '🦍', '🐨', '🐰', '🐱', '🐶', '🐷', '🐮', '🐔', '🦖', '🐉', '🦈', '🦩', '🦜', '🐬', '🦒', '🦓', '🐘', '🦔', '🦦', '🦥', '🦀', '🐞', '🦋', '🐊', '🦘', '🐹'];
 
@@ -93,6 +97,10 @@ document.addEventListener('click', (e) => {
   if (n.dataset.nav === 'home') { if (S && S.phase === 'lobby') doLeave(); else showPage('rooms'); }
   if (n.dataset.nav === 'rooms' && S && S.phase === 'lobby') toast('Prvo izađi iz sobe (✕ gore desno).');
   else if (n.dataset.nav === 'rooms' && !S) showPage('rooms');
+  if (n.dataset.nav === 'top') {
+    if (S && S.phase === 'lobby') toast('Prvo izađi iz sobe (✕ gore desno).');
+    else if (!S) { showPage('top'); loadTop(); }
+  }
   if (n.dataset.nav === 'settings' || n.dataset.nav === 'profile') {
     if (S && S.phase === 'lobby') toast('Prvo izađi iz sobe (✕ gore desno).');
     else if (!S) { if (n.dataset.nav === 'profile') { renderProfile(); syncProfile(() => { if (!$('profile').classList.contains('hidden')) renderProfile(); }); } else renderSettings(); showPage(n.dataset.nav); }
@@ -106,7 +114,8 @@ function showPage(page) {
   $('lobby').classList.toggle('hidden', page !== 'lobby');
   $('settings').classList.toggle('hidden', page !== 'settings');
   $('profile').classList.toggle('hidden', page !== 'profile');
-  document.querySelectorAll('.rail-btn[data-nav]').forEach((b) => b.classList.toggle('active', b.dataset.nav === (['settings', 'profile'].includes(page) ? page : 'rooms')));
+  $('top').classList.toggle('hidden', page !== 'top');
+  document.querySelectorAll('.rail-btn[data-nav]').forEach((b) => b.classList.toggle('active', b.dataset.nav === (['settings', 'profile', 'top'].includes(page) ? page : 'rooms')));
 }
 
 // ---------- licna podesavanja (cuvaju se samo u ovom browseru) ----------
@@ -117,9 +126,15 @@ function setPref(k, v) { PREFS[k] = v; try { localStorage.setItem('ot_prefs', JS
 let profile = null;
 function syncProfile(cb) {
   const prefs = { ...PREFS, name: localStorage.getItem('ot_name') || '' };
-  socket.emit('profile', { token: token(), prefs }, (r) => { if (r && r.ok) { profile = r.profile; if (cb) cb(); } });
+  socket.emit('profile', { token: token(), prefs }, (r) => { if (r && r.ok) { profile = r.profile; if (PREFS.frame !== 'nema' || PREFS.title) checkLocked(); if (cb) cb(); } });
 }
-socket.on('connect', () => socket.emit('profile', { token: token() }, (r) => { if (r && r.ok) profile = r.profile; }));
+function checkLocked() {
+  if (!profile) return;
+  const U = ACHIEVEMENTS.unlocked(profile.stats);
+  if (!U.frames.has(PREFS.frame)) setPref('frame', 'nema');
+  if (!U.titles.has(Number(PREFS.title))) setPref('title', 0);
+}
+socket.on('connect', () => socket.emit('profile', { token: token() }, (r) => { if (r && r.ok) { profile = r.profile; checkLocked(); } }));
 function applyPrefs() {
   document.body.classList.toggle('fs-small', PREFS.font === 'small');
   document.body.classList.toggle('fs-large', PREFS.font === 'large');
@@ -129,13 +144,44 @@ function applyPrefs() {
 const animMs = (ms) => (PREFS.anim === 'off' ? 0 : PREFS.anim === 'fast' ? Math.round(ms * 0.45) : ms);
 applyPrefs();
 
+// ---------- tabela najboljih ----------
+let topRows = [], topSort = 'wins';
+const TOP_SORTS = [['wins', 'Pobede'], ['pct', 'Procenat pobeda'], ['bestPoints', 'Najviše poena'], ['bestRoad', 'Najduži put'], ['games', 'Partije']];
+function loadTop() {
+  $('topBody').innerHTML = '<p class="set-note">Učitavam…</p>';
+  socket.emit('leaderboard', { token: token() }, (r) => { if (r && r.ok) { topRows = r.rows; renderTop(); } });
+}
+function renderTop() {
+  $('topTabs').innerHTML = TOP_SORTS.map(([k, l]) => `<button class="${topSort === k ? 'on' : ''}" data-topsort="${k}">${l}</button>`).join('');
+  const rows = [...topRows].sort((a, b) => b[topSort] - a[topSort] || b.wins - a.wins || b.games - a.games);
+  if (!rows.length) { $('topBody').innerHTML = '<div class="rt-empty">Još niko nije završio partiju. Odigraj prvu i budi na vrhu!</div>'; return; }
+  const medal = (i) => ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+  $('topBody').innerHTML = `<div class="tt-head"><span>#</span><span>Igrač</span><span title="Pobede">🏆</span><span title="Odigrane partije">🎲</span><span title="Procenat pobeda">%</span><span title="Najviše poena u jednoj partiji">⭐</span><span title="Najduži put">🛤️</span></div>` +
+    rows.map((r, i) => `<div class="tt-row ${r.me ? 'me' : ''} ${i < 3 ? 'top3' : ''}">
+      <span class="tt-rank">${medal(i)}</span>
+      <span class="tt-who"><span class="avatar ${frameCls(r)}" style="background:${r.color || '#888'}">${avatarOf(r)}</span><span><b><span class="nt">${esc(r.name)}</span>${r.me ? ' <small>(ti)</small>' : ''}</b>${r.title ? `<i class="ptitle">${TITLES[r.title]}</i>` : ''}</span></span>
+      <span><b>${r.wins}</b></span><span>${r.games}</span><span>${r.pct}%</span><span>${r.bestPoints}</span><span>${r.bestRoad}</span></div>`).join('');
+}
+$('topTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-topsort]'); if (b) { topSort = b.dataset.topsort; renderTop(); } });
+
 let nameSync = null;
 function renderProfile() {
   const nm = $('nameInput').value.trim();
   const col = PREFS.color || COLOR_ORDER[0];
   const av = AVATARS[PREFS.avatar ?? 0];
-  const opts = (key, list, cur, fmt) => `<div class="look-opts">${list.map(([v, l]) => `<button class="${cur === v ? 'sel' : ''}" data-look-k="${key}" data-look-v="${v}">${fmt ? fmt(v) : ''}<span>${l}</span></button>`).join('')}</div>`;
   const st = profile?.stats;
+  const U = ACHIEVEMENTS.unlocked(st || {});
+  // sta otkljucava zakljucani okvir ili titulu
+  const lockOf = (key, v) => {
+    if (key === 'frame' && !U.frames.has(v)) return ACHIEVEMENTS.ACH.find((a) => a.frame === v);
+    if (key === 'title' && !U.titles.has(Number(v))) return ACHIEVEMENTS.ACH.find((a) => a.title === Number(v));
+    return null;
+  };
+  const opts = (key, list, cur, fmt) => `<div class="look-opts">${list.map(([v, l]) => {
+    const lock = lockOf(key, v);
+    return `<button class="${cur === v ? 'sel' : ''} ${lock ? 'locked' : ''}" data-look-k="${key}" data-look-v="${v}" ${lock ? `title="🔒 Otključava se dostignućem „${lock.name}“: ${lock.desc}"` : ''}>${fmt ? fmt(v) : ''}<span>${l}</span>${lock ? '<i>🔒</i>' : ''}</button>`;
+  }).join('')}</div>`;
+  const achDone = ACHIEVEMENTS.ACH.filter((a) => ACHIEVEMENTS.done(a, st)).length;
   const pct = st && st.games ? Math.round((st.wins / st.games) * 100) : 0;
   const hrs = st ? Math.round(st.playMs / 360000) / 10 : 0;
   $('profBody').innerHTML = `
@@ -145,6 +191,13 @@ function renderProfile() {
         <div><b>${st.games}</b><small>Odigrane partije</small></div><div><b>${st.wins}</b><small>Pobede</small></div><div><b>${pct}%</b><small>Procenat pobeda</small></div>
         <div><b>${st.bestPoints}</b><small>Najviše poena</small></div><div><b>${st.bestRoad}</b><small>Najduži put</small></div><div><b>${st.knights}</b><small>Odigrani vitezovi</small></div>
         <div><b>${st.cities}</b><small>Sagrađeni gradovi</small></div><div><b>${st.trades}</b><small>Razmene</small></div><div><b>${hrs}h</b><small>Vreme igranja</small></div></div>` : '<p class="set-note">Učitavam…</p>'}
+    </div>
+    <div class="set-card ach-card"><h3>🎖️ Dostignuća <small>${achDone} / ${ACHIEVEMENTS.ACH.length}</small></h3>
+      <div class="ach-list">${ACHIEVEMENTS.ACH.map((a) => {
+        const v = Math.min(a.need, (st && st[a.stat]) || 0), ok = v >= a.need;
+        const prize = a.frame ? `okvir: ${FRAMES.find((f) => f[0] === a.frame)[1]}` : `titula: ${TITLES[a.title]}`;
+        return `<div class="ach ${ok ? 'ok' : ''}" title="${a.desc}. Nagrada – ${prize}"><span class="ach-ico">${ok ? a.ico : '🔒'}</span><span class="ach-txt"><b>${a.name}</b><small>${a.desc}</small><i class="ach-bar"><i style="width:${(v / a.need) * 100}%"></i></i></span><span class="ach-n">${v}/${a.need}</span></div>`;
+      }).join('')}</div>
     </div>
     <div class="set-card"><h3>🔑 Kod profila</h3>
       <p class="set-note">Upiši ovaj kod na drugom računaru ili telefonu i tamo ćeš imati isti profil i statistiku. Ne deli ga sa drugima.</p>
@@ -182,7 +235,10 @@ $('profBody').addEventListener('input', (e) => {
 });
 $('profBody').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.lookK) { const k = b.dataset.lookK; setPref(k, k === 'title' ? Number(b.dataset.lookV) : b.dataset.lookV); }
+  if (b.dataset.lookK) {
+    if (b.classList.contains('locked')) return toast(b.dataset.tip || b.title || 'Zaključano.');
+    const k = b.dataset.lookK; setPref(k, k === 'title' ? Number(b.dataset.lookV) : b.dataset.lookV);
+  }
   if (b.hasAttribute('data-wintest')) { SFX.play({ zvona: 'winBells', bubnjevi: 'winDrums' }[PREFS.winSound] || 'win'); return; }
   if (b.hasAttribute('data-copycode') && profile) { navigator.clipboard?.writeText(profile.code); toast('Kod profila je kopiran.'); return; }
   if (b.hasAttribute('data-claim')) {
@@ -272,7 +328,7 @@ socket.on('rooms', (rooms) => {
     const full = r.players >= r.settings.maxPlayers;
     return `<div class="rt-row ${full ? 'full' : 'open'}" data-room="${r.code}" title="Igrači: ${esc(r.names.join(', '))}">
     <span class="rt-host"><span class="rt-av" style="--pc:${h.color || '#888'}">${avatarOf(h)}</span><span class="rt-hn"><b>${esc(h.name)}</b><small><i class="rt-dot"></i>${full ? 'Popunjena' : 'Otvorena'}</small></span></span>
-    <span>${r.settings.map === 'base' ? 'Osnovni' : 'Prošireni'}</span><span>${MAP_NAME[r.settings.map]}</span>
+    <span>${r.settings.maxPlayers <= 4 && !['ext6', 'ext8'].includes(r.settings.map) ? 'Osnovni' : 'Prošireni'}</span><span>${MAP_NAME[r.settings.map]}</span>
     <span>${r.settings.timer ? r.settings.timer + 's' : 'bez'}</span><span class="seats">${seatIcons(r.players, r.settings.maxPlayers)}</span>
     <span class="rt-join">${full ? '' : 'Uđi ›'}</span></div>`;
   }).join('');
@@ -469,7 +525,7 @@ function renderLobby() {
   $('lobbyPlayers').innerHTML = h;
 
   $('mapTiles').innerHTML = MAPS.map((m) => `<button class="tile ${st.map === m.id ? 'sel' : ''}" data-map="${m.id}" ${host ? '' : 'disabled'} title="Tabla za ${m.sub}. Veća tabla ima više polja, luka i karata.">
-    <span class="ti">${'⬢'.repeat(m.max / 2)}</span>${m.name}<small>${m.sub}</small></button>`).join('');
+    <span class="ti">${m.ico || '⬢'.repeat(m.max / 2)}</span>${m.name}<small>${m.sub}</small></button>`).join('');
   const rule = (key, ico, name, on, off, tip) => `<button class="tile ${st[key] ? 'sel' : ''}" data-rule="${key}" ${host ? '' : 'disabled'} title="${tip}"><span class="ti">${ico}</span>${name}<small>${st[key] ? on : off}</small></button>`;
   $('ruleTiles').innerHTML =
     rule('private', '🕶️', 'Privatna igra', 'ne vidi se u listi', 'vidi se u listi soba', 'Soba se ne prikazuje u listi otvorenih soba. Ulazi se samo preko linka ili koda.') +

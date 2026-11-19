@@ -14,5 +14,11 @@ assert.equal(P.claim(va.code.toLowerCase().replace('-', '')), 'token-aaaa');
 assert.equal(P.claim('XXXX-XXXX'), null);
 P.savePrefs('token-bbbb', { name: 'B', frame: 'zlato' });
 assert.equal(P.publicView('token-bbbb').prefs.frame, 'zlato');
+// zakljucani ukrasi se ne prihvataju, otkljucani da
+assert.equal(P.filterLook('token-bbbb', { frame: 'zlato', title: 12 }).frame, undefined);
+assert.equal(P.filterLook('token-aaaa', { frame: 'drvo', title: 1 }).frame, 'drvo');
+assert.equal(P.filterLook('token-aaaa', { title: 1 }).title, 1);
+const lb = P.leaderboard('token-aaaa');
+assert.equal(lb[0].wins, 1); assert.ok(lb[0].me);
 console.log('profili OK');
 process.exit(0);

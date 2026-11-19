@@ -29,7 +29,8 @@ function newCode() {
     if (!Object.values(profiles).some((p) => p.code === c)) return c;
   }
 }
-const emptyStats = () => ({ games: 0, wins: 0, points: 0, bestPoints: 0, bestRoad: 0, knights: 0, cities: 0, gained: 0, trades: 0, playMs: 0 });
+const emptyStats = () => ({ games: 0, wins: 0, points: 0, bestPoints: 0, bestRoad: 0, knights: 0, cities: 0, gained: 0, trades: 0, stolen: 0, bank: 0, streak: 0, bestStreak: 0, playMs: 0 });
+const { unlocked } = require('./public/achievements');
 
 const validToken = (t) => typeof t === 'string' && t.length >= 8 && t.length <= 64;
 
@@ -72,7 +73,9 @@ function recordGame(game) {
     const s = p.stats, st = game.stats?.players?.[pl.id] || {};
     const vp = game.totalVP(pl);
     s.games++;
-    if (game.winner === pl.id) s.wins++;
+    if (game.winner === pl.id) { s.wins++; s.streak++; s.bestStreak = Math.max(s.bestStreak, s.streak); } else s.streak = 0;
+    s.stolen += st.stolen || 0;
+    s.bank += st.bank || 0;
     s.points += vp;
     s.bestPoints = Math.max(s.bestPoints, vp);
     s.bestRoad = Math.max(s.bestRoad, game.roadLength(pl.id));
@@ -86,4 +89,28 @@ function recordGame(game) {
   dirty = true;
 }
 
-module.exports = { publicView, savePrefs, claim, recordGame, save };
+// ukrasi koje igrac jos nije otkljucao se ne prihvataju
+function filterLook(token, data) {
+  const p = get(token); if (!p || !data) return data;
+  const u = unlocked(p.stats), out = { ...data };
+  if (out.frame !== undefined && !u.frames.has(out.frame)) delete out.frame;
+  if (out.title !== undefined && !u.titles.has(Number(out.title))) delete out.title;
+  return out;
+}
+
+// tabela najboljih: samo igraci sa bar jednom odigranom partijom
+function leaderboard(myToken) {
+  const rows = Object.entries(profiles).filter(([, p]) => p.stats && p.stats.games > 0).map(([t, p]) => {
+    const s = { ...emptyStats(), ...p.stats }, pr = p.prefs || {};
+    return {
+      me: t === myToken, name: String(pr.name || 'Igrač').slice(0, 16), color: pr.color || null, avatar: pr.avatar ?? null,
+      frame: pr.frame || 'nema', title: pr.title || 0,
+      games: s.games, wins: s.wins, pct: Math.round((s.wins / s.games) * 100), bestPoints: s.bestPoints, bestRoad: s.bestRoad, knights: s.knights,
+    };
+  });
+  rows.sort((a, b) => b.wins - a.wins || b.pct - a.pct || b.games - a.games);
+  rows.forEach((r, i) => { r.rank = i + 1; });
+  return rows.slice(0, 100).concat(rows.slice(100).filter((r) => r.me));
+}
+
+module.exports = { filterLook, leaderboard, publicView, savePrefs, claim, recordGame, save };

@@ -115,6 +115,7 @@ io.on('connection', (socket) => {
     if (prefs) PROFILES.savePrefs(token, prefs);
     reply(cb, { ok: true, profile: PROFILES.publicView(token) });
   });
+  socket.on('leaderboard', ({ token } = {}, cb) => reply(cb, { ok: true, rows: PROFILES.leaderboard(token) }));
   socket.on('claimProfile', ({ code } = {}, cb) => {
     const token = PROFILES.claim(code);
     reply(cb, token ? { ok: true, token, profile: PROFILES.publicView(token) } : { ok: false, error: 'Ne postoji profil sa tim kodom.' });
@@ -154,6 +155,7 @@ io.on('connection', (socket) => {
     const game = games.get(socket.data.code);
     if (!game) return reply(cb, { ok: false, error: 'Nisi u sobi.' });
     try {
+      if (type === 'look') data = PROFILES.filterLook(game.p(socket.data.pid)?.token, data);
       game.action(socket.data.pid, type, data);
       reply(cb, { ok: true });
     } catch (e) {

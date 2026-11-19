@@ -56,8 +56,37 @@ const LAYOUTS = {
     bank: 30,
     dev: { vitez: 25, bod: 6, putevi: 4, obilje: 4, monopol: 4 },
   },
+  // posebni oblici ostrva (za 2-4 igraca), polja su zadata aksijalnim koordinatama
+  dva: {
+    cells: [[-4, 0], [-4, 1], [-3, -1], [-3, 0], [-3, 1], [-2, -1], [-2, 0], [-3, 2], [-4, 2], [-2, -2], [2, -1], [2, 0], [3, -2], [3, -1], [3, 0], [4, -2], [4, -1], [3, 1], [4, -3], [2, 1]],
+    terrain: { suma: 4, gliniste: 4, pasnjak: 4, polje: 4, planina: 3, pustinja: 1 },
+    numbers: [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12, 5],
+    ports: ['3:1', 'vuna', '3:1', '3:1', 'glina', 'drvo', '3:1', 'zito', 'kamen'],
+    bank: 19, dev: { vitez: 14, bod: 5, putevi: 2, obilje: 2, monopol: 2 },
+  },
+  zaliv: {
+    cells: [[-3, 0], [-3, 1], [-3, 2], [-3, 3], [-2, -1], [-2, 0], [-2, 1], [-2, 2], [-2, 3], [-1, -2], [-1, -1], [-1, 0], [-1, 1], [-1, 2], [-1, 3], [0, -3], [0, -2], [0, 2], [0, 3], [1, -3], [1, 2]],
+    terrain: { suma: 4, gliniste: 4, pasnjak: 4, polje: 4, planina: 4, pustinja: 1 },
+    numbers: [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12, 5, 9],
+    ports: ['3:1', 'vuna', '3:1', '3:1', 'glina', 'drvo', '3:1', 'zito', 'kamen', '3:1'],
+    bank: 19, dev: { vitez: 14, bod: 5, putevi: 2, obilje: 2, monopol: 2 },
+  },
+  arhipelag: {
+    cells: [[-1, -3], [-1, -2], [0, -4], [0, -3], [0, -2], [1, -4], [1, -3], [-4, 2], [-4, 3], [-3, 1], [-3, 2], [-3, 3], [-2, 1], [-2, 2], [2, 0], [2, 1], [3, -1], [3, 0], [3, 1], [4, -1], [4, 0]],
+    terrain: { suma: 4, gliniste: 4, pasnjak: 4, polje: 4, planina: 4, pustinja: 1 },
+    numbers: [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12, 5, 9],
+    ports: ['3:1', 'vuna', '3:1', '3:1', 'glina', 'drvo', '3:1', 'zito', 'kamen', '3:1', 'vuna'],
+    bank: 19, dev: { vitez: 14, bod: 5, putevi: 2, obilje: 2, monopol: 2 },
+  },
+  dugo: {
+    cells: [[-3, -1], [-2, -1], [-1, -1], [0, -1], [1, -1], [2, -1], [3, -1], [-4, 0], [-3, 0], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [3, 0], [-4, 1], [-3, 1], [-2, 1], [-1, 1], [0, 1], [1, 1], [2, 1]],
+    terrain: { suma: 5, gliniste: 4, pasnjak: 4, polje: 4, planina: 4, pustinja: 1 },
+    numbers: [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12, 5, 9, 4],
+    ports: ['3:1', 'vuna', '3:1', '3:1', 'glina', 'drvo', '3:1', 'zito', 'kamen', '3:1'],
+    bank: 19, dev: { vitez: 14, bod: 5, putevi: 2, obilje: 2, monopol: 2 },
+  },
 };
-const MAP_MAX = { base: 4, ext6: 6, ext8: 8 };
+const MAP_MAX = { base: 4, ext6: 6, ext8: 8, dva: 4, zaliv: 4, arhipelag: 4, dugo: 4 };
 const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false, hideBank: false, resCards: 19, devCards: 25, friendlyRobber: false, fairDice: false, sameRes: true, sameNum: true, pairedPlayers: false };
 
 // Rasporedi stvari tako da nema "losih" suseda: nasumicno, pa popravljanje zamenama.
@@ -77,11 +106,20 @@ function arrange(items, nbrs, bad) {
 
 // opts.sameRes / opts.sameNum: da li se ista polja / isti brojevi smeju dodirivati (podrazumevano da)
 function buildBoard(layoutName = 'base', opts = {}) {
-  const L = LAYOUTS[layoutName];
-  const centers = [];
-  L.rows.forEach((count, i) => {
-    for (let c = 0; c < count; c++) centers.push([Math.sqrt(3) * (c - (count - 1) / 2), 1.5 * (i - (L.rows.length - 1) / 2)]);
-  });
+  // mapa moze biti zadata redovima (rows) ili listom polja u aksijalnim koordinatama (cells, za posebne oblike)
+  const L = typeof layoutName === 'object' ? layoutName : LAYOUTS[layoutName];
+  if (typeof layoutName === 'object') layoutName = L.id || 'custom';
+  let centers = [];
+  if (L.cells) {
+    centers = L.cells.map(([q, r]) => [Math.sqrt(3) * (q + r / 2), 1.5 * r]);
+    const cx = (Math.min(...centers.map((c) => c[0])) + Math.max(...centers.map((c) => c[0]))) / 2;
+    const cy = (Math.min(...centers.map((c) => c[1])) + Math.max(...centers.map((c) => c[1]))) / 2;
+    centers = centers.map(([x, y]) => [x - cx, y - cy]);
+  } else {
+    L.rows.forEach((count, i) => {
+      for (let c = 0; c < count; c++) centers.push([Math.sqrt(3) * (c - (count - 1) / 2), 1.5 * (i - (L.rows.length - 1) / 2)]);
+    });
+  }
   const near = (a, b) => Math.abs(Math.hypot(a[0] - b[0], a[1] - b[1]) - Math.sqrt(3)) < 0.01;
   const nb = centers.map((c, i) => centers.map((d, j) => j).filter((j) => j !== i && near(c, centers[j])));
   const tList = Object.entries(L.terrain).flatMap(([t, n]) => Array(n).fill(t));
@@ -156,8 +194,10 @@ function buildBoard(layoutName = 'base', opts = {}) {
     const c = coast[chosen[i]];
     const type = portTypes[i];
     vertices[c.e.a].port = type; vertices[c.e.b].port = type;
-    const len = Math.hypot(c.mx, c.my);
-    ports.push({ type, edge: c.e.id, x: c.mx + (c.mx / len) * 0.75, y: c.my + (c.my / len) * 0.75 });
+    let dx = c.mx, dy = c.my;
+    if (L.cells) { const h = hexes[c.e.hexes[0]]; dx = c.mx - h.x; dy = c.my - h.y; } // posebni oblici: luka gleda od svog polja ka moru
+    const len = Math.hypot(dx, dy);
+    ports.push({ type, edge: c.e.id, x: c.mx + (dx / len) * 0.75, y: c.my + (dy / len) * 0.75 });
   }
 
   const robber = hexes.find((h) => h.terrain === 'pustinja').id;
