@@ -549,3 +549,15 @@ body.dark-ui #game { background: radial-gradient(ellipse at 45% 25%, #1b3342 0%,
 .got { animation: got .45s ease-out; }
 @keyframes got { 0% { transform: scale(1); } 40% { transform: scale(1.18); box-shadow: 0 0 0 4px var(--hilite); } 100% { transform: scale(1); } }
 
+/* izbor izgleda: kartica + prekidac svetlo/tamno */
+.skin-fam { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px; border: 3px solid #0000; border-radius: 14px; }
+.skin-fam.sel { border-color: #3aa35b; background: #3aa35b22; }
+.skin-fam .skin-opt { border: 0; }
+.skin-fam.is-dark .skin-opt { background: #1f262c; color: #ebe5d8; }
+.mode-tg { display: flex; align-items: center; gap: 6px; border: 0; border-radius: 20px; padding: 4px 10px; background: #e9dec5; font-size: 15px; }
+.mode-tg i { width: 36px; height: 20px; border-radius: 10px; background: #b9ad95; position: relative; transition: background .2s; }
+.mode-tg i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 2px #0005; }
+.mode-tg.on { background: #2c353d; color: #fff; }
+.mode-tg.on i { background: #f2b84b; }
+.mode-tg.on i::after { left: 18px; }
+.skin-opt { color: #2a241c; } .skin-fam.is-dark .skin-opt { background: #2c353d; color: #ebe5d8; }

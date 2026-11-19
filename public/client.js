@@ -400,10 +400,24 @@ function pieceSVG(type, x, y, col) {
     <rect x="${x}" y="${y - 5}" width="16" height="17" fill="${d}" ${ol}/>
     <rect x="${x - 1}" y="${y - 7}" width="18" height="3" fill="${col}" ${ol}/>${win}</g>`;
 }
+// porodice izgleda: svetla i tamna verzija su jedna kartica sa prekidacem
+const SKIN_FAMS = [
+  { name: 'Osnovni', light: 'osnovni', dark: 'tamni' },
+  { name: 'Kućice', light: 'kucice', dark: 'tamne' },
+  { name: 'Podvodni svet', light: 'podvodni' },
+];
+let darkPref = false;
+try { darkPref = localStorage.getItem('ot_dark') === '1'; } catch (_) { /* */ }
 function showSkinPicker() {
   const demo = (k) => { const prev = skin; skin = k; const c = (S && pById(S.me)?.color) || '#e07ab8'; const out = `<svg viewBox="-36 -36 92 66" width="150" height="94">${pieceSVG('settlement', -12, 0, c)}${pieceSVG('city', 22, -2, c)}</svg>`; skin = prev; return out; };
   modalExtra = () => `<h3>🎨 Izgled igre</h3><p class="muted">Menja se samo kod tebe, drugi igrači biraju svoj izgled.</p>
-    <div class="pick">${Object.entries(SKINS).map(([k, v]) => `<button class="skin-opt ${skin === k ? 'sel' : ''}" data-skin="${k}" title="${v.desc}">${demo(k)}<b>${v.name}</b></button>`).join('')}</div>
+    <div class="pick">${SKIN_FAMS.map((f) => {
+      const mine = skin === f.light || skin === f.dark;
+      const dark = f.dark && (mine ? skin === f.dark : darkPref);
+      const k = dark ? f.dark : f.light;
+      return `<div class="skin-fam ${mine ? 'sel' : ''} ${dark ? 'is-dark' : ''}"><button class="skin-opt" data-skin="${k}" title="${SKINS[k].desc}">${demo(k)}<b>${f.name}</b></button>
+        ${f.dark ? `<button class="mode-tg ${dark ? 'on' : ''}" data-skin="${dark ? f.light : f.dark}" data-dark="${dark ? 0 : 1}" title="Prebaci na ${dark ? 'svetlu' : 'tamnu'} verziju">☀️<i></i>🌙</button>` : ''}</div>`;
+    }).join('')}</div>
     <button class="ob" data-close>Gotovo</button>`;
   renderModal();
 }
@@ -1130,7 +1144,7 @@ $('modalCard').addEventListener('click', (ev) => {
   if (b.hasAttribute('data-pconfirm')) { const p = picker; picker = null; p.cb(p.sel); return renderModal(); }
   if (b.hasAttribute('data-pcancel')) { picker = null; return renderModal(); }
   if (b.dataset.startvote) { modalExtra = null; $('modalCard').innerHTML = ''; renderModal(); return act('voteKick', { pid: b.dataset.startvote }); }
-  if (b.dataset.skin) { setSkin(b.dataset.skin); $('modalCard').innerHTML = ''; renderModal(); if (S && S.phase !== 'lobby') render(); return; }
+  if (b.dataset.skin) { if (b.dataset.dark !== undefined) { darkPref = b.dataset.dark === '1'; try { localStorage.setItem('ot_dark', darkPref ? '1' : '0'); } catch (_) { /* */ } } setSkin(b.dataset.skin); $('modalCard').innerHTML = ''; renderModal(); if (S && S.phase !== 'lobby') render(); return; }
   if (b.dataset.color) { act('look', { color: b.dataset.color }); return; }
   if (b.dataset.avatar) { act('look', { avatar: Number(b.dataset.avatar) }); return; }
   if (b.hasAttribute('data-backrooms')) { setSavedRoom(''); location.href = '/'; return; }
