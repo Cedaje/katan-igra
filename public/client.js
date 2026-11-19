@@ -270,7 +270,8 @@ function renderLobby() {
     rule('friendlyRobber', '🤝', 'Prijateljski lopov', 'štiti slabe igrače', 'isključeno', 'Lopov ne može da se stavi na polje igrača koji ima 2 poena ili manje. Pomaže novim igračima.') +
     rule('fairDice', '⚖️', 'Fer kockice', 'manje sreće', 'obične kockice', 'Svih 36 kombinacija kockica izlazi redom kao iz špila, pa se brojevi pojavljuju onoliko često koliko i treba. Manje zavisi od sreće.') +
     rule('sameRes', '🧩', 'Iste sirovine jedna do druge', 'mogu da se dodiruju', 'nikad se ne dodiruju', 'Uključeno: polja se raspoređuju potpuno nasumično, pa dve iste sirovine (npr. dve šume) mogu biti jedna pored druge. Isključeno: ista polja se nikad ne dodiruju.') +
-    rule('sameNum', '🔢', 'Isti brojevi jedan do drugog', 'mogu da se dodiruju', 'nikad se ne dodiruju', 'Uključeno: isti brojevi (npr. dve devetke) mogu biti na susednim poljima. Isključeno: isti brojevi se nikad ne dodiruju. Šestica i osmica nikad nisu jedna pored druge.');
+    rule('sameNum', '🔢', 'Isti brojevi jedan do drugog', 'mogu da se dodiruju', 'nikad se ne dodiruju', 'Uključeno: isti brojevi (npr. dve devetke) mogu biti na susednim poljima. Isključeno: isti brojevi se nikad ne dodiruju. Šestica i osmica nikad nisu jedna pored druge.') +
+    rule('pairedPlayers', '👥', 'Parovi igrača', 'pomoćni potez uključen', 'isključeno', 'Pravilo za proširenje (5–8 igrača). Posle svakog poteza sledeći igrač odmah igra pomoćni potez: ne baca kockice, trguje sa bankom, lukama i samo sa glavnim igračem, gradi, kupuje i igra razvojne karte. Zatim on postaje glavni igrač i baca kockice.');
   const TIPS = {
     timer: 'Koliko vremena igrač ima za potez. Kad istekne, igra sama baci kockice ili završi potez.',
     maxPlayers: 'Najveći broj igrača u ovoj sobi.',
@@ -744,9 +745,11 @@ function renderStatus() {
   else if (S.sub === 'robber') txt = myTurn() ? 'Pomeri lopova' : `${who} pomera lopova`;
   else if (S.sub === 'steal') txt = myTurn() ? 'Izaberi od koga kradeš' : `${who} krade kartu`;
   else if (S.sub === 'roadBuilding') txt = myTurn() ? `Postavi besplatan put (${S.freeRoads})` : `${who} gradi puteve`;
+  else if (S.helperOf) txt = myTurn() ? (mode ? `Izaberi mesto (Esc za otkaz)` : '👥 Tvoj pomoćni potez') : `👥 Pomoćni potez: ${who}`;
   else txt = myTurn() ? (mode ? `Izaberi mesto (Esc za otkaz)` : 'Tvoj red') : `Na potezu: ${who}`;
   const st = $('status');
   st.className = 'status' + (click ? ' click' : '');
+  st.title = S.helperOf && S.phase === 'play' ? `Pomoćni potez: bez kockica. Trgovina sa bankom, lukama i samo sa glavnim igračem (${pById(S.helperOf).name}). Može da se gradi i igraju razvojne karte.` : '';
   st.innerHTML = `<div class="avatar" style="background:${cur.color};width:32px;height:32px;font-size:16px;border-width:2px">${avatarOf(cur)}</div><span>${esc(txt)}</span>`;
 }
 $('status').onclick = () => { if (S && myTurn() && S.sub === 'roll') act('roll'); };
@@ -842,7 +845,7 @@ $('actions').addEventListener('click', (ev) => {
 function playerPanel(p, big = false) {
   return `<div class="pp ${p.id === S.turn ? 'turn' : ''} ${big ? 'big' : ''}" data-pid="${p.id}" style="--pc:${p.color}">
     <div class="who"><div class="avatar" style="background:${p.color}">${avatarOf(p)}</div><span class="vpb" title="Poeni">${p.vp}</span></div>
-    <div><div class="pname"><i class="pdot"></i>${esc(p.name)} ${p.kicked ? '<span class="off">izbačen</span>' : p.quit ? '<span class="off">napustio</span>' : p.connected ? '' : '<span class="off">van mreže</span>'}${!big && !p.kicked && !S.vote && (S.phase === 'play' || S.phase === 'setup') && !me().quit ? `<button class="vk" data-votekick="${p.id}" title="Glasanje za izbacivanje">🥾</button>` : ''}</div>
+    <div><div class="pname"><i class="pdot"></i>${esc(p.name)} ${S.helperOf && p.id === S.helperOf ? '<span class="pair-tag" title="Glavni igrač ovog kruga: jedini sa kim pomoćni igrač sme da trguje">glavni</span>' : S.helperOf && p.id === S.turn ? '<span class="pair-tag help" title="Igra pomoćni potez: bez kockica, trguje samo sa glavnim igračem">pomoćni</span>' : ''}${p.kicked ? '<span class="off">izbačen</span>' : p.quit ? '<span class="off">napustio</span>' : p.connected ? '' : '<span class="off">van mreže</span>'}${!big && !p.kicked && !S.vote && (S.phase === 'play' || S.phase === 'setup') && !me().quit ? `<button class="vk" data-votekick="${p.id}" title="Glasanje za izbacivanje">🥾</button>` : ''}</div>
     <div class="stats">
       <span class="st" title="Karte sirovina"><span class="i">🂠</span>${p.cards}</span>
       <span class="st" title="Razvojne karte"><span class="i">🃏</span>${p.devCards}</span>
@@ -865,11 +868,12 @@ function renderBank() {
 // ---------- trgovina ----------
 const miniCards = (o) => `<span class="mini">${Object.entries(o).map(([r, n]) => rcard(r, n)).join('')}</span>`;
 // ostali igraci mogu da predloze razmenu igracu na potezu u bilo kom trenutku njegovog poteza
-function canPropose() { return !!S && S.phase === 'play' && S.turn !== S.me && !me()?.quit && !pById(S.turn)?.quit; }
+// u pomocnom potezu (Parovi igraca) predlog moze da posalje samo glavni igrac
+function canPropose() { return !!S && S.phase === 'play' && S.turn !== S.me && !me()?.quit && !pById(S.turn)?.quit && (!S.helperOf || S.helperOf === S.me); }
 function renderOffers() {
   const t = S.trade;
   const box = $('offers');
-  if (!t || S.phase !== 'play') { box.classList.add('hidden'); return; }
+  if (!t || S.phase !== 'play' || (S.helperOf && t.from !== S.me && S.helperOf !== S.me)) { box.classList.add('hidden'); return; }
   const from = pById(t.from);
   let h = t.open ? '<div class="offer"><div class="offer-row"><b>📨 Predlozi za razmenu</b></div>' : `<div class="offer"><div class="offer-row"><b>${esc(from.name)}</b> daje ${miniCards(t.give)} za ${miniCards(t.get)}</div>`;
   if (t.open && t.from !== S.me) {
@@ -934,7 +938,7 @@ function renderTradePanel() {
       ${counterMode
         ? `<button class="tbig" data-tr="sendcounter" ${canOffer ? '' : 'disabled'} title="Pošalji predlog igraču na potezu">✎<small>Predloži</small></button>`
         : `<button class="tbig" data-tr="bank" ${bankTradeValid() ? '' : 'disabled'} title="Trguj sa bankom: daješ broj karata koji piše na kartici gore (4:1, 3:1 ili 2:1) za 1 kartu">🏦<small>Banka</small></button>
-      <button class="tbig" data-tr="offer" ${canOffer ? '' : 'disabled'} title="Pošalji ponudu svim igračima; ti biraš sa kim ćeš razmeniti">👥<small>Igračima</small></button>`}
+      <button class="tbig" data-tr="offer" ${canOffer ? '' : 'disabled'} title="${S.helperOf ? 'Pomoćni potez: ponuda ide samo glavnom igraču' : 'Pošalji ponudu svim igračima; ti biraš sa kim ćeš razmeniti'}">👥<small>${S.helperOf ? esc(pById(S.helperOf).name) : 'Igračima'}</small></button>`}
       <button class="tbig close" data-tr="close" title="Zatvori trgovinu (Esc)">✕</button>
     </div>`;
 }
@@ -1059,6 +1063,7 @@ function showRules() {
     <h4>Poeni</h4><ul><li>Selo 1 poen, grad 2 poena</li><li>Najduži put (bar 5 puteva) +2</li><li>Najveća vojska (bar 3 viteza) +2</li><li>Karta „Poen“ +1</li></ul>
     <h4>Tok poteza</h4><ul><li>Baci kockice: svako polje sa tim brojem daje sirovine selima (1) i gradovima (2) oko njega.</li><li>Trguj sa igračima ili bankom (4:1, a sa lukom 3:1 ili 2:1).</li><li>Gradi i završi potez.</li></ul>
     <h4>Cene</h4><ul><li>Put: 🌲🧱</li><li>Selo: 🌲🧱🐑🌾</li><li>Grad: 🌾🌾🪨🪨🪨</li><li>Razvojna karta: 🐑🌾🪨</li></ul>
+    <h4>👥 Parovi igrača (opcija u podešavanjima)</h4><ul><li>Glavni igrač igra svoj potpuno normalan potez: baca kockice, trguje sa svima i gradi.</li><li>Odmah zatim sledeći igrač igra <b>pomoćni potez</b>: ne baca kockice, trguje sa bankom, preko svojih luka i <b>samo sa glavnim igračem</b>, gradi, kupuje i igra razvojne karte.</li><li>Kad pomoćni igrač završi, on postaje glavni igrač i baca kockice, a sledeći do njega postaje novi pomoćni igrač.</li></ul>
     <h4>Sedmica</h4><p>Ko ima više karata od limita odbacuje polovinu. Igrač na potezu pomera lopova (to polje ne daje sirovine) i krade jednu kartu.</p>
     <h4>Tasteri</h4><p><b>Space</b> baci kockice · <b>E</b> kraj poteza · <b>T</b> trgovina · <b>P</b> put · <b>S</b> selo · <b>G</b> grad · <b>K</b> razvojna karta · <b>Esc</b> otkaži · <b>+</b> / <b>−</b> zum mape · <b>0</b> cela mapa. Točkić miša zumira, a mapu pomeraš držanjem levog klika.</p>
     <h4>Izbacivanje</h4><p>Klikni 🥾 pored imena igrača da pokreneš glasanje. Ako se većina ostalih složi, igrač je izbačen.</p>

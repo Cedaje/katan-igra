@@ -67,6 +67,35 @@ function setup(settings = {}) {
   console.log('predlog bez ponude OK');
 }
 
+// Parovi igraca: pomocni potez bez kockica, trgovina samo sa glavnim igracem
+{
+  const g = setup({ pairedPlayers: true });
+  const [A, B, C] = [0, 1, 2].map((i) => g.players[(g.turn + i) % 3]);
+  g.dice = null; g.action(A.id, 'roll'); if (g.sub !== 'main') { g.sub = 'main'; g.pendingDiscard = {}; }
+  g.action(A.id, 'endTurn');
+  assert.equal(g.current().id, B.id); assert.equal(g.sub, 'main'); assert.equal(g.helperOf, A.id);
+  assert.throws(() => g.action(B.id, 'roll'), /kockice/);
+  A.hand = { drvo: 0, glina: 0, vuna: 0, zito: 2, kamen: 0 };
+  B.hand = { drvo: 4, glina: 0, vuna: 0, zito: 0, kamen: 0 };
+  C.hand = { drvo: 0, glina: 0, vuna: 0, zito: 2, kamen: 0 };
+  g.action(B.id, 'bankTrade', { give: 'drvo', get: 'kamen' }); // banka 4:1 sme
+  B.hand.drvo = 2;
+  g.action(B.id, 'offerTrade', { give: { drvo: 1 }, get: { zito: 1 } });
+  assert.throws(() => g.action(C.id, 'respondTrade', { accept: true }), /samo sa/);
+  assert.throws(() => g.action(C.id, 'counterTrade', { give: { zito: 1 }, get: { drvo: 1 } }), /samo sa/);
+  g.action(A.id, 'respondTrade', { accept: true });
+  g.action(B.id, 'confirmTrade', { with: A.id });
+  assert.equal(B.hand.zito, 1); assert.equal(A.hand.drvo, 1);
+  // razvojna karta kupljena ranije sme da se igra u pomocnom potezu
+  B.dev.push({ type: 'monopol', bought: 0 });
+  g.action(B.id, 'playDev', { card: 'monopol', res: 'zito' });
+  assert.equal(B.hand.zito, 4);
+  g.action(B.id, 'endTurn');
+  assert.equal(g.current().id, B.id); assert.equal(g.sub, 'roll'); assert.equal(g.helperOf, null);
+  assert.equal(g.viewFor(A.id).helperOf, null);
+  console.log('parovi igraca OK');
+}
+
 // cuvanje: partija posle JSON-a radi isto
 {
   const g = setup();

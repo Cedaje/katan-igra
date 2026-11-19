@@ -38,7 +38,7 @@ function chooseAction(g, pid, auto = false) {
     return null;
   }
   if (g.current().id !== pid) {
-    if (!auto && g.trade && g.trade.from !== pid && !g.trade.accepted.includes(pid) && !g.trade.declined.includes(pid)) {
+    if (!auto && g.trade && g.trade.from !== pid && (!g.helperOf || g.helperOf === pid) && !g.trade.accepted.includes(pid) && !g.trade.declined.includes(pid)) {
       const ok = g.canAfford(pl, g.trade.get) && Math.random() < 0.35;
       return { pid, type: 'respondTrade', data: { accept: ok } };
     }

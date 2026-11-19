@@ -50,7 +50,7 @@ const LAYOUTS = {
   },
 };
 const MAP_MAX = { base: 4, ext6: 6, ext8: 8 };
-const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false, hideBank: false, resCards: 19, devCards: 25, friendlyRobber: false, fairDice: false, sameRes: true, sameNum: true };
+const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false, hideBank: false, resCards: 19, devCards: 25, friendlyRobber: false, fairDice: false, sameRes: true, sameNum: true, pairedPlayers: false };
 
 // Rasporedi stvari tako da nema "losih" suseda: nasumicno, pa popravljanje zamenama.
 function arrange(items, nbrs, bad) {
@@ -198,6 +198,7 @@ class Game {
     this.longestRoad = null;
     this.largestArmy = null;
     this.winner = null;
+    this.helperOf = null; // "Parovi igraca": id glavnog igraca dok pomocni igra svoj deo poteza
     this.lastActivity = Date.now();
   }
 
@@ -234,6 +235,7 @@ class Game {
     if (s.fairDice !== undefined) st.fairDice = !!s.fairDice;
     if (s.sameRes !== undefined) st.sameRes = !!s.sameRes;
     if (s.sameNum !== undefined) st.sameNum = !!s.sameNum;
+    if (s.pairedPlayers !== undefined) st.pairedPlayers = !!s.pairedPlayers;
     if (s.resCards !== undefined) st.resCards = num(s.resCards, 10, 50);
     if (s.devCards !== undefined) st.devCards = num(s.devCards, 10, 80);
   }
@@ -849,9 +851,15 @@ class Game {
     this.addLog(`🤝 ${pl.name} nudi ${fmt(give)} za ${fmt(get)}.`);
   }
 
+  // Parovi igraca: u pomocnom potezu trguje se samo izmedju pomocnog i glavnog igraca
+  requirePartner(id) {
+    if (this.helperOf && id !== this.helperOf) fail(`U pomoćnom potezu trguje se samo sa glavnim igračem (${this.name(this.helperOf)}).`);
+  }
+
   respondTrade(pl, accept) {
     const t = this.trade;
     if (!t || t.open) fail('Nema aktivne ponude.');
+    this.requirePartner(pl.id);
     if (t.from === pl.id) fail('Ne možeš da odgovoriš na svoju ponudu.');
     t.accepted = t.accepted.filter((x) => x !== pl.id);
     t.declined = t.declined.filter((x) => x !== pl.id);
@@ -867,6 +875,7 @@ class Game {
   counterTrade(pl, give, get) {
     if (this.phase !== 'play') fail('Sada ne možeš da trguješ.');
     if (this.current().id === pl.id) fail('Ti si na potezu: napravi svoju ponudu.');
+    this.requirePartner(pl.id);
     if (!this.trade) this.trade = { id: ++this.tradeSeq, from: this.current().id, give: {}, get: {}, accepted: [], declined: [], counters: {}, open: true };
     const t = this.trade;
     if (t.from === pl.id) fail('Ne možeš da odgovoriš na svoju ponudu.');
@@ -885,6 +894,7 @@ class Game {
     this.requireMain();
     const t0 = this.trade;
     if (!t0 || t0.from !== pl.id) fail('Nema tvoje ponude.');
+    this.requirePartner(withId);
     let t = t0;
     if (counter) {
       if (!t0.counters?.[withId]) fail('Taj igrač nije dao kontraponudu.');
@@ -907,8 +917,17 @@ class Game {
     this.trade = null;
     this.devPlayed = false;
     this.dice = null;
-    this.turn = (this.turn + 1) % this.players.length;
     this.turnNum++;
+    if (this.settings.pairedPlayers && !this.helperOf) {
+      // Parovi igraca: sledeci igrac odmah igra pomocni potez (bez kockica), pa postaje glavni
+      this.helperOf = pl.id;
+      this.turn = (this.turn + 1) % this.players.length;
+      this.sub = 'main';
+      this.addLog(`🤝 Pomoćni potez: ${this.current().name} (bez kockica, trguje samo sa glavnim igračem: ${pl.name}).`);
+      return;
+    }
+    if (this.helperOf) this.helperOf = null; // pomocni igrac sada postaje glavni
+    else this.turn = (this.turn + 1) % this.players.length;
     this.sub = 'roll';
     this.addLog(`➡️ Na potezu je ${this.current().name}.`);
   }
@@ -962,6 +981,7 @@ class Game {
       startedAt: this.startedAt || null,
       endedAt: this.endedAt || (this.phase === 'ended' ? Date.now() : null),
       turn: this.current()?.id,
+      helperOf: this.helperOf || null,
       turnNum: this.turnNum,
       dice: this.dice,
       board: {

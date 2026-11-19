@@ -65,7 +65,7 @@ let wins = 0, turnsTotal = 0;
 const GAMES = Number(process.argv[2] || 200);
 for (let i = 0; i < GAMES; i++) {
   const n = 2 + (i % 7);
-  const g = new Game('TEST', { map: n <= 4 ? 'base' : n <= 6 ? 'ext6' : 'ext8', timer: 0 });
+  const g = new Game('TEST', { map: n <= 4 ? 'base' : n <= 6 ? 'ext6' : 'ext8', timer: 0, pairedPlayers: i % 2 === 1 });
   for (let k = 0; k < n; k++) g.addPlayer('Bot' + k, 't' + k);
   g.action(g.players[0].id, 'start');
   const lay = LAYOUTS[g.board.layout];
