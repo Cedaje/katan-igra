@@ -158,7 +158,7 @@ function applyThemeScope() {
   themeKey = key;
   for (const k of Object.keys(SKINS)) document.body.classList.toggle('skin-' + k, on && k === skin);
   document.body.classList.toggle('dark-ui', on && dark);
-  SFX.setTheme(on && isSea() ? 'sea' : 'village');
+  SFX.setTheme(on && isSea() ? 'sea' : on && skin === 'dino' ? 'dino' : 'village');
   $('skinNav').classList.toggle('hidden', !on || curPage === 'game');
 }
 
@@ -794,33 +794,37 @@ const SKINS = {
   dubina: { name: 'Podvodni svet 3D', desc: 'Isti podvodni svet, ali trodimenzionalan: debela polja sa senkom, sjajne alge, korali, meduze, školjke i kristali, 3D kućice, zamkovi u vodi, biseri i Kraba.' },
   tamni: { name: 'Osnovni – tamno', desc: 'Osnovni ravni izgled u tamnim bojama: tamnija polja, paneli i pozadina.' },
   tamne: { name: 'Kućice – tamno', desc: 'Isto kao Kućice, ali u tamnim bojama, kao noću: tamnija polja i paneli, a prozori na kućama svetle.' },
+  dino: { name: 'Dino ostrvo', desc: 'Ostrvo iz praistorije, malo crtano: džungla daje paprat (drvo), fosilna brda fosile (glina), dino pašnjaci jaja (ovca), voćnjaci voće (žito), a vulkani obsidijan (kamen). Sela su kampovi sa šatorima, gradovi istraživačke stanice, putevi drvene staze, a umesto lopova je Reks.' },
   kucice: { name: 'Kućice', desc: '3D izgled: polja sa drvećem, ovcama, žitom, ciglama i planinama, 3D putevi, lopov sa kapuljačom, ilustrovane karte i kućice u boji igrača.' },
 };
 let skin = 'osnovni';
 try { if (SKINS[localStorage.getItem('ot_skin')]) skin = localStorage.getItem('ot_skin'); } catch (_) { /* */ }
 const BASE_RES = JSON.parse(JSON.stringify(RES_INFO)), BASE_TERRAIN = JSON.parse(JSON.stringify(TERRAIN));
 const DARK = { ...ART, BOARD: { ring1: '#0e2230', ring2: '#4a4231', hexStroke: '#5b5547', token: '#efe6cf', tokenInk: '#1d1a14', hot: '#d8433a', side: -0.6 } };
-const SEA_SKIN = { podvodni: () => SEA, dubina: () => SEA3 };
-const isSea = () => !!SEA_SKIN[skin];
-const SKA = () => (skin === 'kucice' ? ART : skin === 'tamne' ? DARK : isSea() ? SEA_SKIN[skin]() : null);
+// teme sa svojim imenima sirovina i svojim lopovom (podvodni svetovi i Dino ostrvo)
+const THEMED = { podvodni: () => SEA, dubina: () => SEA3, dino: () => DINO };
+const isThemed = () => !!THEMED[skin];
+const isSea = () => skin === 'podvodni' || skin === 'dubina';
+const SKA = () => (skin === 'kucice' ? ART : skin === 'tamne' ? DARK : isThemed() ? THEMED[skin]() : null);
 function applySkin() {
   themeKey = null; applyThemeScope();
-  for (const r of RES) Object.assign(RES_INFO[r], BASE_RES[r], isSea() ? SKA().RES[r] : {});
-  for (const t of Object.keys(TERRAIN)) Object.assign(TERRAIN[t], BASE_TERRAIN[t], isSea() ? SKA().TERRAIN[t] : {});
+  for (const r of RES) Object.assign(RES_INFO[r], BASE_RES[r], isThemed() ? SKA().RES[r] : {});
+  for (const t of Object.keys(TERRAIN)) Object.assign(TERRAIN[t], BASE_TERRAIN[t], isThemed() ? SKA().TERRAIN[t] : {});
   if (skin === 'tamne' || skin === 'tamni') for (const t of Object.keys(TERRAIN)) { TERRAIN[t].a = shade(BASE_TERRAIN[t].a, -0.32); TERRAIN[t].b = shade(BASE_TERRAIN[t].b, -0.42); }
   if (skin === 'tamne' || skin === 'tamni') for (const r of RES) RES_INFO[r].color = shade(BASE_RES[r].color, -0.25);
 }
 function setSkin(k) { skin = k; try { localStorage.setItem('ot_skin', k); } catch (_) { /* */ } applySkin(); }
 applySkin();
-// u podvodnom svetu tekst koristi nova imena sirovina, a lopov je Kraba
-const CRAB = { lopov: 'kraba', lopova: 'krabu', lopovu: 'krabi', lopovom: 'krabom', lopove: 'krabe' };
+// u temama tekst koristi nova imena sirovina, a lopov je Kraba (podvodni svet) ili Reks (Dino ostrvo)
+const CRAB = { words: { lopov: 'kraba', lopova: 'krabu', lopovu: 'krabi', lopovom: 'krabom', lopove: 'krabe' }, emoji: '🦀' };
 function skinWords(text) {
-  if (!isSea() || !text) return text;
+  if (!isThemed() || !text) return text;
+  const RB = SKA().ROBBER || CRAB;
   const map = { drvo: 'drvo', glina: 'glina', ovca: 'vuna', 'žito': 'zito', kamen: 'kamen' };
   const keepCase = (w, out) => (w[0] === w[0].toUpperCase() ? out[0].toUpperCase() + out.slice(1) : out);
   return text.replace(/(?<!\p{L})(drvo|glina|ovca|žito|kamen)(?!\p{L})/giu, (w) => keepCase(w, SKA().RES[map[w.toLowerCase()]].name.toLowerCase()))
-    .replace(/(?<!\p{L})(lopovom|lopovu|lopova|lopove|lopov)(?!\p{L})/giu, (w) => keepCase(w, CRAB[w.toLowerCase()]))
-    .replace(/🦹/gu, '🦀');
+    .replace(/(?<!\p{L})(lopovom|lopovu|lopova|lopove|lopov)(?!\p{L})/giu, (w) => (RB.name ? RB.words[w.toLowerCase()] : keepCase(w, RB.words[w.toLowerCase()])))
+    .replace(/🦹/gu, RB.emoji);
 }
 
 function shade(hex, f) { // f<0 tamnije, f>0 svetlije
@@ -857,7 +861,7 @@ function isoHouse(ox, oy, wl, wr, h, rh, col, o = {}) {
   return s;
 }
 function pieceSVG(type, x, y, col) {
-  if (isSea()) return SKA().piece(type, x, y, col);
+  if (isThemed()) return SKA().piece(type, x, y, col);
   if (skin === 'kucice' || skin === 'tamne') {
     const n = skin === 'tamne';
     if (type === 'settlement') return `<g class="piece" transform="translate(${x} ${y}) scale(1.45)">${isoHouse(-1, 14.5, 10, 12, 9, 9, col, { door: true, night: n })}</g>`;
@@ -887,6 +891,7 @@ const SKIN_FAMS = [
   { name: 'Kućice', light: 'kucice', dark: 'tamne' },
   { name: 'Podvodni svet', light: 'podvodni' },
   { name: 'Podvodni svet 3D', light: 'dubina' },
+  { name: 'Dino ostrvo', light: 'dino' },
 ];
 let darkPref = false;
 try { darkPref = localStorage.getItem('ot_dark') === '1' || skin === 'tamni' || skin === 'tamne'; } catch (_) { /* */ }
@@ -1190,7 +1195,7 @@ $('dice').onclick = () => { if (myTurn() && S.sub === 'roll') act('roll'); };
 
 // ---------- ruka ----------
 const RES_TIP = { drvo: 'iz šume', glina: 'iz gliništa', vuna: 'sa pašnjaka', zito: 'sa polja', kamen: 'iz planine' };
-const rcard = (r, n, extra = '') => `<div class="rcard ${extra}" data-r="${r}" style="background-color:${RES_INFO[r].color};--c:${RES_INFO[r].color}" title="${RES_INFO[r].name}${isSea() ? ` = ${BASE_RES[r].name}` : ''} (${RES_TIP[r]})${extra.includes('click') ? ' – klikni za trgovinu' : ''}">${SKA() ? `<i class="art">${SKA().cardSVG(r)}</i><b class="lbl">${RES_INFO[r].name}${isSea() ? `<small class="real">${BASE_RES[r].name}</small>` : ''}</b>` : RES_INFO[r].ico}${n !== null ? `<span class="cnt">${n}</span>` : ''}</div>`;
+const rcard = (r, n, extra = '') => `<div class="rcard ${extra}" data-r="${r}" style="background-color:${RES_INFO[r].color};--c:${RES_INFO[r].color}" title="${RES_INFO[r].name}${isThemed() ? ` = ${BASE_RES[r].name}` : ''} (${RES_TIP[r]})${extra.includes('click') ? ' – klikni za trgovinu' : ''}">${SKA() ? `<i class="art">${SKA().cardSVG(r)}</i><b class="lbl">${RES_INFO[r].name}${isThemed() ? `<small class="real">${BASE_RES[r].name}</small>` : ''}</b>` : RES_INFO[r].ico}${n !== null ? `<span class="cnt">${n}</span>` : ''}</div>`;
 function renderHand() {
   if (S.spectator) { $('hand').innerHTML = '<span class="spec-note">👀 Gledaš ovu igru. Karte igrača se ne vide.</span>'; return; }
   let h = RES.filter((r) => S.hand[r] > 0).map((r) => rcard(r, S.hand[r] - (tradeOpen ? tradeGive[r] || 0 : 0), tradeOpen ? 'click' : '')).join('');

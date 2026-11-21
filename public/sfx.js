@@ -1,7 +1,7 @@
 // Zvucni efekti. Svi zvukovi se prave u browseru (Web Audio), bez spoljnih fajlova.
 const SFX = (() => {
   let ctx = null, master = null, musicBus = null;
-  let theme = 'village'; // village (Osnovni, Kucice) ili sea (Podvodni svet)
+  let theme = 'village'; // village (Osnovni, Kucice), sea (Podvodni svet) ili dino (Dino ostrvo)
   let muted = false;
   // podesavanja zvuka: jacina (0-100) i grupe zvukova koje mogu posebno da se iskljuce
   const opts = { volume: 70, fx: true, turn: true, alerts: true, chat: true, music: true, musicVol: 35 };
@@ -93,6 +93,12 @@ const SFX = (() => {
     gain(n = 1) { for (let i = 0; i < Math.min(n, 5); i++) { tone(620 + i * 90, 0.09, { vol: 0.16, at: i * 0.09, to: 900 + i * 90 }); } },
     seven() { tone(110, 0.45, { type: 'sawtooth', vol: 0.12, to: 98 }); tone(82, 0.55, { type: 'sawtooth', vol: 0.13, at: 0.38, to: 70 }); noise(0.6, { vol: 0.08, freq: 200, q: 0.7, at: 0.3 }); },
     robber() {
+      if (theme === 'dino') { // Reks: teški koraci pa rik
+        [0, 0.28, 0.56].forEach((at) => { tone(70, 0.22, { type: 'sine', vol: 0.4, to: 40, at }); noise(0.12, { vol: 0.2, freq: 180, q: 0.8, at }); });
+        tone(150, 0.9, { type: 'sawtooth', vol: 0.12, to: 75, at: 0.85 }); tone(113, 0.9, { type: 'sawtooth', vol: 0.1, to: 58, at: 0.85 });
+        noise(0.95, { vol: 0.3, freq: 700, to: 250, q: 1.2, at: 0.85 });
+        return;
+      }
       if (theme === 'sea') { // ajkula: brzo kretanje kroz vodu i mehurici
         noise(0.7, { vol: 0.28, freq: 300, to: 1400, q: 0.7, type: 'lowpass', attack: 0.15 });
         tone(65, 0.6, { type: 'sawtooth', vol: 0.07, to: 48 });
@@ -158,6 +164,17 @@ const SFX = (() => {
       if (step % 4 === 2 && Math.random() < 0.5) { const m = SEA_CHORDS[bar][Math.floor(Math.random() * 4)] + 24; tone(mtof(m), 1.6, { vol: 0.035, at: t - ctx.currentTime, attack: 0.05, out }); }
       return 0.55;
     }
+    if (theme === 'dino') {
+      // dzungla: bubnjevi, marimba i poneka ptica
+      const bar = Math.floor(step / 8) % VILLAGE_CHORDS.length, ch = VILLAGE_CHORDS[bar], at = t - ctx.currentTime;
+      const drum = (f, v) => { tone(f, 0.14, { type: 'triangle', vol: v, at, to: f * 0.6, out }); noise(0.04, { vol: v * 0.3, at, freq: 700, q: 2, out }); };
+      if (step % 4 === 0) drum(110, 0.14);
+      if (step % 4 === 2) drum(165, 0.08);
+      if (step % 8 === 0) tone(mtof(ch[0] - 12), 1.2, { vol: 0.06, at, attack: 0.08, out });
+      if (Math.random() < 0.38) { const m = 69 + PENTA[Math.floor(Math.random() * 5)]; tone(mtof(m), 0.22, { type: 'sine', vol: 0.06, at, out }); tone(mtof(m) * 4, 0.08, { type: 'sine', vol: 0.012, at, out }); }
+      if (Math.random() < 0.03) { tone(2400, 0.12, { vol: 0.02, at: at + 0.05, to: 3200, out }); tone(2600, 0.1, { vol: 0.02, at: at + 0.2, to: 3400, out }); }
+      return 0.3;
+    }
     // vesela seoska muzika: bas, akord i melodija od pet tonova
     const bar = Math.floor(step / 8) % VILLAGE_CHORDS.length, ch = VILLAGE_CHORDS[bar], at = t - ctx.currentTime;
     if (step % 4 === 0) tone(mtof(ch[0] - 12), 0.45, { type: 'triangle', vol: 0.11, at, out });
@@ -181,7 +198,7 @@ const SFX = (() => {
   ['pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, () => setTimeout(startMusic, 50), { passive: true }));
 
   return {
-    setTheme(t) { theme = t === 'sea' ? 'sea' : 'village'; step = 0; },
+    setTheme(t) { theme = t === 'sea' || t === 'dino' ? t : 'village'; step = 0; },
     play(name, ...args) {
       if (muted || !opts[GROUP[name] || 'fx'] || !opts.volume) return;
       try { if (sounds[name]) sounds[name](...args); } catch (_) { /* zvuk nije bitan */ }
