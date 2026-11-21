@@ -794,7 +794,7 @@ const SKINS = {
   dubina: { name: 'Podvodni svet 3D', desc: 'Isti podvodni svet, ali trodimenzionalan: debela polja sa senkom, sjajne alge, korali, meduze, školjke i kristali, 3D kućice, zamkovi u vodi, biseri i Kraba.' },
   tamni: { name: 'Osnovni – tamno', desc: 'Osnovni ravni izgled u tamnim bojama: tamnija polja, paneli i pozadina.' },
   tamne: { name: 'Kućice – tamno', desc: 'Isto kao Kućice, ali u tamnim bojama, kao noću: tamnija polja i paneli, a prozori na kućama svetle.' },
-  dino: { name: 'Dino ostrvo', desc: 'Ostrvo iz praistorije, malo crtano: džungla daje paprat (drvo), fosilna brda fosile (glina), dino pašnjaci jaja (ovca), voćnjaci voće (žito), a vulkani obsidijan (kamen). Sela su kampovi sa šatorima, gradovi istraživačke stanice, putevi drvene staze, a umesto lopova je Reks.' },
+  dino: { name: 'Dino ostrvo', desc: 'Ostrvo iz praistorije, sa senkama i teksturama: džungla daje paprat (drvo), fosilna brda fosile (glina), dino pašnjaci jaja (ovca), voćnjaci voće (žito), a vulkani obsidijan (kamen). Sela su kampovi sa šatorima, gradovi istraživačke stanice, putevi drvene staze, a umesto lopova je Reks.' },
   kucice: { name: 'Kućice', desc: '3D izgled: polja sa drvećem, ovcama, žitom, ciglama i planinama, 3D putevi, lopov sa kapuljačom, ilustrovane karte i kućice u boji igrača.' },
 };
 let skin = 'osnovni';
