@@ -42,6 +42,19 @@ const MAPS = [
 ];
 const MAP_NAME = { base: 'Osnovna', ext6: 'Proširenje 5–6', ext8: 'Proširenje 7–8', dva: 'Dva ostrva', zaliv: 'Zaliv', arhipelag: 'Arhipelag', dugo: 'Dugačko ostrvo' };
 const TIMERS = [0, 30, 60, 90, 120, 180, 240];
+// brze postavke: jedan klik podesi mapu i pravila za taj nacin igre
+const PRESETS = [
+  { id: 'p24', ico: '🎲', name: '2–4 igrača', sub: 'klasična pravila', tip: 'Osnovna mapa za 2–4 igrača. Parovi isključeni, sve ostalo po standardu: 10 poena, limit 7 karata.',
+    set: { map: 'base', maxPlayers: 4, pairedPlayers: false, vpToWin: 10, discardLimit: 7, resCards: 19, devCards: 25, noTrade: false, fairDice: false, friendlyRobber: false } },
+  { id: 'p56', ico: '👥', name: '5–6 igrača', sub: 'parovi uključeni', tip: 'Proširenje za 5–6 igrača. Parovi igrača uključeni, sve ostalo po standardu.',
+    set: { map: 'ext6', maxPlayers: 6, pairedPlayers: true, vpToWin: 10, discardLimit: 7, resCards: 24, devCards: 34, noTrade: false, fairDice: false, friendlyRobber: false } },
+  { id: 'p78', ico: '👥', name: '7–8 igrača', sub: 'parovi uključeni', tip: 'Veliko proširenje za 7–8 igrača. Parovi igrača uključeni, sve ostalo po standardu.',
+    set: { map: 'ext8', maxPlayers: 8, pairedPlayers: true, vpToWin: 10, discardLimit: 7, resCards: 30, devCards: 43, noTrade: false, fairDice: false, friendlyRobber: false } },
+  { id: 'brza', ico: '⚡', name: 'Brza igra', sub: 'do 6 poena', tip: 'Kratka partija: pobeda sa 6 poena, manje sirovina u banci (14 po vrsti) i manje razvojnih karata (15). Kad padne 7, odbacuje se već od 6 karata.',
+    set: { map: 'base', maxPlayers: 4, pairedPlayers: false, vpToWin: 6, discardLimit: 6, resCards: 14, devCards: 15, noTrade: false, fairDice: false, friendlyRobber: false } },
+  { id: '1v1', ico: '⚔️', name: '1 na 1', sub: 'bez trgovine, do 12', tip: 'Dvoboj za 2 igrača: igra se do 12 poena, nema trgovine među igračima (samo banka i luke). Da bude pravedno uključene su fer kockice (manje sreće) i prijateljski lopov (ne napada slabijeg). Sve ostalo isto.',
+    set: { map: 'base', maxPlayers: 2, pairedPlayers: false, vpToWin: 12, discardLimit: 7, resCards: 19, devCards: 25, noTrade: true, fairDice: true, friendlyRobber: true } },
+];
 const AVATARS = ['🦊', '🐻', '🦉', '🐢', '🦁', '🐺', '🐙', '🦌', '🐸', '🐧', '🦄', '🐼', '🐯', '🦅', '🐳', '🐝', '🐵', '🐒', '🦍', '🐨', '🐰', '🐱', '🐶', '🐷', '🐮', '🐔', '🦖', '🐉', '🦈', '🦩', '🦜', '🐬', '🦒', '🦓', '🐘', '🦔', '🦦', '🦥', '🦀', '🐞', '🦋', '🐊', '🦘', '🐹'];
 
 let S = null; // stanje sa servera
@@ -69,9 +82,16 @@ function myName() {
   return n;
 }
 
+// kad neko pokusa nesto a nije na redu: nasumicna saljiva poruka umesto "Nije tvoj red."
+const NOT_YOUR_TURN = ['Nisi na redu.', 'Ćuti malo.', 'U redu je, gazda.', 'Sačekaj malo.', 'Da li si ti lud?', 'Uspori malo.', 'Filip je kriv!',
+  'Polako, nije pošta.', 'Opusti se, stići ćeš i ti.', 'Ajde, sedi tu i gledaj.', 'Ko te šta pita?', 'Strpljen – spašen.', 'Brate, nije tvoj potez.',
+  'Stani malo, vruć si.', 'E, nećeš ti to sad.', 'Čekaj red kao u domu zdravlja.', 'Popij kafu, pa ćemo videti.', 'Ne guraj se, nije autobus.',
+  'Ruke na sto!', 'Ajde, ajde… samo ti čekaj.', 'Smiri konje.', 'Polako, ima vremena.', 'Nisi ti ovde glavni.'];
+let lastNYT = -1;
 function toast(msg) {
+  if (msg === 'Nije tvoj red.' && I18N.lang !== 'en') { let i; do i = Math.floor(Math.random() * NOT_YOUR_TURN.length); while (i === lastNYT); lastNYT = i; msg = NOT_YOUR_TURN[i]; }
   const t = $('toast');
-  t.textContent = msg; t.classList.remove('hidden');
+  t.textContent = typeof skinWords === 'function' && S ? skinWords(msg) : msg; t.classList.remove('hidden');
   clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), 3200);
 }
 function act(type, data = {}) {
@@ -82,7 +102,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const COLOR_ORDER = ['#e05a47', '#3b82c4', '#f2b134', '#4caf6a', '#9b5fc0', '#26b5b0', '#e07ab8', '#8a5a3c'];
 // licni ukrasi (isti spiskovi kao LOOKS u game.js)
 const FRAMES = [['nema', 'Bez okvira'], ['zlato', 'Zlatni'], ['srebro', 'Srebrni'], ['drvo', 'Drveni'], ['cvece', 'Cvetni'], ['talasi', 'Talasi'], ['zvezde', 'Zvezde'], ['vatra', 'Vatra']];
-const TITLES = ['', 'Početnik', 'Trgovac', 'Graditelj', 'Moreplovac', 'Kralj puteva', 'Vitez', 'Lopov u penziji', 'Majstor luka', 'Farmer', 'Rudar', 'Kapetan', 'Legenda ostrva', 'Mornar', 'Lovac na brodove', 'Sokolovo oko', 'Nepotopivi', 'Admiral'];
+const TITLES = ['', 'Bot', 'Švercer', 'Investitor', 'Gastarbajter', 'Ministar saobraćaja', 'Obezbeđenje', 'SNS', 'Beograd na vodi', 'Subvencionisani poljoprivrednik', 'Kopač litijuma', 'Koordinator', 'Doživotni predsednik', 'Panonski mornar', 'Carinik', 'BIA', 'Preletač', 'Vrhovni komandant'];
 const DICE_STYLES = [['klasicne', 'Klasične'], ['crne', 'Crne'], ['crvene', 'Crvene'], ['zlatne', 'Zlatne'], ['drvene', 'Drvene'], ['plave', 'Plave'], ['roze', 'Roze'], ['zelene', 'Zelene']];
 const WINS = [['konfete', '🎊 Konfete'], ['vatromet', '🎆 Vatromet'], ['zlatnici', '🪙 Zlatnici'], ['baloni', '🎈 Baloni']];
 const WIN_SOUNDS = [['fanfara', '🎺 Fanfara'], ['zvona', '🔔 Zvona'], ['bubnjevi', '🥁 Bubnjevi']];
@@ -138,7 +158,7 @@ function applyThemeScope() {
   themeKey = key;
   for (const k of Object.keys(SKINS)) document.body.classList.toggle('skin-' + k, on && k === skin);
   document.body.classList.toggle('dark-ui', on && dark);
-  SFX.setTheme(on && skin === 'podvodni' ? 'sea' : 'village');
+  SFX.setTheme(on && isSea() ? 'sea' : 'village');
   $('skinNav').classList.toggle('hidden', !on || curPage === 'game');
 }
 
@@ -690,9 +710,10 @@ function renderLobby() {
   }
   $('lobbyPlayers').innerHTML = h;
 
+  $('presetTiles').innerHTML = PRESETS.map((p) => `<button class="tile ${Object.entries(p.set).every(([k, v]) => st[k] === v) ? 'sel' : ''}" data-preset="${p.id}" ${host ? '' : 'disabled'} title="${p.tip}"><span class="ti">${p.ico}</span>${p.name}<small>${p.sub}</small></button>`).join('');
   $('mapTiles').innerHTML = MAPS.map((m) => `<button class="tile ${st.map === m.id ? 'sel' : ''}" data-map="${m.id}" ${host ? '' : 'disabled'} title="Tabla za ${m.sub}. Veća tabla ima više polja, luka i karata.">
     <span class="ti">${m.ico || '⬢'.repeat(m.max / 2)}</span>${m.name}<small>${m.sub}</small></button>`).join('');
-  const rule = (key, ico, name, on, off, tip) => `<button class="tile ${st[key] ? 'sel' : ''}" data-rule="${key}" ${host ? '' : 'disabled'} title="${tip}"><span class="ti">${ico}</span>${name}<small>${st[key] ? on : off}</small></button>`;
+  const rule = (key, ico, name, on, off, tip) => `<button class="tile ${st[key] ? 'sel' : ''}" data-rule="${key}" ${host ? '' : 'disabled'} title="${skinWords(tip)}"><span class="ti">${ico}</span>${skinWords(name)}<small>${st[key] ? on : off}</small></button>`;
   $('ruleTiles').innerHTML =
     rule('private', '🕶️', 'Privatna igra', 'ne vidi se u listi', 'vidi se u listi soba', 'Soba se ne prikazuje u listi otvorenih soba. Ulazi se samo preko linka ili koda.') +
     rule('hideBank', '🏦', 'Sakrij banku', 'broj karata se ne vidi', 'broj karata se vidi', 'Niko ne vidi koliko je karata ostalo u banci i u špilu razvojnih karata.') +
@@ -700,6 +721,7 @@ function renderLobby() {
     rule('fairDice', '⚖️', 'Fer kockice', 'manje sreće', 'obične kockice', 'Svih 36 kombinacija kockica izlazi redom kao iz špila, pa se brojevi pojavljuju onoliko često koliko i treba. Manje zavisi od sreće.') +
     rule('sameRes', '🧩', 'Iste sirovine jedna do druge', 'mogu da se dodiruju', 'nikad se ne dodiruju', 'Uključeno: polja se raspoređuju potpuno nasumično, pa dve iste sirovine (npr. dve šume) mogu biti jedna pored druge. Isključeno: ista polja se nikad ne dodiruju.') +
     rule('sameNum', '🔢', 'Isti brojevi jedan do drugog', 'mogu da se dodiruju', 'nikad se ne dodiruju', 'Uključeno: isti brojevi (npr. dve devetke) mogu biti na susednim poljima. Isključeno: isti brojevi se nikad ne dodiruju. Šestica i osmica nikad nisu jedna pored druge.') +
+    rule('noTrade', '🚫', 'Bez trgovine', 'samo banka i luke', 'igrači trguju', 'Igrači ne mogu da menjaju karte međusobno. Trguje se samo sa bankom i lukama. Uključeno u modu 1 na 1.') +
     rule('pairedPlayers', '👥', 'Parovi igrača', 'pomoćni potez uključen', 'isključeno', 'Pravilo za proširenje (5–8 igrača). Posle svakog poteza sledeći igrač odmah igra pomoćni potez: ne baca kockice, trguje sa bankom, lukama i samo sa glavnim igračem, gradi, kupuje i igra razvojne karte. Zatim on postaje glavni igrač i baca kockice.');
   const TIPS = {
     timer: 'Koliko vremena igrač ima za potez. Kad istekne, igra sama baci kockice ili završi potez.',
@@ -709,17 +731,20 @@ function renderLobby() {
     resCards: 'Koliko karata svake sirovine ima u banci na početku.',
     devCards: 'Koliko razvojnih karata ima u špilu.',
   };
-  const stepper = (key, label, value, canDec, canInc) => `<div class="adv-item" title="${TIPS[key]}"><b>${label}</b><div class="stepper">
-    <button data-dec="${key}" ${host && canDec ? '' : 'disabled'}>‹</button><span>${value}</span><button data-inc="${key}" ${host && canInc ? '' : 'disabled'}>›</button></div></div>`;
+  // num = [min, max]: broj moze i da se upise rucno ili povuce klizacem
+  const stepper = (key, label, value, canDec, canInc, num) => `<div class="adv-item" title="${TIPS[key]}"><b>${skinWords(label)}</b><div class="stepper">
+    <button data-dec="${key}" ${host && canDec ? '' : 'disabled'}>‹</button>${num ? `<input type="number" class="num-in" data-num="${key}" min="${num[0]}" max="${num[1]}" value="${st[key]}" ${host ? '' : 'disabled'}>${key === 'maxPlayers' ? `<span class="num-of">/${num[1]}</span>` : ''}` : `<span>${value}</span>`}<button data-inc="${key}" ${host && canInc ? '' : 'disabled'}>›</button></div>
+    ${num ? `<input type="range" class="num-sl" data-num="${key}" min="${num[0]}" max="${num[1]}" value="${st[key]}" ${host ? '' : 'disabled'}>` : ''}</div>`;
   const ti = TIMERS.indexOf(st.timer);
   const mapMax = MAPS.find((m) => m.id === st.map).max;
-  $('advSettings').innerHTML =
+  // dok osnivac kuca broj, ne crtamo ponovo ta polja (da mu ne pobegne kursor)
+  if (!$('advSettings').contains(document.activeElement) || !document.activeElement.matches('.num-in')) $('advSettings').innerHTML =
     stepper('timer', 'Tajmer poteza', st.timer ? `${st.timer}s` : 'Bez', ti > 0, ti < TIMERS.length - 1) +
-    stepper('maxPlayers', 'Broj igrača', `${st.maxPlayers}/${mapMax}`, st.maxPlayers > Math.max(2, S.players.length), st.maxPlayers < mapMax) +
-    stepper('vpToWin', 'Poeni za pobedu', st.vpToWin, st.vpToWin > 3, st.vpToWin < 20) +
-    stepper('discardLimit', 'Limit karata (lopov)', st.discardLimit, st.discardLimit > 5, st.discardLimit < 20) +
-    stepper('resCards', 'Karte sirovina (po vrsti)', st.resCards, st.resCards > 10, st.resCards < 50) +
-    stepper('devCards', 'Razvojne karte (ukupno)', st.devCards, st.devCards > 10, st.devCards < 80);
+    stepper('maxPlayers', 'Broj igrača', `${st.maxPlayers}/${mapMax}`, st.maxPlayers > Math.max(2, S.players.length), st.maxPlayers < mapMax, [Math.max(2, S.players.length), mapMax]) +
+    stepper('vpToWin', 'Poeni za pobedu', st.vpToWin, st.vpToWin > 3, st.vpToWin < 20, [3, 20]) +
+    stepper('discardLimit', 'Limit karata (lopov)', st.discardLimit, st.discardLimit > 5, st.discardLimit < 20, [5, 20]) +
+    stepper('resCards', 'Karte sirovina (po vrsti)', st.resCards, st.resCards > 10, st.resCards < 50, [10, 50]) +
+    stepper('devCards', 'Razvojne karte (ukupno)', st.devCards, st.devCards > 10, st.devCards < 80, [10, 80]);
   $('startBtn').classList.toggle('hidden', !host);
   $('startBtn').disabled = S.players.length < 2;
   $('lobbyWait').classList.toggle('hidden', host);
@@ -728,7 +753,8 @@ $('lobby').addEventListener('click', (e) => {
   if (e.target.closest('[data-look]')) return showLookPicker();
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   const st = S.settings;
-  if (b.dataset.map) act('settings', { map: b.dataset.map });
+  if (b.dataset.map) act('settings', { map: b.dataset.map, pairedPlayers: MAPS.find((m) => m.id === b.dataset.map).max > 4 });
+  else if (b.dataset.preset) act('settings', PRESETS.find((p) => p.id === b.dataset.preset).set);
   else if (b.dataset.rule) act('settings', { [b.dataset.rule]: !st[b.dataset.rule] });
   else if (b.dataset.kick) act('kick', { pid: b.dataset.kick });
   else if (b.dataset.inc || b.dataset.dec) {
@@ -737,6 +763,19 @@ $('lobby').addEventListener('click', (e) => {
     else act('settings', { [key]: st[key] + d });
   }
 });
+// rucni unos broja i klizac u naprednim podesavanjima
+function sendNum(el) {
+  const v = Math.round(Number(el.value));
+  if (!S || !Number.isFinite(v) || v === S.settings[el.dataset.num]) return;
+  act('settings', { [el.dataset.num]: Math.min(Number(el.max), Math.max(Number(el.min), v)) });
+}
+$('advSettings').addEventListener('input', (e) => {
+  const el = e.target.closest('[data-num]'); if (!el) return;
+  const other = $('advSettings').querySelectorAll(`[data-num="${el.dataset.num}"]`);
+  if (el.type === 'range') for (const o of other) if (o !== el) o.value = el.value; // klizac odmah pokazuje broj
+});
+$('advSettings').addEventListener('change', (e) => { const el = e.target.closest('[data-num]'); if (el) { sendNum(el); if (el.type === 'number') el.blur(); } });
+$('advSettings').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('.num-in')) e.target.blur(); });
 $('copyBtn').onclick = () => { $('inviteLink').select(); navigator.clipboard?.writeText($('inviteLink').value); toast('Link je kopiran. Pošalji ga prijateljima.'); };
 $('startBtn').onclick = () => act('start');
 function doLeave() { if (S && S.spectator) watching = null; else setSavedRoom(''); act('leave'); S = null; modalExtra = null; picker = null; tradeOpen = false; history.replaceState(null, '', '/'); showPage('rooms'); renderModal(); socket.emit('rooms'); }
@@ -751,7 +790,8 @@ function hexPoints(hx, V, scale = 1) {
 // ---------- skinovi (izgled figura), svaki igrac bira za sebe ----------
 const SKINS = {
   osnovni: { name: 'Osnovni', desc: 'Klasične figure, prvi izgled igre.' },
-  podvodni: { name: 'Podvodni svet', desc: 'Morsko dno: alge, korali, meduze, školjke i kristali umesto običnih sirovina. Sela su školjke, gradovi velike spiralne školjke, putevi nizovi bisera, a lopov je ajkula.' },
+  podvodni: { name: 'Podvodni svet', desc: 'Morsko dno: alge (drvo), korali (glina), meduza (ovca), školjke (žito) i kristal (kamen). Sela su male podvodne kućice, gradovi zamkovi u vodi, putevi nizovi bisera, a umesto lopova je Kraba.' },
+  dubina: { name: 'Podvodni svet 3D', desc: 'Isti podvodni svet, ali trodimenzionalan: debela polja sa senkom, sjajne alge, korali, meduze, školjke i kristali, 3D kućice, zamkovi u vodi, biseri i Kraba.' },
   tamni: { name: 'Osnovni – tamno', desc: 'Osnovni ravni izgled u tamnim bojama: tamnija polja, paneli i pozadina.' },
   tamne: { name: 'Kućice – tamno', desc: 'Isto kao Kućice, ali u tamnim bojama, kao noću: tamnija polja i paneli, a prozori na kućama svetle.' },
   kucice: { name: 'Kućice', desc: '3D izgled: polja sa drvećem, ovcama, žitom, ciglama i planinama, 3D putevi, lopov sa kapuljačom, ilustrovane karte i kućice u boji igrača.' },
@@ -760,21 +800,27 @@ let skin = 'osnovni';
 try { if (SKINS[localStorage.getItem('ot_skin')]) skin = localStorage.getItem('ot_skin'); } catch (_) { /* */ }
 const BASE_RES = JSON.parse(JSON.stringify(RES_INFO)), BASE_TERRAIN = JSON.parse(JSON.stringify(TERRAIN));
 const DARK = { ...ART, BOARD: { ring1: '#0e2230', ring2: '#4a4231', hexStroke: '#5b5547', token: '#efe6cf', tokenInk: '#1d1a14', hot: '#d8433a', side: -0.6 } };
-const SKA = () => (skin === 'kucice' ? ART : skin === 'tamne' ? DARK : skin === 'podvodni' ? SEA : null);
+const SEA_SKIN = { podvodni: () => SEA, dubina: () => SEA3 };
+const isSea = () => !!SEA_SKIN[skin];
+const SKA = () => (skin === 'kucice' ? ART : skin === 'tamne' ? DARK : isSea() ? SEA_SKIN[skin]() : null);
 function applySkin() {
   themeKey = null; applyThemeScope();
-  for (const r of RES) Object.assign(RES_INFO[r], BASE_RES[r], skin === 'podvodni' ? SEA.RES[r] : {});
-  for (const t of Object.keys(TERRAIN)) Object.assign(TERRAIN[t], BASE_TERRAIN[t], skin === 'podvodni' ? SEA.TERRAIN[t] : {});
+  for (const r of RES) Object.assign(RES_INFO[r], BASE_RES[r], isSea() ? SKA().RES[r] : {});
+  for (const t of Object.keys(TERRAIN)) Object.assign(TERRAIN[t], BASE_TERRAIN[t], isSea() ? SKA().TERRAIN[t] : {});
   if (skin === 'tamne' || skin === 'tamni') for (const t of Object.keys(TERRAIN)) { TERRAIN[t].a = shade(BASE_TERRAIN[t].a, -0.32); TERRAIN[t].b = shade(BASE_TERRAIN[t].b, -0.42); }
   if (skin === 'tamne' || skin === 'tamni') for (const r of RES) RES_INFO[r].color = shade(BASE_RES[r].color, -0.25);
 }
 function setSkin(k) { skin = k; try { localStorage.setItem('ot_skin', k); } catch (_) { /* */ } applySkin(); }
 applySkin();
-// u podvodnom svetu i dnevnik koristi nova imena sirovina
+// u podvodnom svetu tekst koristi nova imena sirovina, a lopov je Kraba
+const CRAB = { lopov: 'kraba', lopova: 'krabu', lopovu: 'krabi', lopovom: 'krabom', lopove: 'krabe' };
 function skinWords(text) {
-  if (skin !== 'podvodni') return text;
+  if (!isSea() || !text) return text;
   const map = { drvo: 'drvo', glina: 'glina', ovca: 'vuna', 'žito': 'zito', kamen: 'kamen' };
-  return text.replace(/(?<!\p{L})(drvo|glina|ovca|žito|kamen)(?!\p{L})/giu, (w) => SEA.RES[map[w.toLowerCase()]].name.toLowerCase());
+  const keepCase = (w, out) => (w[0] === w[0].toUpperCase() ? out[0].toUpperCase() + out.slice(1) : out);
+  return text.replace(/(?<!\p{L})(drvo|glina|ovca|žito|kamen)(?!\p{L})/giu, (w) => keepCase(w, SKA().RES[map[w.toLowerCase()]].name.toLowerCase()))
+    .replace(/(?<!\p{L})(lopovom|lopovu|lopova|lopove|lopov)(?!\p{L})/giu, (w) => keepCase(w, CRAB[w.toLowerCase()]))
+    .replace(/🦹/gu, '🦀');
 }
 
 function shade(hex, f) { // f<0 tamnije, f>0 svetlije
@@ -811,7 +857,7 @@ function isoHouse(ox, oy, wl, wr, h, rh, col, o = {}) {
   return s;
 }
 function pieceSVG(type, x, y, col) {
-  if (skin === 'podvodni') return SEA.piece(type, x, y, col);
+  if (isSea()) return SKA().piece(type, x, y, col);
   if (skin === 'kucice' || skin === 'tamne') {
     const n = skin === 'tamne';
     if (type === 'settlement') return `<g class="piece" transform="translate(${x} ${y}) scale(1.45)">${isoHouse(-1, 14.5, 10, 12, 9, 9, col, { door: true, night: n })}</g>`;
@@ -840,6 +886,7 @@ const SKIN_FAMS = [
   { name: 'Osnovni', light: 'osnovni', dark: 'tamni' },
   { name: 'Kućice', light: 'kucice', dark: 'tamne' },
   { name: 'Podvodni svet', light: 'podvodni' },
+  { name: 'Podvodni svet 3D', light: 'dubina' },
 ];
 let darkPref = false;
 try { darkPref = localStorage.getItem('ot_dark') === '1' || skin === 'tamni' || skin === 'tamne'; } catch (_) { /* */ }
@@ -869,9 +916,9 @@ function renderBoard() {
   const L = (myTurn() && S.legal) || {};
   let h = '<defs>';
   for (const [k, t] of Object.entries(TERRAIN)) h += `<radialGradient id="g-${k}" cx="50%" cy="40%" r="65%"><stop offset="0" stop-color="${t.a}"/><stop offset="1" stop-color="${t.b}"/></radialGradient>`;
-  h += '</defs>';
-
   const SK = SKA(), K3 = !!SK, BD = (SK && SK.BOARD) || (skin === 'tamni' ? DARK.BOARD : null);
+  if (BD && BD.defs) h += BD.defs.replace(/<\/?defs>/g, '');
+  h += '</defs>';
   // plicak i pesak oko ostrva
   for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 1.32)}" fill="${BD ? BD.ring1 : '#3f9fb8'}" opacity="${BD ? 0.9 : 0.55}" stroke="${BD ? BD.ring1 : '#3f9fb8'}" stroke-width="10" stroke-linejoin="round"/>`;
   for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 1.14)}" fill="${BD ? BD.ring2 : '#ecd9a2'}" stroke="${BD ? BD.ring2 : '#ecd9a2'}" stroke-width="6" stroke-linejoin="round"/>`;
@@ -886,7 +933,7 @@ function renderBoard() {
   }
 
   // polja
-  if (K3) for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 0.97).split(' ').map((q) => { const [a, b] = q.split(','); return `${a},${+b + 8}`; }).join(' ')}" fill="${shade(TERRAIN[hx.terrain].b, BD ? BD.side : -0.4)}" stroke="#00000030" stroke-width="2" stroke-linejoin="round"/>`;
+  if (K3) for (const hx of B.hexes) h += `<polygon points="${hexPoints(hx, V, 0.97).split(' ').map((q) => { const [a, b] = q.split(','); return `${a},${+b + ((BD && BD.depth) || 8)}`; }).join(' ')}" fill="${shade(TERRAIN[hx.terrain].b, BD ? BD.side : -0.4)}" stroke="#00000030" stroke-width="2" stroke-linejoin="round"/>`;
   for (const hx of B.hexes) {
     const t = TERRAIN[hx.terrain];
     h += `<polygon points="${hexPoints(hx, V, 0.96)}" fill="url(#g-${hx.terrain})" stroke="${BD ? BD.hexStroke : '#fff6dc'}" stroke-width="${K3 ? 2 : 3}" stroke-linejoin="round"/>`;
@@ -965,10 +1012,12 @@ function renderBoard() {
   const showSett = L.settlements && (S.sub === 'settlement' || mode === 'settlement' || (!mode && !tradeOpen && can.settlement));
   if (showSett) for (const vid of L.settlements) h += `<circle class="spot" data-v="${vid}" data-kind="settlement" cx="${V[vid].x * SC}" cy="${V[vid].y * SC}" r="10"/>`;
   const sum = S.dice ? S.dice[0] + S.dice[1] : 0;
+  // polje koje je dobilo: blaga oznaka malo uvucena u polje, da ne prekriva puteve i kucice
   if (sum && sum !== 7 && S.phase === 'play' && S.sub !== 'roll' && !S.rolling) for (const hx of B.hexes) {
-    if (hx.num === sum) h += `<polygon class="hex-hit ${hx.id === B.robber ? 'blocked' : ''}" points="${hexPoints(hx, V, 0.96)}"/>`;
+    if (hx.num === sum) h += `<polygon class="hex-hit ${hx.id === B.robber ? 'blocked' : ''}" points="${hexPoints(hx, V, 0.8)}"/>`;
   }
-  if (L.robber && S.sub === 'robber') for (const hid of L.robber) h += `<polygon class="hex-target" data-hex="${hid}" points="${hexPoints(B.hexes[hid], V, 0.96)}"/>`;
+  // gde moze lopov: providni pulsirajuci kruzic u sredini polja
+  if (L.robber && S.sub === 'robber') for (const hid of L.robber) { const hx = B.hexes[hid]; h += `<circle class="hex-target" data-hex="${hid}" cx="${hx.x * SC}" cy="${hx.y * SC + 10}" r="${SC * 0.5}"/>`; }
 
   svg.innerHTML = h;
 }
@@ -1058,7 +1107,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '+' || e.key === '=') return zoomAt(1.25);
   if (e.key === '-') return zoomAt(1 / 1.25);
   if (e.key === '0') return $('zoomReset').click();
-  if (e.code === 'Space') { e.preventDefault(); if (myTurn() && S.sub === 'roll') act('roll'); return; }
+  if (e.code === 'Space') { e.preventDefault(); if (myTurn() && S.sub === 'roll') act('roll'); else if (!myTurn() && !S.spectator) toast('Nije tvoj red.'); return; }
   const a = KEYS[e.key.toLowerCase()];
   if (a) { const b = document.querySelector(`#actions [data-a="${a}"]`); if (b && !b.disabled) b.click(); }
 });
@@ -1141,7 +1190,7 @@ $('dice').onclick = () => { if (myTurn() && S.sub === 'roll') act('roll'); };
 
 // ---------- ruka ----------
 const RES_TIP = { drvo: 'iz šume', glina: 'iz gliništa', vuna: 'sa pašnjaka', zito: 'sa polja', kamen: 'iz planine' };
-const rcard = (r, n, extra = '') => `<div class="rcard ${extra}" data-r="${r}" style="background-color:${RES_INFO[r].color};--c:${RES_INFO[r].color}" title="${RES_INFO[r].name} (${RES_TIP[r]})${extra.includes('click') ? ' – klikni za trgovinu' : ''}">${SKA() ? `<i class="art">${SKA().cardSVG(r)}</i><b class="lbl">${RES_INFO[r].name}</b>` : RES_INFO[r].ico}${n !== null ? `<span class="cnt">${n}</span>` : ''}</div>`;
+const rcard = (r, n, extra = '') => `<div class="rcard ${extra}" data-r="${r}" style="background-color:${RES_INFO[r].color};--c:${RES_INFO[r].color}" title="${RES_INFO[r].name}${isSea() ? ` = ${BASE_RES[r].name}` : ''} (${RES_TIP[r]})${extra.includes('click') ? ' – klikni za trgovinu' : ''}">${SKA() ? `<i class="art">${SKA().cardSVG(r)}</i><b class="lbl">${RES_INFO[r].name}${isSea() ? `<small class="real">${BASE_RES[r].name}</small>` : ''}</b>` : RES_INFO[r].ico}${n !== null ? `<span class="cnt">${n}</span>` : ''}</div>`;
 function renderHand() {
   if (S.spectator) { $('hand').innerHTML = '<span class="spec-note">👀 Gledaš ovu igru. Karte igrača se ne vide.</span>'; return; }
   let h = RES.filter((r) => S.hand[r] > 0).map((r) => rcard(r, S.hand[r] - (tradeOpen ? tradeGive[r] || 0 : 0), tradeOpen ? 'click' : '')).join('');
@@ -1149,7 +1198,7 @@ function renderHand() {
   else if (myTurn() && S.sub === 'main') h = h.replace(/class="rcard /g, 'class="rcard click ');
   const groups = {};
   for (const d of S.dev) { groups[d.type] ??= { n: 0, ready: 0 }; groups[d.type].n++; if (!d.fresh) groups[d.type].ready++; }
-  const dev = Object.entries(groups).map(([type, g]) => `<div class="rcard dev ${g.ready ? '' : 'fresh'}" data-dev="${type}" title="${DEV_INFO[type].name}: ${DEV_INFO[type].desc}${g.ready ? '' : ' (kupljena u ovom potezu)'}">${SKA() ? `<i class="art">${SKA().cardSVG(type)}</i>` : DEV_INFO[type].ico}<small>${DEV_INFO[type].name}</small><span class="cnt">${g.n}</span></div>`).join('');
+  const dev = Object.entries(groups).map(([type, g]) => `<div class="rcard dev ${g.ready ? '' : 'fresh'}" data-dev="${type}" title="${DEV_INFO[type].name}: ${skinWords(DEV_INFO[type].desc)}${g.ready ? '' : ' (kupljena u ovom potezu)'}">${SKA() ? `<i class="art">${SKA().cardSVG(type)}</i>` : DEV_INFO[type].ico}<small>${DEV_INFO[type].name}</small><span class="cnt">${g.n}</span></div>`).join('');
   if (dev) h += '<span class="sep"></span>' + dev;
   $('hand').innerHTML = h;
 }
@@ -1191,7 +1240,7 @@ function renderStatus() {
   st.className = 'status' + (click ? ' click' : '');
   st.title = S.helperOf && S.phase === 'play' ? `Pomoćni potez: bez kockica. Trgovina sa bankom, lukama i samo sa glavnim igračem (${pById(S.helperOf).name}). Može da se gradi i igraju razvojne karte.` : '';
   if (S.spectator) txt = '👀 ' + txt;
-  st.innerHTML = `<div class="avatar" style="background:${cur.color};width:32px;height:32px;font-size:16px;border-width:2px">${avatarOf(cur)}</div><span>${esc(txt)}</span>`;
+  st.innerHTML = `<div class="avatar" style="background:${cur.color};width:32px;height:32px;font-size:16px;border-width:2px">${avatarOf(cur)}</div><span>${esc(skinWords(txt))}</span>`;
 }
 $('status').onclick = () => { if (S && myTurn() && S.sub === 'roll') act('roll'); };
 
@@ -1218,7 +1267,9 @@ function renderActions() {
   const L = S.legal || {};
   // dugme je ukljuceno samo ako imas sirovine I postoji mesto na tabli
   const why = (cost, left, spots, what) => !main ? '' : !canAfford(cost) ? 'Nemaš dovoljno sirovina' : left <= 0 ? `Nemaš više: ${what}` : spots === 0 ? `Nema slobodnog mesta za ${what}` : '';
-  const b = (a, ico, label, enabled, cnt, extra = '', reason = '') => `<button class="act ${extra} ${mode === a || (a === 'trade' && tradeOpen) ? 'on' : ''}" data-a="${a}" ${enabled ? '' : 'disabled'} title="${reason || label}">${ico}<small>${label}</small>${cnt !== undefined ? `<span class="cnt">${cnt}</span>` : ''}</button>`;
+  // kad nisi na redu dugmad izgledaju iskljuceno, ali klik daje saljivu poruku
+  const wait = !myTurn() && (S.phase === 'play' || S.phase === 'setup') && !m?.quit;
+  const b = (a, ico, label, enabled, cnt, extra = '', reason = '') => `<button class="act ${extra} ${mode === a || (a === 'trade' && tradeOpen) ? 'on' : ''} ${!enabled && wait ? 'wait' : ''}" data-a="${a}" ${enabled ? '' : wait ? 'data-wait' : 'disabled'} title="${reason || label}">${ico}<small>${label}</small>${cnt !== undefined ? `<span class="cnt">${cnt}</span>` : ''}</button>`;
   const rs = L.roads?.length ?? 0, ss = L.settlements?.length ?? 0, cs = L.cities?.length ?? 0;
   const D = {
     trade: 'Trgovina (T): razmeni karte sa igračima ili bankom. Možeš i da klikneš kartu u svojoj ruci.',
@@ -1276,6 +1327,7 @@ $('players').addEventListener('click', (e) => {
 
 $('actions').addEventListener('click', (ev) => {
   const b = ev.target.closest('button'); if (!b || b.disabled) return;
+  if (b.hasAttribute('data-wait')) { toast('Nije tvoj red.'); SFX.play('error'); return; }
   const a = b.dataset.a;
   if (a === 'stopwatch') return doLeave();
   if (a === 'end') act('endTurn');
@@ -1315,7 +1367,7 @@ function renderBank() {
 const miniCards = (o) => `<span class="mini">${Object.entries(o).map(([r, n]) => rcard(r, n)).join('')}</span>`;
 // ostali igraci mogu da predloze razmenu igracu na potezu u bilo kom trenutku njegovog poteza
 // u pomocnom potezu (Parovi igraca) predlog moze da posalje samo glavni igrac
-function canPropose() { return !!S && !S.spectator && S.phase === 'play' && S.turn !== S.me && !me()?.quit && !pById(S.turn)?.quit && (!S.helperOf || S.helperOf === S.me); }
+function canPropose() { return !!S && !S.spectator && !S.settings?.noTrade && S.phase === 'play' && S.turn !== S.me && !me()?.quit && !pById(S.turn)?.quit && (!S.helperOf || S.helperOf === S.me); }
 function renderOffers() {
   const t = S.trade;
   const box = $('offers');
@@ -1395,7 +1447,7 @@ function renderTradePanel() {
       ${counterMode
         ? `<button class="tbig" data-tr="sendcounter" ${canOffer ? '' : 'disabled'} title="Pošalji predlog igraču na potezu">✎<small>Predloži</small></button>`
         : `<button class="tbig" data-tr="bank" ${bankTradeValid() ? '' : 'disabled'} title="Trguj sa bankom: za svaku kartu iz banke daješ broj karata koji piše na kartici gore (4:1, 3:1 ili 2:1), npr. 8 za 2 ili 6 za 2">🏦<small>Banka</small></button>
-      <button class="tbig" data-tr="offer" ${canOffer ? '' : 'disabled'} title="${S.helperOf ? 'Pomoćni potez: ponuda ide samo glavnom igraču' : 'Pošalji ponudu svim igračima; ti biraš sa kim ćeš razmeniti'}">👥<small>${S.helperOf ? esc(pById(S.helperOf).name) : 'Igračima'}</small></button>`}
+      ${S.settings?.noTrade ? '' : `<button class="tbig" data-tr="offer" ${canOffer ? '' : 'disabled'} title="${S.helperOf ? 'Pomoćni potez: ponuda ide samo glavnom igraču' : 'Pošalji ponudu svim igračima; ti biraš sa kim ćeš razmeniti'}">👥<small>${S.helperOf ? esc(pById(S.helperOf).name) : 'Igračima'}</small></button>`}`}
       <button class="tbig close" data-tr="close" title="Zatvori trgovinu (Esc)">✕</button>
     </div>`;
 }

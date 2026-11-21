@@ -87,7 +87,7 @@ const LAYOUTS = {
   },
 };
 const MAP_MAX = { base: 4, ext6: 6, ext8: 8, dva: 4, zaliv: 4, arhipelag: 4, dugo: 4 };
-const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false, hideBank: false, resCards: 19, devCards: 25, friendlyRobber: false, fairDice: false, sameRes: true, sameNum: true, pairedPlayers: false };
+const DEFAULT_SETTINGS = { map: 'base', maxPlayers: 4, timer: 90, vpToWin: 10, discardLimit: 7, private: false, hideBank: false, resCards: 19, devCards: 25, friendlyRobber: false, fairDice: false, sameRes: true, sameNum: true, pairedPlayers: false, noTrade: false };
 
 // Rasporedi stvari tako da nema "losih" suseda: nasumicno, pa popravljanje zamenama.
 function arrange(items, nbrs, bad) {
@@ -285,6 +285,7 @@ class Game {
     if (s.sameRes !== undefined) st.sameRes = !!s.sameRes;
     if (s.sameNum !== undefined) st.sameNum = !!s.sameNum;
     if (s.pairedPlayers !== undefined) st.pairedPlayers = !!s.pairedPlayers;
+    if (s.noTrade !== undefined) st.noTrade = !!s.noTrade;
     if (s.resCards !== undefined) st.resCards = num(s.resCards, 10, 50);
     if (s.devCards !== undefined) st.devCards = num(s.devCards, 10, 80);
   }
@@ -932,7 +933,11 @@ class Game {
     return out;
   }
 
+  // 1 na 1 (i pravilo "Bez trgovine"): nema razmene medju igracima, samo banka i luke
+  requireTrading() { if (this.settings.noTrade) fail('U ovoj partiji nema trgovine među igračima. Možeš da menjaš samo sa bankom i lukama.'); }
+
   offerTrade(pl, give, get) {
+    this.requireTrading();
     this.requireMain();
     give = this.cleanOffer(give); get = this.cleanOffer(get);
     if (!Object.keys(give).length || !Object.keys(get).length) fail('Izaberi šta daješ i šta tražiš.');
@@ -955,6 +960,7 @@ class Game {
   }
 
   respondTrade(pl, accept) {
+    this.requireTrading();
     const t = this.activeTrade();
     if (!t || t.open) fail('Nema aktivne ponude.');
     if (pl.quit) fail('Napustio si igru.');
@@ -972,6 +978,7 @@ class Game {
   // Ostali igraci mogu da predloze razmenu igracu na potezu bilo kad tokom njegovog poteza,
   // i kad on nije nista ponudio (tada je trade.open = true, samo predlozi).
   counterTrade(pl, give, get) {
+    this.requireTrading();
     if (this.phase !== 'play') fail('Sada ne možeš da trguješ.');
     if (this.current().id === pl.id) fail('Ti si na potezu: napravi svoju ponudu.');
     if (pl.quit) fail('Napustio si igru.');
@@ -991,6 +998,7 @@ class Game {
   }
 
   confirmTrade(pl, withId, counter = false) {
+    this.requireTrading();
     this.requireMain();
     const t0 = this.activeTrade();
     if (!t0 || t0.from !== pl.id) fail('Nema tvoje ponude.');

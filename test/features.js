@@ -67,6 +67,21 @@ function setup(settings = {}) {
   console.log('predlog bez ponude OK');
 }
 
+// 1 na 1 / bez trgovine: nema razmene medju igracima, banka radi
+{
+  const g = setup({ noTrade: true });
+  assert.equal(g.settings.noTrade, true);
+  const cur = g.current(); const other = g.players.find((p) => p !== cur);
+  cur.hand = { drvo: 4, glina: 0, vuna: 0, zito: 0, kamen: 0 };
+  other.hand = { drvo: 0, glina: 0, vuna: 2, zito: 0, kamen: 0 };
+  g.sub = 'main';
+  assert.throws(() => g.action(cur.id, 'offerTrade', { give: { drvo: 1 }, get: { vuna: 1 } }), /nema trgovine/);
+  assert.throws(() => g.action(other.id, 'counterTrade', { give: { vuna: 1 }, get: { drvo: 1 } }), /nema trgovine/);
+  const rate = g.tradeRate(cur, 'drvo'); g.action(cur.id, 'bankTrade', { give: { drvo: rate }, get: { kamen: 1 } });
+  assert.equal(cur.hand.kamen, 1);
+  console.log('bez trgovine OK');
+}
+
 // trgovina samo sa igracem na potezu: igraci koji nisu na potezu ne mogu da menjaju medjusobno
 {
   const g = setup();

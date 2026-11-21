@@ -1,4 +1,4 @@
-// Izgled "Podvodni svet": morsko dno, alge, korali, meduze, skoljke, kristali, biseri. Sve je SVG.
+// Izgled "Podvodni svet": morsko dno, alge, korali, meduze, skoljke, kristali, biseri. Kucice, zamak i kraba. Sve je SVG.
 /* exported SEA */
 const SEA = (() => {
   const shade = (hex, f) => {
@@ -9,13 +9,13 @@ const SEA = (() => {
   const g = (x, y, s, body) => `<g transform="translate(${x} ${y}) scale(${s})">${body}</g>`;
   const shadow = (rx = 7, ry = 2.2) => `<ellipse cx="0" cy="0.8" rx="${rx}" ry="${ry}" fill="#00000030"/>`;
 
-  // sirovine u ovom svetu
+  // sirovine u ovom svetu (boje karata ostaju kao u obicnoj igri)
   const RES = {
-    drvo: { name: 'Alge', ico: '🌿', color: '#2fa58a' },
-    glina: { name: 'Korali', ico: '🪸', color: '#ef7d72' },
-    vuna: { name: 'Meduze', ico: '🪼', color: '#9a7fdc' },
-    zito: { name: 'Školjke', ico: '🐚', color: '#e6c27a' },
-    kamen: { name: 'Kristali', ico: '💎', color: '#4fa9d6' },
+    drvo: { name: 'Alge', ico: '🌿' },
+    glina: { name: 'Korali', ico: '🪸' },
+    vuna: { name: 'Meduza', ico: '🪼' },
+    zito: { name: 'Školjke', ico: '🐚' },
+    kamen: { name: 'Kristal', ico: '💎' },
   };
   const TERRAIN = {
     suma: { a: '#38b394', b: '#14604f' },
@@ -100,40 +100,52 @@ const SEA = (() => {
     return { under, top };
   }
 
-  // selo: skoljka; grad: velika spiralna skoljka sa biserom
+  // selo: mala podvodna kucica (kupola kao skoljka, okrugli prozor); grad: zamak u vodi
   function piece(type, x, y, col) {
-    const d = shade(col, -0.4), l = shade(col, 0.35);
+    const d = shade(col, -0.35), l = shade(col, 0.4), ol = 'stroke="#061a2e" stroke-width="1.5" stroke-linejoin="round"';
     if (type === 'settlement') {
-      return `<g transform="translate(${x} ${y + 9}) scale(1.35)">${scallop(0, 0, 1.25, col, '#061a2e')}<path d="M-6 -9 Q-3 -13 0 -14" stroke="${l}" stroke-width="1.2" fill="none" stroke-linecap="round"/></g>`;
+      return `<g class="piece" transform="translate(${x} ${y}) scale(1.45)">
+      <ellipse cx="0" cy="10.5" rx="12" ry="3" fill="#00000045"/>
+      <path d="M-9 10 V0 H9 V10 Z" fill="${col}" ${ol}/>
+      <path d="M-11 1 Q-11 -13 0 -14 Q11 -13 11 1 Q5.5 -1.5 0 -1.5 Q-5.5 -1.5 -11 1 Z" fill="${d}" ${ol}/>
+      <path d="M0 -14 V-2 M-5.5 -12 L-4 -2 M5.5 -12 L4 -2" stroke="${l}" stroke-width="1" fill="none" opacity=".8"/>
+      <path d="M-7 10 V5 Q-4.5 2 -2 5 V10 Z" fill="#3a2a1a"/>
+      <circle cx="4.5" cy="4.8" r="2.8" fill="#bff3ff" stroke="#061a2e" stroke-width="1.1"/><circle cx="3.6" cy="3.9" r=".9" fill="#fff"/>
+      <circle cx="9" cy="-15" r="1.4" fill="none" stroke="#e6fbff" stroke-width=".6"/><circle cx="11" cy="-19" r="1" fill="none" stroke="#e6fbff" stroke-width=".5"/>
+    </g>`;
     }
-    // grad: veliki biser u boji igraca, u otvorenoj skoljci
-    return `<g transform="translate(${x} ${y})">
-      <ellipse cx="0" cy="16" rx="19" ry="4.5" fill="#00000045"/>
-      <path d="M-19 4 Q-20 -14 0 -19 Q20 -14 19 4 Q10 -2 0 -2 Q-10 -2 -19 4 Z" fill="#e9e1d3" stroke="#061a2e" stroke-width="1.6"/>
-      <path d="M-14 0 Q-12 -11 0 -14 M14 0 Q12 -11 0 -14 M-6 -2 Q-4 -10 0 -14 M6 -2 Q4 -10 0 -14" stroke="#bdb2a0" stroke-width=".9" fill="none"/>
-      <path d="M-20 4 Q-10 18 0 17 Q10 18 20 4 Q10 9 0 9 Q-10 9 -20 4 Z" fill="#d8cfbe" stroke="#061a2e" stroke-width="1.6"/>
-      <circle cx="0" cy="2" r="11.5" fill="${col}" stroke="#061a2e" stroke-width="1.8"/>
-      <circle cx="2.5" cy="4.5" r="8.5" fill="${d}" opacity=".45"/>
-      <circle cx="-3.5" cy="-2.5" r="4" fill="#fff" opacity=".7"/><circle cx="-4.5" cy="-3.5" r="1.8" fill="#fff"/>
-      <circle cx="5" cy="8" r="2.5" fill="${l}" opacity=".5"/>
+    const crenel = (x0, w, y0) => { let r = ''; for (let i = 0; i < 3; i++) r += `<rect x="${x0 + i * w / 2.5}" y="${y0 - 3}" width="${w / 5}" height="3.2" fill="${col}" ${ol}/>`; return r; };
+    return `<g class="piece" transform="translate(${x} ${y}) scale(1.1)">
+      <ellipse cx="0" cy="14" rx="24" ry="5" fill="#00000040"/>
+      <rect x="-20" y="-10" width="9" height="23" fill="${d}" ${ol}/>${crenel(-20, 9, -10)}
+      <rect x="11" y="-10" width="9" height="23" fill="${d}" ${ol}/>${crenel(11, 9, -10)}
+      <rect x="-11" y="-17" width="22" height="30" fill="${col}" ${ol}/>${crenel(-11, 22, -17)}
+      <path d="M-4 13 V5 Q0 0 4 5 V13 Z" fill="#2a1d12"/>
+      <rect x="-1.2" y="-11" width="2.4" height="5" rx="1" fill="#2a1d12"/><rect x="-17" y="-4" width="2.2" height="4" rx="1" fill="#2a1d12"/><rect x="14.8" y="-4" width="2.2" height="4" rx="1" fill="#2a1d12"/>
+      <path d="M0 -20 V-30" stroke="#3a2a1a" stroke-width="1.3"/><path d="M0 -30 L8 -27.5 L0 -25 Z" fill="${l}" stroke="#061a2e" stroke-width=".8"/>
+      <path d="M-25 11 Q-20 8 -15 11 T-5 11 T5 11 T15 11 T25 11 V16 Q0 20 -25 16 Z" fill="#4fc3e0" opacity=".85"/>
+      <path d="M-25 11 Q-20 8 -15 11 T-5 11 T5 11 T15 11 T25 11" stroke="#e6fbff" stroke-width="1" fill="none"/>
     </g>`;
   }
 
-  // lopov: ajkula, iznad broja na polju (x, y dolaze kao kod obicnog lopova)
+  // Kraba (umesto lopova), pored broja na polju (x, y dolaze kao kod obicnog lopova)
   function robber(x, y) {
-    return `<g transform="translate(${x - 27} ${y - 24}) scale(1.45)">
-      <defs><linearGradient id="shk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f6f88"/><stop offset=".55" stop-color="#7f9db3"/><stop offset=".56" stop-color="#eef5f8"/><stop offset="1" stop-color="#d6e3ea"/></linearGradient></defs>
-      <ellipse cx="0" cy="17" rx="17" ry="3" fill="#00000040"/>
-      <path d="M-15 1 Q-21 -9 -25 -10 Q-23 -2 -24 7 Q-20 4 -15 3 Z" fill="#46637a" stroke="#14283a" stroke-width="1"/>
-      <path d="M-2 -6 Q1 -17 7 -19 Q6 -12 8 -5 Z" fill="#46637a" stroke="#14283a" stroke-width="1"/>
-      <path d="M-17 2 Q-8 -8 6 -7 Q17 -6 22 1 Q20 6 13 8 Q2 11 -8 8 Q-14 6 -17 2 Z" fill="url(#shk)" stroke="#14283a" stroke-width="1.1"/>
-      <path d="M0 7 Q3 13 -2 15 Q-1 10 -4 8 Z" fill="#46637a" stroke="#14283a" stroke-width=".9"/>
-      <path d="M8 -2 q-1 3 0 5 M10 -2.5 q-1 3 0 5 M12 -3 q-1 3 0 5" stroke="#2e4a60" stroke-width=".6" fill="none"/>
-      <circle cx="15.5" cy="-2" r="1.6" fill="#0d1a24"/><circle cx="16" cy="-2.5" r=".55" fill="#fff"/>
-      <path d="M13 4.2 Q17.5 5.6 21 2.2" stroke="#14283a" stroke-width=".8" fill="none"/>
-      <path d="M14 4.6 l.8 1.2 l.7 -1.1 l.8 1.1 l.7 -1.2 l.7 1 l.6 -1.2" stroke="#fff" stroke-width=".6" fill="none"/>
-      <path d="M-10 -3 Q0 -7.5 10 -5.5" stroke="#9fbdd1" stroke-width="1" fill="none" opacity=".7"/>
-      <circle cx="24" cy="-6" r="1.4" fill="none" stroke="#e6fbff" stroke-width=".5"/><circle cx="26.5" cy="-10" r=".9" fill="none" stroke="#e6fbff" stroke-width=".45"/>
+    return `<g class="crab" transform="translate(${x + 12} ${y + 9}) scale(.95)">
+      <ellipse cx="0" cy="11" rx="17" ry="3.5" fill="#00000045"/>
+      <g stroke="#8e2a17" stroke-width="2" stroke-linecap="round" fill="none">
+        <path d="M-10 3 L-16 6 L-18 11"/><path d="M-11 0 L-18 1 L-21 6"/><path d="M-9 6 L-13 10 L-14 13"/>
+        <path d="M10 3 L16 6 L18 11"/><path d="M11 0 L18 1 L21 6"/><path d="M9 6 L13 10 L14 13"/>
+        <path d="M-8 -4 L-13 -10"/><path d="M8 -4 L13 -10"/>
+      </g>
+      <path d="M-13 -10 Q-21 -12 -19 -19 Q-15 -16 -13 -17 Q-16 -21 -12 -23 Q-8 -17 -13 -10 Z" fill="#e8553a" stroke="#6e1a0e" stroke-width="1.1"/>
+      <path d="M13 -10 Q21 -12 19 -19 Q15 -16 13 -17 Q16 -21 12 -23 Q8 -17 13 -10 Z" fill="#e8553a" stroke="#6e1a0e" stroke-width="1.1"/>
+      <ellipse cx="0" cy="1" rx="13" ry="9" fill="#e8553a" stroke="#6e1a0e" stroke-width="1.3"/>
+      <ellipse cx="-3" cy="-2.5" rx="7" ry="3.5" fill="#ff8a65" opacity=".75"/>
+      <circle cx="-4" cy="5" r="1" fill="#b23b22"/><circle cx="3" cy="6" r=".8" fill="#b23b22"/><circle cx="6" cy="3" r=".9" fill="#b23b22"/>
+      <path d="M-4 -7 L-5 -13 M4 -7 L5 -13" stroke="#6e1a0e" stroke-width="1.4"/>
+      <circle cx="-5" cy="-14" r="2.6" fill="#fff" stroke="#6e1a0e" stroke-width=".8"/><circle cx="5" cy="-14" r="2.6" fill="#fff" stroke="#6e1a0e" stroke-width=".8"/>
+      <circle cx="-4.6" cy="-14" r="1.2" fill="#111"/><circle cx="5.4" cy="-14" r="1.2" fill="#111"/>
+      <path d="M-3.5 3.5 Q0 6 3.5 3.5" stroke="#6e1a0e" stroke-width="1" fill="none"/>
     </g>`;
   }
 
