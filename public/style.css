@@ -159,8 +159,8 @@ input { font: inherit; }
 .actions { display: flex; gap: 6px; }
 .act { width: 82px; height: 80px; border-radius: 10px; border: 3px solid #9fd0de; background: #d8eef4; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 30px; padding: 0; }
 .act small { font-size: 11px; font-weight: 700; color: var(--ink); }
-.act:hover:not(:disabled) { border-color: #fff; filter: brightness(1.05); }
-.act:disabled { opacity: .45; cursor: not-allowed; }
+.act:hover:not(:disabled):not(.wait) { border-color: #fff; filter: brightness(1.05); }
+.act:disabled, .act.wait { opacity: .45; cursor: not-allowed; }
 .act.on { background: var(--hilite); border-color: #fff; }
 .act .cnt { position: absolute; top: -2px; right: -2px; background: #c0392b; color: #fff; border-radius: 0 8px 0 8px; font-size: 12px; padding: 1px 6px; font-weight: 700; }
 .act.end { background: #cfeedd; border-color: #8fd3ab; }
@@ -237,9 +237,9 @@ input { font: inherit; }
 .tbig.close { font-size: 30px; font-weight: 800; }
 .hand.invisible { visibility: hidden; }
 .rate { position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); font-size: 11px; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--ink); font-weight: 800; }
-.hex-hit { fill: #fff3a8; fill-opacity: .1; stroke: #ffe066; stroke-width: 6; stroke-linejoin: round; pointer-events: none; filter: drop-shadow(0 0 6px #ffe066); animation: hit 1.2s ease-in-out 3; }
-.hex-hit.blocked { stroke: #888; filter: none; }
-@keyframes hit { 0%, 100% { stroke-opacity: 1; fill-opacity: .1; } 50% { stroke-opacity: .5; fill-opacity: .25; } }
+.hex-hit { fill: #fff3a8; fill-opacity: 0; stroke: #fff6c2; stroke-width: 3; stroke-opacity: .55; stroke-linejoin: round; pointer-events: none; animation: hit 1.2s ease-in-out 3; }
+.hex-hit.blocked { stroke: #888; }
+@keyframes hit { 0%, 100% { stroke-opacity: .55; fill-opacity: 0; } 50% { stroke-opacity: .3; fill-opacity: .08; } }
 
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 10; padding: 16px; }
 .modal-card { background: var(--panel); border-radius: 14px; padding: 22px; max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; }
@@ -253,7 +253,9 @@ input { font: inherit; }
 .rules h4 { margin-bottom: 4px; } .rules p, .rules li { font-size: 14px; }
 
 /* SVG */
-.hex-target { cursor: pointer; fill: rgba(255,255,255,.2); stroke: #fff; stroke-width: 4; animation: pulse 1s infinite alternate; }
+.hex-target { cursor: pointer; fill: rgba(255,255,255,.38); stroke: #fff; stroke-width: 4.5; filter: drop-shadow(0 0 4px rgba(0,0,0,.45)); transform-box: fill-box; transform-origin: center; animation: rpulse 1s ease-in-out infinite alternate; }
+.hex-target:hover { fill: rgba(255,255,255,.6); }
+@keyframes rpulse { from { opacity: .65; transform: scale(.8); } to { opacity: 1; transform: scale(1); } }
 .spot { cursor: pointer; fill: #fff; stroke: #2a241c; stroke-width: 2.5; animation: pulse .8s infinite alternate; }
 @keyframes pulse { from { opacity: .4; } to { opacity: 1; } }
 
@@ -313,29 +315,30 @@ input { font: inherit; }
 .skin-kucice .rc { padding: 1px; }
 .hand > .rcard { flex: 0 1 58px; min-width: 44px; }
 /* izgled Podvodni svet: tamna morska paleta */
-body.skin-podvodni { --sea1: #0b2a4a; --sea2: #03101f; --rail: #041528; --panel: #10304d; --panel2: #163b5c; --card: #1b4669; --ink: #e2f5ff; --muted: #8fb6cc; --line: #2a5a7c; --green: #11a39a; --green-d: #0b8178; --orange: #e0607e; --orange-d: #b8445f; --blue-l: #1d6f9e; --hilite: #5ef2e0; }
-body.skin-podvodni #game { background: radial-gradient(ellipse at 40% 20%, #12497a 0%, #072340 55%, #020c18 100%); }
-.skin-podvodni .rcard:not(.dev) { background: #dff5fb !important; border: 2px solid #7cc6e0; flex-direction: column; justify-content: flex-start; padding: 3px; gap: 1px; }
-.skin-podvodni .rcard .art { flex: 1; width: 100%; border-radius: 5px; display: grid; place-items: center; background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--c) 40%, #bff3ff), color-mix(in srgb, var(--c) 70%, #062a4a)); overflow: hidden; }
-.skin-podvodni .rcard .art svg { width: 100%; height: 100%; }
-.skin-podvodni .rcard .lbl { font-size: 9px; font-weight: 800; color: #0f2b45; line-height: 1.1; }
-.skin-podvodni .rcard.dev { background: linear-gradient(160deg, #1aa6a0, #0b3f6b); border: 2px solid #7cc6e0; padding: 3px; justify-content: flex-start; }
-.skin-podvodni .rcard.dev .art { background: radial-gradient(circle at 50% 30%, #2b6f9e, #0a2a4a); }
-.skin-podvodni .rcard.small .lbl, .skin-podvodni .mini .rcard .lbl { display: none; }
-.skin-podvodni .mini .rcard { padding: 1px; }
-.skin-podvodni .rc { padding: 1px; }
-.skin-podvodni .g-tools button { background: rgba(16,48,77,.92); color: #e2f5ff; }
-.skin-podvodni .status.click, .skin-podvodni .act.on, .skin-podvodni .av.sel { color: #062a3a; }
-.skin-podvodni .pp.turn { background: #1b5577; }
-.skin-podvodni .rec-row.ok { background: #145e66; }
-.skin-podvodni .vote-bar { background: #10304d; }
-.skin-podvodni .step button, .skin-podvodni .av { background: #1b4669; color: var(--ink); }
-.skin-podvodni .tbig:not(:disabled):hover { background: #145e66; }
-.skin-podvodni .die { background: #eefbff; box-shadow: 0 4px 0 #6fa9c4, 0 6px 14px rgba(0,0,0,.5); }
+body:is(.skin-podvodni, .skin-dubina) { --sea1: #0b2a4a; --sea2: #03101f; --rail: #041528; --panel: #10304d; --panel2: #163b5c; --card: #1b4669; --ink: #e2f5ff; --muted: #8fb6cc; --line: #2a5a7c; --green: #11a39a; --green-d: #0b8178; --orange: #e0607e; --orange-d: #b8445f; --blue-l: #1d6f9e; --hilite: #5ef2e0; }
+body:is(.skin-podvodni, .skin-dubina) #game { background: radial-gradient(ellipse at 40% 20%, #12497a 0%, #072340 55%, #020c18 100%); }
+:is(.skin-podvodni, .skin-dubina) .rcard:not(.dev) { border: 2px solid rgba(255,255,255,.55); flex-direction: column; justify-content: flex-start; padding: 3px; gap: 1px; }
+:is(.skin-podvodni, .skin-dubina) .rcard .art { flex: 1; width: 100%; border-radius: 5px; display: grid; place-items: center; background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--c) 60%, #e6fbff), color-mix(in srgb, var(--c) 85%, #0a3050)); overflow: hidden; }
+:is(.skin-podvodni, .skin-dubina) .rcard .art svg { width: 100%; height: 100%; }
+:is(.skin-podvodni, .skin-dubina) .rcard .lbl { font-size: 9px; font-weight: 800; color: #10202c; line-height: 1.05; text-align: center; }
+:is(.skin-podvodni, .skin-dubina) .rcard .lbl .real { display: block; font-size: 7.5px; font-weight: 700; opacity: .75; }
+:is(.skin-podvodni, .skin-dubina) .rcard.dev { background: linear-gradient(160deg, #1aa6a0, #0b3f6b); border: 2px solid #7cc6e0; padding: 3px; justify-content: flex-start; }
+:is(.skin-podvodni, .skin-dubina) .rcard.dev .art { background: radial-gradient(circle at 50% 30%, #2b6f9e, #0a2a4a); }
+:is(.skin-podvodni, .skin-dubina) .rcard.small .lbl, :is(.skin-podvodni, .skin-dubina) .mini .rcard .lbl { display: none; }
+:is(.skin-podvodni, .skin-dubina) .mini .rcard { padding: 1px; }
+:is(.skin-podvodni, .skin-dubina) .rc { padding: 1px; }
+:is(.skin-podvodni, .skin-dubina) .g-tools button { background: rgba(16,48,77,.92); color: #e2f5ff; }
+:is(.skin-podvodni, .skin-dubina) .status.click, :is(.skin-podvodni, .skin-dubina) .act.on, :is(.skin-podvodni, .skin-dubina) .av.sel { color: #062a3a; }
+:is(.skin-podvodni, .skin-dubina) .pp.turn { background: #1b5577; }
+:is(.skin-podvodni, .skin-dubina) .rec-row.ok { background: #145e66; }
+:is(.skin-podvodni, .skin-dubina) .vote-bar { background: #10304d; }
+:is(.skin-podvodni, .skin-dubina) .step button, :is(.skin-podvodni, .skin-dubina) .av { background: #1b4669; color: var(--ink); }
+:is(.skin-podvodni, .skin-dubina) .tbig:not(:disabled):hover { background: #145e66; }
+:is(.skin-podvodni, .skin-dubina) .die { background: #eefbff; box-shadow: 0 4px 0 #6fa9c4, 0 6px 14px rgba(0,0,0,.5); }
 .zoom-ctl { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; flex-direction: column; gap: 6px; }
 .zoom-ctl button { width: 46px; height: 40px; border: 0; border-radius: 10px; background: rgba(255,255,255,.9); font-size: 20px; font-weight: 800; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
 .zoom-ctl #zoomReset { font-size: 12px; }
-.skin-podvodni .zoom-ctl button { background: rgba(16,48,77,.92); color: #e2f5ff; }
+:is(.skin-podvodni, .skin-dubina) .zoom-ctl button { background: rgba(16,48,77,.92); color: #e2f5ff; }
 #board { cursor: grab; touch-action: none; }
 #board.dragging { cursor: grabbing; }
 .logo { cursor: pointer; }
@@ -483,9 +486,9 @@ body.skin-podvodni #game { background: radial-gradient(ellipse at 40% 20%, #1249
 /* boja igraca u tabeli */
 .pp { box-shadow: inset 7px 0 0 var(--pc, transparent); background: linear-gradient(90deg, color-mix(in srgb, var(--pc, #fff) 22%, var(--panel2)) 0%, var(--panel2) 70%); padding-left: 14px; }
 .pp.turn { background: linear-gradient(90deg, color-mix(in srgb, var(--pc, #fff) 30%, #f6ecc9) 0%, #f6ecc9 70%); }
-.skin-podvodni .pp.turn { background: linear-gradient(90deg, color-mix(in srgb, var(--pc, #fff) 30%, #1b5577) 0%, #1b5577 70%); }
+:is(.skin-podvodni, .skin-dubina) .pp.turn { background: linear-gradient(90deg, color-mix(in srgb, var(--pc, #fff) 30%, #1b5577) 0%, #1b5577 70%); }
 .pp .pname { color: color-mix(in srgb, var(--pc, var(--ink)) 75%, #000); }
-.skin-podvodni .pp .pname { color: color-mix(in srgb, var(--pc, var(--ink)) 70%, #fff); }
+:is(.skin-podvodni, .skin-dubina) .pp .pname { color: color-mix(in srgb, var(--pc, var(--ink)) 70%, #fff); }
 .pdot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--pc); border: 2px solid #fff; box-shadow: 0 0 0 1px #0005; margin-right: 5px; vertical-align: -1px; }
 .pp .who .avatar { box-shadow: 0 0 0 3px var(--pc); }
 /* ponuda koja stize: veca i uocljivija */
@@ -525,7 +528,7 @@ body.skin-podvodni #game { background: radial-gradient(ellipse at 40% 20%, #1249
 .pod-col .avatar { width: 58px; height: 58px; font-size: 30px; box-shadow: 0 0 0 3px var(--pc); }
 .pod-col.p1 .avatar { width: 76px; height: 76px; font-size: 40px; animation: winBounce 1.2s ease-in-out .9s infinite alternate; }
 .pod-name { font-weight: 800; margin-top: 4px; color: color-mix(in srgb, var(--pc) 70%, #000); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.skin-podvodni .pod-name { color: color-mix(in srgb, var(--pc) 70%, #fff); }
+:is(.skin-podvodni, .skin-dubina) .pod-name { color: color-mix(in srgb, var(--pc) 70%, #fff); }
 .pod-vp { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
 .pod-block { width: 100%; border-radius: 8px 8px 0 0; display: grid; place-items: center; font-size: 30px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 #0004; animation: podUp .7s ease-out both; }
 .p1 .pod-block { height: 110px; background: linear-gradient(#f6cf4a, #d7a520); }
@@ -944,3 +947,17 @@ body.dark-ui { --bs-w1: #1d4659; --bs-w2: #12303f; --bs-gl: rgba(255,255,255,.12
   .bs-set { flex-direction: column; align-items: flex-start; gap: 4px; }
   .bs-inv { flex-direction: column; align-items: stretch; }
 }
+/* u toku igre nista ne moze da se selektuje (brojevi na tabli, karte, imena); poruka u caskanju moze */
+#game { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#game input, #game textarea { user-select: text; -webkit-user-select: text; }
+/* lobi: broj se upisuje rucno ili povlaci klizacem */
+.stepper .num-in { width: 56px; font: inherit; font-size: 17px; font-weight: 700; text-align: center; color: #fff; background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; padding: 2px 0; -moz-appearance: textfield; }
+.stepper .num-in::-webkit-outer-spin-button, .stepper .num-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper .num-in:focus { outline: 2px solid #ffe066; }
+.stepper .num-in:disabled { background: none; border-color: transparent; opacity: 1; }
+.stepper .num-of { margin-left: -14px; font-size: 15px; opacity: .8; }
+.adv-item .num-sl { width: 90%; margin: 8px auto 0; display: block; accent-color: #ffe066; cursor: pointer; }
+.adv-item .num-sl:disabled { cursor: default; opacity: .5; }
+/* Podvodni svet 3D: svetlija tirkizna laguna */
+body.skin-dubina #game { background: radial-gradient(ellipse at 40% 15%, #2fa9c9 0%, #0f5d86 50%, #062a47 100%); }
+.skin-dubina .rcard .art { box-shadow: inset 0 -4px 0 rgba(0,0,0,.18), inset 0 2px 0 rgba(255,255,255,.35); }
